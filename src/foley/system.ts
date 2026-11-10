@@ -19,7 +19,7 @@ const tmpU = new Vector3();
 
 export interface FoleyApi {
   stage: Stage;
-  loadClip: (id: string, url: string, cues?: Cue[]) => Promise<void>;
+  loadClip: (id: string, url: string, cues?: Cue[], posterUrl?: string) => Promise<void>;
   cues: () => CueTracker | null;
   startTake: () => Promise<void>;
   replay: () => Promise<void>;
@@ -107,7 +107,7 @@ export class FoleySystem extends createSystem({
     this.stage.screen.onEnded = () => this.endTake();
     this.api = {
       stage: this.stage,
-      loadClip: (id, url, cues) => this.loadClip(id, url, cues),
+      loadClip: (id, url, cues, posterUrl) => this.loadClip(id, url, cues, posterUrl),
       cues: () => this.tracker,
       startTake: () => this.startTake(),
       replay: () => this.replay(),
@@ -131,12 +131,12 @@ export class FoleySystem extends createSystem({
     hooks.onReady(this.api);
   }
 
-  private async loadClip(id: string, url: string, cues: Cue[] = []): Promise<void> {
+  private async loadClip(id: string, url: string, cues: Cue[] = [], posterUrl?: string): Promise<void> {
     this.clipId = id;
     this.mode = 'idle';
     this.tracker = cues.length ? new CueTracker(cues) : null;
     this.lane.setTracker(this.tracker);
-    await this.stage.screen.load(id, url);
+    await this.stage.screen.load(id, url, posterUrl);
   }
 
   private async startTake(): Promise<void> {
@@ -327,26 +327,43 @@ export class FoleySystem extends createSystem({
 
   private placeStage(): void {
     const inXR = this.world.visibilityState.value !== VisibilityState.NonImmersive;
-    const src: Object3D = inXR ? this.player.head : this.world.camera;
+    if (!inXR) {
+      // in a 2D browser the stage sits where a seated player's eyes would be; the page camera frames it from the side
+      tmpP.set(0, 1.2, 0);
+      tmpF.set(0, 0, -1);
+      this.stage.placeFrom(tmpP, tmpF);
+      this.frameBrowserCamera();
+      this.placed = true;
+      console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'browser');
+      return;
+    }
+    const src: Object3D = this.player.head;
     src.updateWorldMatrix(true, false);
     src.getWorldPosition(tmpP);
     if (tmpP.y < 0.3) return; // no real pose yet
-    if (inXR && this.placeFrames++ < 10) return; // let the tracked pose settle for a few frames
+    if (this.placeFrames++ < 10) return; // let the tracked pose settle for a few frames
     tmpF.set(0, 0, -1).applyQuaternion(src.getWorldQuaternion(tmpQ));
     this.stage.placeFrom(tmpP, tmpF);
-    if (!inXR && window.innerWidth > 900) {
-      // the landing copy sits on the left 40%; keep the stage in the right part of the frame
-      const right = new Vector3(1, 0, 0).applyQuaternion(tmpQ);
-      right.y = 0;
-      right.normalize();
-      this.stage.root.position.addScaledVector(right, 0.22);
-    }
     this.placed = true;
-    console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'yaw', +this.stage.root.rotation.y.toFixed(2), inXR ? 'xr' : 'browser');
+    console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'yaw', +this.stage.root.rotation.y.toFixed(2), 'xr');
   }
 
   reposition(): void {
     this.placed = false;
+  }
+
+  /** The landing's camera: wide screens see the stage from the left so it sits beside the copy; phones see it head-on. */
+  private frameBrowserCamera(): void {
+    const cam = this.world.camera;
+    const wide = window.innerWidth > 900;
+    if (wide) {
+      cam.position.set(0.42, 1.62, 1.45);
+      cam.lookAt(-0.62, 1.0, -0.95);
+    } else {
+      cam.position.set(0.0, 1.55, 2.2);
+      cam.lookAt(0.0, 1.02, -0.9);
+    }
+    cam.updateMatrixWorld(true);
   }
 
   private syncAudioSpace(time: number): void {
@@ -367,8 +384,14 @@ export class FoleySystem extends createSystem({
     }
   }
 
+  private lastW = 0;
+
   update(dt: number, time: number): void {
     if (!this.placed) this.placeStage();
+    if (this.world.visibilityState.value === VisibilityState.NonImmersive && window.innerWidth !== this.lastW) {
+      this.lastW = window.innerWidth;
+      this.frameBrowserCamera();
+    }
     const now = new Set<string>();
     for (const e of this.queries.hovered.entities) {
       const id = this.entityPiece.get(e);

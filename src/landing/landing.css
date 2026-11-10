@@ -65,6 +65,10 @@ a {
 #scene-container canvas {
   display: block;
 }
+.landing {
+  position: relative;
+  z-index: 1;
+}
 body.in-xr .landing {
   display: none;
 }
@@ -409,7 +413,7 @@ h1 .brush::after {
   position: absolute;
   left: 0;
   top: 0;
-  width: 300px;
+  width: 230px;
   height: auto;
   display: block;
   overflow: visible;
@@ -600,6 +604,8 @@ h1 .brush::after {
   }
   h1 {
     order: 1;
+    position: relative;
+    z-index: 3;
     padding: 12px 16px 0;
     font-size: 44px;
   }

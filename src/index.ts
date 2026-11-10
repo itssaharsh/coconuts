@@ -82,7 +82,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
       const a = await ready;
       const [url, meta] = await Promise.all([clipUrl(id), clipMeta(id)]);
       console.log('CUES', id, meta?.cues.length ?? 0);
-      await a.loadClip(id, url, meta?.cues ?? []);
+      await a.loadClip(id, url, meta?.cues ?? [], `${base}films/${id}.jpg`);
       return meta;
     },
     playTake: async (take) => {

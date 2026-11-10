@@ -1,5 +1,5 @@
 // The film screen: an HTML video drawn on a plane behind the proscenium.
-import { Group, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace, VideoTexture } from 'three';
+import { Group, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace, TextureLoader, VideoTexture } from 'three';
 import { buildScreenFrame } from './toys';
 
 export const SCREEN_W = 0.8;
@@ -40,8 +40,21 @@ export class Screen {
     this.group.add(buildScreenFrame(SCREEN_W, SCREEN_H));
   }
 
-  async load(clipId: string, url: string): Promise<void> {
+  /** Show the film's first frame on the leader while nothing plays. */
+  showPoster(url: string): void {
+    new TextureLoader().load(url, (tex) => {
+      tex.colorSpace = SRGBColorSpace;
+      const m = this.poster.material as MeshBasicMaterial;
+      m.map = tex;
+      m.color.set(0xffffff);
+      m.needsUpdate = true;
+    });
+  }
+
+  async load(clipId: string, url: string, posterUrl?: string): Promise<void> {
     this.clipId = clipId;
+    if (posterUrl) this.showPoster(posterUrl);
+    this.poster.visible = true;
     this.video.src = url;
     this.video.load();
     await new Promise<void>((resolve) => {

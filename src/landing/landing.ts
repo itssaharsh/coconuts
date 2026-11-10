@@ -43,9 +43,9 @@ async function loadDemoTake(id: string): Promise<Take | null> {
 function directorLine(tracker: CueTracker): string {
   const { best, late } = tracker.highlights();
   if (tracker.hits === 0) return 'Not a single cue, and yet a performance.';
-  const name = (label: string) => label.charAt(0).toUpperCase() + label.slice(1);
-  if (best && late && best !== late) return `${name(best.cue.label)} arrived on time. ${name(late.cue.label)} was fashionably late.`;
-  if (best) return `${name(best.cue.label)} arrived right on time.`;
+  const q = (label: string) => `“${label}”`;
+  if (best && late && best !== late) return `Right on time: ${q(best.cue.label)}. Fashionably late: ${q(late.cue.label)}.`;
+  if (best) return `Right on time: ${q(best.cue.label)}. The rest can rehearse.`;
   return `${tracker.hits} of ${tracker.total}. The horse would like a word.`;
 }
 
@@ -84,7 +84,7 @@ export function mountLanding(engine: EngineBridge): void {
   const selectClip = async (id: string) => {
     for (const c of chips) c.setAttribute('aria-pressed', String(c.dataset.clip === id));
     [clip, demo] = await Promise.all([engine.loadClip(id), loadDemoTake(id)]);
-    showResult(demo, clip, 'A take');
+    showResult(demo, clip, 'Demo take');
     playTake.hidden = !demo;
   };
 
@@ -127,22 +127,31 @@ export function mountLanding(engine: EngineBridge): void {
     const p = engine.screenPositionOf('coconuts');
     if (!p || innerWidth < 900) {
       hand.style.opacity = '0';
+      halo.setAttribute('x2', '0');
+      dots.setAttribute('x2', '0');
       return;
     }
     hand.style.opacity = '1';
-    const hx = innerWidth - 150;
-    const hy = innerHeight + 60;
-    const dx = p.x - (hx - 160 + 128);
-    const dy = p.y - (hy + 20);
-    const angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-    hand.style.left = `${hx - 160}px`;
-    hand.style.top = `${hy}px`;
-    hand.style.transform = `translate(0, 0) rotate(${angle}deg)`;
-    const tipX = hx - 160 + 128 + Math.cos(((angle - 90) * Math.PI) / 180) * 220;
-    const tipY = hy + 20 + Math.sin(((angle - 90) * Math.PI) / 180) * 220;
+    // the glove comes in from the bottom right; its fingertip stops a hand's width short of the coconuts
+    const from = { x: innerWidth - 60, y: innerHeight + 40 };
+    const dx = p.x - from.x;
+    const dy = p.y - from.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    const gap = 150;
+    const tip = { x: p.x - ux * gap, y: p.y - uy * gap };
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90; // the SVG finger points up
+    const scale = 230 / 320;
+    const tipX = 128 * scale;
+    const tipY = 16 * scale;
+    hand.style.left = `${tip.x - tipX}px`;
+    hand.style.top = `${tip.y - tipY}px`;
+    hand.style.transformOrigin = `${tipX}px ${tipY}px`;
+    hand.style.transform = `rotate(${angle}deg)`;
     for (const l of [halo, dots]) {
-      l.setAttribute('x1', String(tipX));
-      l.setAttribute('y1', String(tipY));
+      l.setAttribute('x1', String(tip.x + ux * 10));
+      l.setAttribute('y1', String(tip.y + uy * 10));
       l.setAttribute('x2', String(p.x));
       l.setAttribute('y2', String(p.y));
     }
@@ -152,6 +161,22 @@ export function mountLanding(engine: EngineBridge): void {
     requestAnimationFrame(loop);
   };
   loop();
+
+  // on a phone the stage sits in the gap the spacer leaves under the headline
+  const scene = document.getElementById('scene-container')!;
+  const spacer = document.querySelector<HTMLElement>('.spacer')!;
+  const layout = () => {
+    if (innerWidth <= 900) {
+      scene.style.top = `${spacer.offsetTop}px`;
+      scene.style.height = `${spacer.offsetHeight}px`;
+    } else {
+      scene.style.top = '';
+      scene.style.height = '';
+    }
+  };
+  addEventListener('resize', layout);
+  layout();
+  setTimeout(layout, 300);
 
   void selectClip(params.get('clip') ?? 'one-week');
 }
