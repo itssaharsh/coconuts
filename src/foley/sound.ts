@@ -332,3 +332,28 @@ export function playHit(hit: HitEvent, at?: number): void {
 export function stopHeld(): void {
   for (const h of held.values()) h.stop();
 }
+
+/** Play a decoded voice clip (the Director) from the theatre's position; resolves when it ends. */
+export async function playVoice(data: ArrayBuffer): Promise<void> {
+  const c = await ensureAudio();
+  if (!c) return;
+  const buffer = await c.decodeAudioData(data.slice(0));
+  const src = c.createBufferSource();
+  src.buffer = buffer;
+  const g = c.createGain();
+  g.gain.value = 0.9;
+  src.connect(g).connect(pannerFor('director'));
+  await new Promise<void>((resolve) => {
+    src.onended = () => resolve();
+    src.start();
+  });
+}
+
+/** A soft click when a take is about to start, so the room feels alive before the first hit. */
+export function clapperSnap(at?: number): void {
+  if (!ctx) return;
+  const t0 = at ?? ctx.currentTime;
+  const out = pannerFor('director');
+  burst(out, t0, 0.5, 0.001, 0.05, { type: 'bandpass', f: 2600, q: 1.5 });
+  tone(out, t0, 420, 0.3, 0.001, 0.05, 'square', 180);
+}

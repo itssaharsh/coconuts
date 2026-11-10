@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Coconuts">
+  <title>Coconuts</title>
+  <rect width="48" height="48" rx="12" fill="#FBF7F0"/>
+  <ellipse cx="24" cy="38" rx="17" ry="3.5" fill="#D9C29B"/>
+  <path d="M7 21h34c0 10-7.6 16.5-17 16.5S7 31 7 21z" fill="#7A4B2A"/>
+  <path d="M11.5 25.5c2.2 5.3 6.9 8.4 12.5 8.4" fill="none" stroke="#9A6A42" stroke-width="2.2" stroke-linecap="round"/>
+  <ellipse cx="24" cy="21" rx="17" ry="5.3" fill="#4A2C18"/>
+  <ellipse cx="24" cy="21.2" rx="14.6" ry="3.9" fill="#F6EBD3"/>
+</svg>

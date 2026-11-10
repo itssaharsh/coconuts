@@ -1,7 +1,7 @@
 // Probe: makes the cheapest real model call and answers {"ok":true} only when it succeeds.
 import { geminiJson } from './_lib/gemini.js';
 
-export default async function handler(_req: Request): Promise<Response> {
+export async function GET(_req: Request): Promise<Response> {
   try {
     const r = await geminiJson('Reply with the JSON object {"ok":true} and nothing else.', { timeoutMs: 4000, maxOutputTokens: 20 });
     const ok = /"ok"\s*:\s*true/.test(r.text);
