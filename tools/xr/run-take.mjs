@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Scripted emulator run of the judge path, through the IWSDK CLI.
 // Requires: `npx iwsdk dev up --ai-mode agent --allow-browser-automation` (with LD_LIBRARY_PATH for libasound on this box).
-// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses] [--perf] [--keep] [--record qa/rec]
+// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses] [--perf] [--keep] [--record qa/rec] [--cues [skip,list]]
+// --cues plays the clip's own cue sheet: a far pinch on each cue's prop at its time (skipping the listed cue indexes, so the take looks human).
 // --record starts tools/xr/record-cdp.mjs (screencast + soundtrack when the sound flag is on) just before the clapper and stops it at the end.
 // --perf waits for the stage's PERF log once the models are in and fails above 100 draw calls.
 // --until review waits for the Director's review line after the take; --state says where it must come from
 // (offline: the rules, as on the dev server with no /api; online: the model).
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const args = process.argv.slice(2);
@@ -23,6 +24,9 @@ const shots = opt('shots', null);
 const glasses = !!opt('glasses', false);
 const perf = !!opt('perf', false);
 const record = opt('record', null);
+const cuesMode = opt('cues', null);
+const FILM_LAG_MS = 800; // the film starts about this long after the clapper's TAKE start
+const PINCH_LEAD_MS = 950; // look-at plus select take about this long to land
 let recorder = null;
 function stopRecorder() {
   if (!recorder) return Promise.resolve();
@@ -104,8 +108,38 @@ async function pinchAt(name, lift = 0.03) {
     await sleep(250);
     iw(['xr', 'select'], { device: 'hand-right' });
   }
-  await sleep(500);
-  log('pinched', name, JSON.stringify(target));
+  await sleep(cuesMode ? 150 : 500);
+  if (!cuesMode) log('pinched', name, JSON.stringify(target));
+}
+
+/** Pinch each cue's prop at the cue's time, from the TAKE start log's own timestamp. */
+async function playCues(startLine) {
+  const clipId = startLine.split(' ')[2];
+  const sheet = JSON.parse(readFileSync(`public/clips/${clipId}.json`, 'utf8'));
+  const r = iw(['browser', 'logs'], { pattern: '^TAKE start', count: 5 });
+  const items = r?.data?.result ?? [];
+  const startAt = items.length ? items[items.length - 1].timestamp : Date.now();
+  const skip = new Set(typeof cuesMode === 'string' ? cuesMode.split(',').map(Number) : []);
+  const cues = [...sheet.cues].sort((a, b) => a.t - b.t);
+  let lastDone = 0;
+  for (let i = 0; i < cues.length; i++) {
+    const cue = cues[i];
+    if (skip.has(i)) {
+      log(`cue ${i} ${cue.t}s ${cue.prop} skipped on purpose`);
+      continue;
+    }
+    const due = startAt + FILM_LAG_MS + cue.t * 1000 - PINCH_LEAD_MS;
+    const wait = due - Date.now();
+    if (wait < -1500) {
+      log(`cue ${i} ${cue.t}s ${cue.prop} missed (behind by ${-wait} ms)`);
+      continue;
+    }
+    if (wait > 0) await sleep(wait);
+    await pinchAt(targetName(cue.prop));
+    lastDone = Date.now();
+    log(`cue ${i} ${cue.t}s ${cue.prop} '${cue.label}' pinched`);
+  }
+  return lastDone;
 }
 
 async function waitReady(maxMs = 120000) {
@@ -192,14 +226,18 @@ async function main() {
   }
   if (until === 'start') return log('PASS start');
   const hitsBefore = logs('^HIT ').length;
-  for (const p of ['coconuts', 'door', 'bell', 'whistle']) {
-    await pinchAt(targetName(p));
+  if (cuesMode) {
+    await playCues(started[started.length - 1]);
+  } else {
+    for (const p of ['coconuts', 'door', 'bell', 'whistle']) {
+      await pinchAt(targetName(p));
+    }
   }
   shot('02-hits');
   const hits = logs('^HIT ').slice(hitsBefore);
   log('hits:', hits.join(' | '));
-  if (hits.length < 4) {
-    console.error('FAIL: expected 4 HIT logs');
+  if (hits.length < (cuesMode ? 6 : 4)) {
+    console.error(`FAIL: expected ${cuesMode ? 6 : 4} HIT logs`);
     await stopRecorder();
     process.exit(1);
   }

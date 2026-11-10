@@ -45,7 +45,11 @@ cdp.on('Page.screencastFrame', ({ data, metadata, sessionId }) => {
   }
   cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => undefined);
 });
-await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 85, maxWidth: 1280, maxHeight: 1280, everyNthFrame: 1 });
+// a wide frame for the video: the page is laid out at REC_W x REC_H while recording (the dev shell is 800x800 by default)
+const W = Number(process.env.REC_W ?? 0);
+const H = Number(process.env.REC_H ?? 0);
+if (W && H) await cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
+await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 85, maxWidth: W || 1280, maxHeight: H || 1280, everyNthFrame: 1 });
 console.log(JSON.stringify({ recording: true, port, audio: audioOn, page: page.url(), app: app.url() }));
 
 let stopping = false;
@@ -53,6 +57,7 @@ async function stop(reason) {
   if (stopping) return;
   stopping = true;
   await cdp.send('Page.stopScreencast').catch(() => undefined);
+  if (W && H) await cdp.send('Emulation.clearDeviceMetricsOverride').catch(() => undefined);
   writeFileSync(join(dir, 'frames.json'), JSON.stringify(frames));
   let audio = null;
   if (audioOn) {
