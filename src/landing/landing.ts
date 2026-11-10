@@ -1,6 +1,7 @@
 // The landing overlay: wires the buttons and chips to the engine and keeps the result card and the glove in step.
 import './landing.css';
 import { CueTracker, type Cue } from '../foley/cues';
+import { directorLine } from '../foley/director';
 import type { Take } from '../foley/types';
 
 export interface ClipMeta {
@@ -38,15 +39,6 @@ async function loadDemoTake(id: string): Promise<Take | null> {
   } catch {
     return null;
   }
-}
-
-function directorLine(tracker: CueTracker): string {
-  const { best, late } = tracker.highlights();
-  if (tracker.hits === 0) return 'Not a single cue, and yet a performance.';
-  const q = (label: string) => `“${label}”`;
-  if (best && late && best !== late) return `Right on time: ${q(best.cue.label)}. Fashionably late: ${q(late.cue.label)}.`;
-  if (best) return `Right on time: ${q(best.cue.label)}. The rest can rehearse.`;
-  return `${tracker.hits} of ${tracker.total}. The horse would like a word.`;
 }
 
 export function mountLanding(engine: EngineBridge): void {

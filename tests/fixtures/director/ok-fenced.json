@@ -1,0 +1,8 @@
+{
+  "name": "a fenced reply with straight quotes is cleaned and kept",
+  "reply": "```json\n{\"line\": \"Two of four, and \\\"horse trots in\\\" was the best of them.\"}\n```",
+  "expect": {
+    "source": "model",
+    "line": "Two of four, and “horse trots in” was the best of them."
+  }
+}

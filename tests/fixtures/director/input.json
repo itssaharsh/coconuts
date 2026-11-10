@@ -1,0 +1,22 @@
+{
+  "clipId": "test-reel",
+  "title": "The Test Reel",
+  "year": 1921,
+  "cues": [
+    { "t": 2.0, "prop": "coconuts", "label": "horse trots in" },
+    { "t": 2.4, "prop": "coconuts", "label": "horse again" },
+    { "t": 5.0, "prop": "door", "label": "door slams" },
+    { "t": 9.0, "prop": "whistle", "label": "falls off roof" }
+  ],
+  "events": [
+    { "t": 2.05, "prop": "coconuts", "kind": "clop", "v": 0.9 },
+    { "t": 5.7, "prop": "door", "kind": "slam", "v": 1 },
+    { "t": 12.0, "prop": "whistle", "kind": "whistle", "v": 0.5 }
+  ],
+  "hits": {
+    "hit": ["horse trots in", "door slams"],
+    "missed": ["horse again", "falls off roof"],
+    "best": { "label": "horse trots in", "offset": 0.05 },
+    "late": { "label": "door slams", "offset": 0.7 }
+  }
+}

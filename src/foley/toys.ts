@@ -9,6 +9,7 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
+  SRGBColorSpace,
   SphereGeometry,
   TorusGeometry,
 } from 'three';
@@ -278,6 +279,48 @@ export function buildClapper(): Group {
   g.add(lampPool(0.16));
   g.add(hitBox(0.12, 0.1, 0.08));
   return g;
+}
+
+/** A round painted tile on the table rim: pause, volume, redo. Its face texture carries the label. */
+export function buildTile(label: string): Group {
+  const g = new Group();
+  g.name = `tile-${label.toLowerCase().split(' ')[0]}`;
+  const base = new Mesh(new CylinderGeometry(0.026, 0.028, 0.008, 28), mat(PALETTE.beechDark, 0.7));
+  base.position.y = 0.004;
+  g.add(base);
+  const face = new Mesh(new CylinderGeometry(0.024, 0.024, 0.002, 28), new MeshBasicMaterial({ map: tileFace(label) }));
+  face.position.y = 0.009;
+  face.name = 'face';
+  g.add(face);
+  g.add(lampPool(0.1));
+  g.add(hitBox(0.08, 0.05, 0.08));
+  return g;
+}
+
+function tileFace(label: string): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#F4E8D2';
+  g.beginPath();
+  g.arc(128, 128, 120, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = '#C9B08A';
+  g.lineWidth = 8;
+  g.stroke();
+  g.fillStyle = '#2B2320';
+  g.font = '700 46px "Instrument Sans", system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const words = label.split(' ');
+  if (words.length > 1) {
+    g.fillText(words[0], 128, 104);
+    g.fillText(words.slice(1).join(' '), 128, 156);
+  } else g.fillText(label, 128, 130);
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  return tex;
 }
 
 export function buildScreenFrame(w: number, h: number): Group {

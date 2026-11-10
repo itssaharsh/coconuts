@@ -1,13 +1,16 @@
-// The stage: the table with its props and clapperboard, and the screen, as one root group.
-import { Group, Mesh, MeshBasicMaterial, Object3D, Vector3 } from 'three';
+// The stage: the table with its props, clapperboard and tiles, and the screen, as one root group.
+import { CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, Quaternion, SRGBColorSpace, Vector3 } from 'three';
 import { Screen } from './screen';
-import { PALETTE, TABLE_D, TABLE_H, buildClapper, buildProp, buildTable, mat } from './toys';
+import { PALETTE, TABLE_D, TABLE_H, TABLE_W, buildClapper, buildProp, buildTable, buildTile, mat } from './toys';
 import { PROPS, type PropId } from './types';
 
+export type PieceId = PropId | 'clapper' | 'tile-pause' | 'tile-volume' | 'tile-redo' | 'tile-glasses' | 'tile-calm';
+
 export interface PropPiece {
-  id: PropId | 'clapper';
+  id: PieceId;
   root: Group;
   home: Vector3;
+  homeQuat: Quaternion;
   selected: boolean;
   hovered: boolean;
   /** Set by sound triggers to flash the lamp. */
@@ -19,12 +22,20 @@ const SCREEN_LIFT = 0.12; // screen centre 12 cm above eye height, so the lane u
 const TABLE_AHEAD = 0.75;
 const TABLE_BELOW = 0.25;
 
+const TILES: { id: PieceId; label: string }[] = [
+  { id: 'tile-pause', label: 'Pause' },
+  { id: 'tile-volume', label: 'Vol 100' },
+  { id: 'tile-redo', label: 'Redo' },
+];
+
 export class Stage {
   readonly root = new Group();
   readonly table: Group;
   readonly screen = new Screen();
   readonly pieces = new Map<string, PropPiece>();
   private byObject = new WeakMap<Object3D, PropPiece>();
+  private doorSwing = 0;
+  private clapSnap = 0;
 
   constructor() {
     this.root.name = 'coconuts-stage';
@@ -41,12 +52,26 @@ export class Stage {
     clapper.rotation.y = 0.35;
     this.table.add(clapper);
     this.addPiece('clapper', clapper);
+    TILES.forEach((t, i) => {
+      const tile = buildTile(t.label);
+      tile.position.set(TABLE_W / 2 - 0.05, TABLE_H, TABLE_D / 2 - 0.05 - i * 0.065);
+      this.table.add(tile);
+      this.addPiece(t.id, tile);
+    });
     this.screen.group.position.set(0, TABLE_BELOW + SCREEN_LIFT, -(SCREEN_AHEAD - TABLE_AHEAD));
     this.root.add(this.screen.group);
   }
 
-  private addPiece(id: PropId | 'clapper', root: Group): void {
-    const piece: PropPiece = { id, root, home: root.position.clone(), selected: false, hovered: false, pulse: 0 };
+  private addPiece(id: PieceId, root: Group): void {
+    const piece: PropPiece = {
+      id,
+      root,
+      home: root.position.clone(),
+      homeQuat: root.quaternion.clone(),
+      selected: false,
+      hovered: false,
+      pulse: 0,
+    };
     this.pieces.set(id, piece);
     root.traverse((o) => this.byObject.set(o, piece));
   }
@@ -87,6 +112,30 @@ export class Stage {
     return p ? p.root.getWorldPosition(out) : out.set(0, 0, 0);
   }
 
+  /** Swing the door leaf: 1 = a full slam, 0.35 = a knock's rattle. */
+  swingDoor(amount: number): void {
+    this.doorSwing = Math.max(this.doorSwing, amount);
+  }
+
+  snapClapper(): void {
+    this.clapSnap = 1;
+  }
+
+  setWhistleSlide(pitch: number): void {
+    const slide = this.pieces.get('whistle')?.root.getObjectByName('Slide');
+    if (slide) slide.position.x = -0.03 + 0.03 * Math.max(0, Math.min(1, pitch));
+  }
+
+  setTileLabel(tile: 'pause' | 'volume' | 'redo' | 'glasses' | 'calm', label: string): void {
+    const p = this.pieces.get(`tile-${tile}`);
+    const face = p?.root.getObjectByName('face') as Mesh | undefined;
+    if (!face) return;
+    const m = face.material as MeshBasicMaterial;
+    m.map?.dispose();
+    m.map = tileTexture(label);
+    m.needsUpdate = true;
+  }
+
   update(dt: number): void {
     const k = Math.min(1, dt * 14);
     for (const p of this.pieces.values()) {
@@ -101,7 +150,44 @@ export class Stage {
       p.root.scale.x += (s - p.root.scale.x) * k;
       p.root.scale.z = p.root.scale.y = p.root.scale.x;
     }
+    // the door leaf swings and settles; the clapper's bar snaps shut
+    const leaf = this.pieces.get('door')?.root.getObjectByName('Leaf');
+    if (leaf) {
+      leaf.rotation.y = -this.doorSwing * 1.1;
+      this.doorSwing = Math.max(0, this.doorSwing - dt * 4);
+    }
+    const clap = this.pieces.get('clapper')?.root.getObjectByName('Clap');
+    if (clap) {
+      clap.rotation.z = this.clapSnap * 0.45;
+      this.clapSnap = Math.max(0, this.clapSnap - dt * 5);
+    }
   }
 
   static readonly accentMaterial = () => mat(PALETTE.accent, 0.6);
+}
+
+export function tileTexture(label: string): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#F4E8D2';
+  g.beginPath();
+  g.arc(128, 128, 120, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = '#C9B08A';
+  g.lineWidth = 8;
+  g.stroke();
+  g.fillStyle = '#2B2320';
+  g.font = '700 46px "Instrument Sans", system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const words = label.split(' ');
+  if (words.length > 1) {
+    g.fillText(words[0], 128, 104);
+    g.fillText(words.slice(1).join(' '), 128, 156);
+  } else g.fillText(label, 128, 130);
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  return tex;
 }

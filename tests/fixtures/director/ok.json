@@ -1,0 +1,12 @@
+{
+  "name": "a valid model line passes through",
+  "reply": {
+    "text": "{\"line\": \"“horse trots in” was right on cue, though “door slams” arrived fashionably late.\"}",
+    "model": "gemini-3-flash-preview"
+  },
+  "expect": {
+    "source": "model",
+    "line": "“horse trots in” was right on cue, though “door slams” arrived fashionably late.",
+    "model": "gemini-3-flash-preview"
+  }
+}

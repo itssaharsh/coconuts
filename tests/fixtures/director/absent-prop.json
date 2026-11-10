@@ -1,0 +1,8 @@
+{
+  "name": "a line naming a prop that is not on the table falls back to rules",
+  "reply": "{\"line\": \"The accordion was late.\"}",
+  "expect": {
+    "source": "rules",
+    "line": "Right on time: “horse trots in”. Fashionably late: “door slams”."
+  }
+}
