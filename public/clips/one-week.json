@@ -1,0 +1,144 @@
+{
+  "id": "one-week",
+  "title": "One Week",
+  "year": 1920,
+  "director": "Buster Keaton and Eddie Cline",
+  "source": {
+    "item": "OneWeek1920",
+    "file": "One-Week-v2.mp4",
+    "url": "https://archive.org/download/OneWeek1920/One-Week-v2.mp4",
+    "segment": {
+      "start": 1345.4,
+      "length": 120
+    }
+  },
+  "licence": "Public domain in the United States (published before 1929); original print from the Internet Archive",
+  "duration": 120.0,
+  "film": "films/one-week.mp4",
+  "poster": "films/one-week.jpg",
+  "cues": [
+    {
+      "t": 3.2,
+      "prop": "door",
+      "label": "hammer bangs sofa",
+      "window": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "t": 6.6,
+      "prop": "door",
+      "label": "nails the sofa",
+      "window": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "t": 22.9,
+      "prop": "glass",
+      "label": "car rips apart",
+      "window": [
+        0.6,
+        1.0
+      ]
+    },
+    {
+      "t": 31.5,
+      "prop": "whistle",
+      "label": "Buster hops down",
+      "window": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "t": 48.5,
+      "prop": "thunder",
+      "label": "train rounds bend",
+      "window": [
+        0.8,
+        1.5
+      ]
+    },
+    {
+      "t": 51.3,
+      "prop": "whistle",
+      "label": "train whistle blows",
+      "window": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "t": 57.0,
+      "prop": "coconuts",
+      "label": "couple runs in panic",
+      "window": [
+        0.8,
+        1.2
+      ]
+    },
+    {
+      "t": 78.8,
+      "prop": "coconuts",
+      "label": "couple scrambles clear",
+      "window": [
+        0.8,
+        1.0
+      ]
+    },
+    {
+      "t": 80.6,
+      "prop": "thunder",
+      "label": "train roars past",
+      "window": [
+        1.0,
+        1.5
+      ]
+    },
+    {
+      "t": 98.4,
+      "prop": "glass",
+      "label": "train smashes house",
+      "window": [
+        0.6,
+        1.0
+      ]
+    },
+    {
+      "t": 100.3,
+      "prop": "thunder",
+      "label": "house flies apart",
+      "window": [
+        0.8,
+        1.5
+      ]
+    },
+    {
+      "t": 113.0,
+      "prop": "coconuts",
+      "label": "they walk off",
+      "window": [
+        0.8,
+        1.0
+      ]
+    },
+    {
+      "t": 115.6,
+      "prop": "bell",
+      "label": "For Sale sign",
+      "window": [
+        0.6,
+        0.8
+      ]
+    }
+  ],
+  "provenance": {
+    "proposed_by": "gemini-2.5-flash",
+    "proposed_at": "2026-11-10T17:53:48.667Z",
+    "checked_by": "hand",
+    "notes": "Gemini (tools/cue-sheet.mjs, Files API, 2 fps) proposed 14 cues (public/clips/one-week.proposed.json). Checked against 1 s and 0.25 s contact sheets of this clip. Kept 3 with the same prop: train rounds bend 48.5, train whistle 51.5 -> 51.3 (steam starts 51.25), train passes 81.0 -> 80.6 (relabelled: the train misses the house, it runs on the next track). Moments kept with another prop: the real crash is at 98.4 (Gemini: thunder 98.5) and the wreckage at 100.3 (Gemini: glass 100.0); shipped as glass then thunder. Dropped: pushing the house (8.0, 36.5, 61.0: no sound on screen), 'house shatters' 82.5 (nothing breaks there), early hammer at 0.5 (moved to the first big swing, 3.2), couple stands up 107.0. Added by hand: second hammer 6.6, car rips apart 22.9, Buster hops down 31.5, the two panicked runs 57.0 and 78.8, they walk off 113.0, the For Sale sign 115.6 (the punchline). The script's automatic diff (same prop within 1.5 s) also pairs 'woman pushes wood' 8.0 with the 6.6 hammer; that is a different action, so 3 of 14 proposals survived the hand check."
+  }
+}

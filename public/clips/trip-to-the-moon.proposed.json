@@ -1,0 +1,105 @@
+{
+  "id": "trip-to-the-moon",
+  "model": "gemini-2.5-flash",
+  "proposed_by": "gemini:gemini-2.5-flash",
+  "proposed_at": "2026-11-10T18:03:27.898Z",
+  "prompt_version": "cue-v1",
+  "video": {
+    "file": "films/trip-to-the-moon.mp4",
+    "bytes": 24126010,
+    "via": "files-api",
+    "fps": 2
+  },
+  "latency_ms": 133178,
+  "usage": {
+    "promptTokenCount": 63505,
+    "candidatesTokenCount": 449,
+    "totalTokenCount": 68595,
+    "cachedContentTokenCount": 63002,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 385
+      },
+      {
+        "modality": "VIDEO",
+        "tokenCount": 63120
+      }
+    ],
+    "cacheTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 381
+      },
+      {
+        "modality": "VIDEO",
+        "tokenCount": 62621
+      }
+    ],
+    "thoughtsTokenCount": 4641,
+    "serviceTier": "standard"
+  },
+  "cues": [
+    {
+      "t": 0.5,
+      "prop": "thunder",
+      "label": "Explorer hits creature",
+      "why": "An explorer hits a mushroom creature with a stick."
+    },
+    {
+      "t": 2,
+      "prop": "whistle",
+      "label": "Creature falls",
+      "why": "A mushroom creature falls to the ground."
+    },
+    {
+      "t": 8,
+      "prop": "thunder",
+      "label": "Explosion",
+      "why": "A puff of smoke appears as an explosion."
+    },
+    {
+      "t": 15,
+      "prop": "thunder",
+      "label": "Explosion",
+      "why": "A puff of smoke appears as an explosion."
+    },
+    {
+      "t": 25.5,
+      "prop": "door",
+      "label": "Creature emerges from gate",
+      "why": "A creature emerges from a gate on the stage."
+    },
+    {
+      "t": 33.5,
+      "prop": "door",
+      "label": "Man emerges from gate",
+      "why": "A man emerges from a gate on the stage."
+    },
+    {
+      "t": 49.5,
+      "prop": "thunder",
+      "label": "Explosion",
+      "why": "A puff of smoke appears on the stage."
+    },
+    {
+      "t": 100,
+      "prop": "thunder",
+      "label": "Explorer hits creature",
+      "why": "An explorer hits a creature on the moon surface."
+    },
+    {
+      "t": 105,
+      "prop": "thunder",
+      "label": "Explosion",
+      "why": "A puff of smoke appears on the moon surface."
+    },
+    {
+      "t": 114,
+      "prop": "thunder",
+      "label": "Explosion",
+      "why": "A puff of smoke appears on the moon surface."
+    }
+  ],
+  "raw": "{\"cues\":[{\"t\":0.5,\"prop\":\"thunder\",\"label\":\"Explorer hits creature\",\"why\":\"An explorer hits a mushroom creature with a stick.\"},{\"t\":2.0,\"prop\":\"whistle\",\"label\":\"Creature falls\",\"why\":\"A mushroom creature falls to the ground.\"},{\"t\":8.0,\"prop\":\"thunder\",\"label\":\"Explosion\",\"why\":\"A puff of smoke appears as an explosion.\"},{\"t\":15.0,\"prop\":\"thunder\",\"label\":\"Explosion\",\"why\":\"A puff of smoke appears as an explosion.\"},{\"t\":25.5,\"prop\":\"door\",\"label\":\"Creature emerges from gate\",\"why\":\"A creature emerges from a gate on the stage.\"},{\"t\":33.5,\"prop\":\"door\",\"label\":\"Man emerges from gate\",\"why\":\"A man emerges from a gate on the stage.\"},{\"t\":49.5,\"prop\":\"thunder\",\"label\":\"Explosion\",\"why\":\"A puff of smoke appears on the stage.\"},{\"t\":100.0,\"prop\":\"thunder\",\"label\":\"Explorer hits creature\",\"why\":\"An explorer hits a creature on the moon surface.\"},{\"t\":105.0,\"prop\":\"thunder\",\"label\":\"Explosion\",\"why\":\"A puff of smoke appears on the moon surface.\"},{\"t\":114.0,\"prop\":\"thunder\",\"label\":\"Explosion\",\"why\":\"A puff of smoke appears on the moon surface.\"},{\"t\":124.0,\"prop\":\"whistle\",\"label\":\"Creature falls off cliff\",\"why\":\"A creature falls off the cliff after being hit.\"},{\"t\":135.0,\"prop\":\"whistle\",\"label\":\"Explorer falls off cliff\",\"why\":\"An explorer falls off the cliff.\"},{\"t\":141.0,\"prop\":\"thunder\",\"label\":\"Spaceship falls\",\"why\":\"The spaceship falls from the cliff.\"},{\"t\":145.0,\"prop\":\"whistle\",\"label\":\"Creature throws spear\",\"why\":\"A creature throws a spear.\"},{\"t\":153.5,\"prop\":\"thunder\",\"label\":\"Spaceship falls into water\",\"why\":\"The spaceship falls into the water.\"}]}"
+}

@@ -1,0 +1,126 @@
+{
+ "clipId": "safety-last",
+ "events": [
+  {
+   "t": 4.56,
+   "prop": "whistle",
+   "kind": "whistle",
+   "v": 0.79,
+   "hand": "right"
+  },
+  {
+   "t": 11.94,
+   "prop": "door",
+   "kind": "knock",
+   "v": 1,
+   "hand": "right"
+  },
+  {
+   "t": 13.98,
+   "prop": "whistle",
+   "kind": "whistle",
+   "v": 0.86,
+   "hand": "right"
+  },
+  {
+   "t": 32.74,
+   "prop": "whistle",
+   "kind": "whistle",
+   "v": 0.97,
+   "hand": "right"
+  },
+  {
+   "t": 40.7,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 1,
+   "hand": "right"
+  },
+  {
+   "t": 40.92,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.68,
+   "hand": "left"
+  },
+  {
+   "t": 41.14,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.68,
+   "hand": "right"
+  },
+  {
+   "t": 41.36,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 1,
+   "hand": "left"
+  },
+  {
+   "t": 61.5,
+   "prop": "glass",
+   "kind": "crash",
+   "v": 0.82,
+   "hand": "right"
+  },
+  {
+   "t": 76.89,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.63,
+   "hand": "right"
+  },
+  {
+   "t": 77.11,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.87,
+   "hand": "left"
+  },
+  {
+   "t": 77.33,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.97,
+   "hand": "right"
+  },
+  {
+   "t": 77.55,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.92,
+   "hand": "left"
+  },
+  {
+   "t": 86.1,
+   "prop": "whistle",
+   "kind": "whistle",
+   "v": 0.72,
+   "hand": "right"
+  },
+  {
+   "t": 88.37,
+   "prop": "bell",
+   "kind": "ding",
+   "v": 0.85,
+   "hand": "right"
+  },
+  {
+   "t": 112.94,
+   "prop": "whistle",
+   "kind": "whistle",
+   "v": 0.97,
+   "hand": "right"
+  },
+  {
+   "t": 118.6,
+   "prop": "thunder",
+   "kind": "rumble",
+   "v": 0.94,
+   "hand": "right"
+  }
+ ],
+ "startedAt": "2026-11-16T10:00:00Z",
+ "note": "demo take built from the cue sheet by tools/make-demo-take.mjs"
+}

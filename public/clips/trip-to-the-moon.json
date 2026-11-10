@@ -1,0 +1,144 @@
+{
+  "id": "trip-to-the-moon",
+  "title": "A Trip to the Moon",
+  "year": 1902,
+  "director": "Georges Méliès",
+  "source": {
+    "item": "ATripToTheMoonGeorgeMelies",
+    "file": "A Trip to the Moon-George Méliès.mp4",
+    "url": "https://archive.org/download/ATripToTheMoonGeorgeMelies/A%20Trip%20to%20the%20Moon-George%20M%C3%A9li%C3%A8s.mp4",
+    "segment": {
+      "start": 558,
+      "length": 120
+    }
+  },
+  "licence": "Public domain in the United States (published before 1929); original print from the Internet Archive",
+  "duration": 120.0,
+  "film": "films/trip-to-the-moon.mp4",
+  "poster": "films/trip-to-the-moon.jpg",
+  "cues": [
+    {
+      "t": 8.4,
+      "prop": "door",
+      "label": "umbrella whacks Selenite",
+      "window": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "t": 16.2,
+      "prop": "bell",
+      "label": "another Selenite poofs",
+      "window": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "t": 21.0,
+      "prop": "coconuts",
+      "label": "Selenites swarm in",
+      "window": [
+        0.8,
+        1.2
+      ]
+    },
+    {
+      "t": 50.0,
+      "prop": "thunder",
+      "label": "king explodes",
+      "window": [
+        0.6,
+        1.2
+      ]
+    },
+    {
+      "t": 54.0,
+      "prop": "coconuts",
+      "label": "explorers flee",
+      "window": [
+        0.8,
+        1.2
+      ]
+    },
+    {
+      "t": 65.3,
+      "prop": "door",
+      "label": "pursuer whacked",
+      "window": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "t": 69.9,
+      "prop": "bell",
+      "label": "Selenite vanishes",
+      "window": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "t": 75.0,
+      "prop": "coconuts",
+      "label": "Selenite army charges",
+      "window": [
+        0.8,
+        1.5
+      ]
+    },
+    {
+      "t": 84.8,
+      "prop": "door",
+      "label": "last Selenite whacked",
+      "window": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "t": 94.8,
+      "prop": "whistle",
+      "label": "professor slides down",
+      "window": [
+        0.6,
+        1.0
+      ]
+    },
+    {
+      "t": 101.5,
+      "prop": "whistle",
+      "label": "shell tips over",
+      "window": [
+        0.6,
+        1.0
+      ]
+    },
+    {
+      "t": 114.0,
+      "prop": "whistle",
+      "label": "shell plunges earthward",
+      "window": [
+        0.8,
+        1.2
+      ]
+    },
+    {
+      "t": 117.5,
+      "prop": "thunder",
+      "label": "splash into sea",
+      "window": [
+        0.6,
+        1.0
+      ]
+    }
+  ],
+  "provenance": {
+    "proposed_by": "gemini-2.5-flash",
+    "proposed_at": "2026-11-10T18:03:27.898Z",
+    "checked_by": "hand",
+    "notes": "Gemini (tools/cue-sheet.mjs, Files API, 2 fps) proposed 10 cues (public/clips/trip-to-the-moon.proposed.json), seven of them thunder 'Explosion'. Checked against 1 s and 0.25 s contact sheets of this clip. Kept with the same prop: the king's explosion 49.5 -> 50.0 (the professor slams him down at 49.75, smoke at 50.0). Moments kept with another prop: the first two Selenite puffs 8.0 -> 8.4 and 15.0 -> 16.2 (the umbrella hit is the sound: door, then a bell for the poof), and 114.0, which is the shell falling through the sky (whistle), not an explosion. Dropped: 0.5 'explorer hits creature' and 2.0 'creature falls' (a Selenite only crawls along the log), 25.5 and 33.5 figures at the palace gate (no sound), 100.0 and 105.0 (the shell is still on the cliff; Selenites wave spears). Added by hand: the Selenite rushes (21.0, 54.0, 75.0), the puffs at 65.3, 69.9 and 84.8, the professor going over the edge 94.8, the shell tipping off the cliff 101.5 and the splash 117.5. 1 of 10 proposals survived as proposed; 4 of 10 found a real moment."
+  }
+}

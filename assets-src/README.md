@@ -1,0 +1,2 @@
+`build_props.py` is the procedural Blender 4.5 source for the Coconuts foley props: it builds, exports, re-imports and verifies every prop `.glb` in `public/models/`, writes `PROPS.md` and renders `overview.png` (`build_assets.py` is the earlier Pointlings toy builder).
+Run from the repo root: `blender -b --factory-startup --python assets-src/build_props.py` (about 20-40 s; add `-- --no-render` to skip the overview, `-- --only door,bell` to rebuild a few).

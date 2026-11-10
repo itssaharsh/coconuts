@@ -23,6 +23,7 @@ export interface FoleyApi {
   cues: () => CueTracker | null;
   startTake: () => Promise<void>;
   replay: () => Promise<void>;
+  replayTake: (take: Take) => Promise<void>;
   lastTake: () => Take | null;
   log: (...a: unknown[]) => void;
 }
@@ -110,6 +111,7 @@ export class FoleySystem extends createSystem({
       cues: () => this.tracker,
       startTake: () => this.startTake(),
       replay: () => this.replay(),
+      replayTake: (take) => this.replayTake(take),
       lastTake: () => this.last,
       log: (...a) => console.log(...a),
     };
@@ -165,16 +167,24 @@ export class FoleySystem extends createSystem({
   }
 
   private async replay(): Promise<void> {
-    if (!this.last) return;
+    if (this.last) await this.replayTake(this.last);
+  }
+
+  private async replayTake(take: Take): Promise<void> {
+    if (take.clipId !== this.clipId) return;
     await sound.ensureAudio();
     const ok = await this.stage.screen.play(0);
     if (!ok) return;
-    this.replayer = new Replayer(schedule(this.last), (e) => {
+    this.tracker?.reset();
+    for (const e of take.events) this.tracker?.register(e);
+    this.tracker?.reset();
+    this.replayer = new Replayer(schedule(take), (e) => {
       sound.playHit(e);
       this.stage.flash(e.prop, 0.9);
+      this.tracker?.register(e);
     });
     this.mode = 'replay';
-    console.log('REPLAY start', this.last.events.length);
+    console.log('REPLAY start', take.events.length);
   }
 
   private onPressed(entity: Entity): void {
@@ -324,6 +334,13 @@ export class FoleySystem extends createSystem({
     if (inXR && this.placeFrames++ < 10) return; // let the tracked pose settle for a few frames
     tmpF.set(0, 0, -1).applyQuaternion(src.getWorldQuaternion(tmpQ));
     this.stage.placeFrom(tmpP, tmpF);
+    if (!inXR && window.innerWidth > 900) {
+      // the landing copy sits on the left 40%; keep the stage in the right part of the frame
+      const right = new Vector3(1, 0, 0).applyQuaternion(tmpQ);
+      right.y = 0;
+      right.normalize();
+      this.stage.root.position.addScaledVector(right, 0.22);
+    }
     this.placed = true;
     console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'yaw', +this.stage.root.rotation.y.toFixed(2), inXR ? 'xr' : 'browser');
   }

@@ -1,0 +1,133 @@
+{
+ "clipId": "trip-to-the-moon",
+ "events": [
+  {
+   "t": 8.46,
+   "prop": "door",
+   "kind": "knock",
+   "v": 0.79,
+   "hand": "right"
+  },
+  {
+   "t": 16.24,
+   "prop": "bell",
+   "kind": "ding",
+   "v": 1,
+   "hand": "right"
+  },
+  {
+   "t": 21.08,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.81,
+   "hand": "right"
+  },
+  {
+   "t": 21.3,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.95,
+   "hand": "left"
+  },
+  {
+   "t": 21.52,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.97,
+   "hand": "right"
+  },
+  {
+   "t": 21.74,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.63,
+   "hand": "left"
+  },
+  {
+   "t": 50.18,
+   "prop": "thunder",
+   "kind": "rumble",
+   "v": 0.76,
+   "hand": "right"
+  },
+  {
+   "t": 65.24,
+   "prop": "door",
+   "kind": "knock",
+   "v": 1,
+   "hand": "right"
+  },
+  {
+   "t": 70.7,
+   "prop": "bell",
+   "kind": "ding",
+   "v": 0.82,
+   "hand": "right"
+  },
+  {
+   "t": 74.89,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.63,
+   "hand": "right"
+  },
+  {
+   "t": 75.11,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.87,
+   "hand": "left"
+  },
+  {
+   "t": 75.33,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.97,
+   "hand": "right"
+  },
+  {
+   "t": 75.55,
+   "prop": "coconuts",
+   "kind": "clop",
+   "v": 0.92,
+   "hand": "left"
+  },
+  {
+   "t": 84.9,
+   "prop": "door",
+   "kind": "knock",
+   "v": 0.72,
+   "hand": "right"
+  },
+  {
+   "t": 94.87,
+   "prop": "whistle",
+   "kind": "whistle",
+   "v": 0.85,
+   "hand": "right"
+  },
+  {
+   "t": 101.44,
+   "prop": "whistle",
+   "kind": "whistle",
+   "v": 0.97,
+   "hand": "right"
+  },
+  {
+   "t": 113.9,
+   "prop": "whistle",
+   "kind": "whistle",
+   "v": 0.94,
+   "hand": "right"
+  },
+  {
+   "t": 117.42,
+   "prop": "thunder",
+   "kind": "rumble",
+   "v": 0.71,
+   "hand": "right"
+  }
+ ],
+ "startedAt": "2026-11-16T10:00:00Z",
+ "note": "demo take built from the cue sheet by tools/make-demo-take.mjs"
+}
