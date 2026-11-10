@@ -147,7 +147,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
       await a.startTake();
     },
     screenPositionOf: (propId) => {
-      if (!api) return null;
+      if (!api || !api.placed()) return null; // before placement the props sit at the origin and the glove would point at nothing
       api.stage.worldOf(propId, tmp);
       tmp.project(world.camera);
       if (tmp.z > 1) return null;

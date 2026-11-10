@@ -31,6 +31,8 @@ export interface FoleyApi {
   replayTake: (take: Take) => Promise<void>;
   lastTake: () => Take | null;
   mode: () => Mode;
+  /** True once the stage has been placed for the current viewpoint. */
+  placed: () => boolean;
   /** The Director speaks: a bubble over the theatre, optionally for a set time. */
   say: (text: string, caption?: string, seconds?: number) => void;
   log: (...a: unknown[]) => void;
@@ -156,6 +158,7 @@ export class FoleySystem extends createSystem({
       replayTake: (take) => this.replayTake(take),
       lastTake: () => this.last,
       mode: () => this.mode,
+      placed: () => this.placed,
       say: (text, caption = '', seconds = 6) => this.director.say(text, caption, seconds),
       log: (...a) => console.log(...a),
     };
