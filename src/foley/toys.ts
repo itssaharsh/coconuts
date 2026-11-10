@@ -50,14 +50,22 @@ export function mat(hex: string, roughness = 0.7, metalness = 0): MeshStandardMa
 }
 
 /** An invisible box the ray can hit: bigger than the thing, so a shaky pinch still lands. */
-export function hitBox(size = HIT_BOX, height = size, depth = size): Mesh {
+export function hitBox(size = HIT_BOX, height = size, depth = size, name = 'hit'): Mesh {
   const m = new Mesh(
     new BoxGeometry(size, height, depth),
     new MeshBasicMaterial({ colorWrite: false, depthWrite: false, transparent: true, opacity: 0 }),
   );
   m.position.y = height / 2;
-  m.name = 'hit';
+  m.name = name;
   return m;
+}
+
+/** Gives every hit box under a prop a name the emulator and tests can target: hit-<prop id>. */
+export function nameHitBoxes(root: Group): void {
+  const id = root.name.replace(/^prop-/, '');
+  root.traverse((o) => {
+    if (o.name === 'hit') o.name = `hit-${id}`;
+  });
 }
 
 export function ring(radius: number, hex: string = PALETTE.beechDark): Mesh {

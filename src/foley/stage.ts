@@ -1,7 +1,7 @@
 // The stage: the table with its props, clapperboard and tiles, and the screen, as one root group.
 import { CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, Quaternion, SRGBColorSpace, Vector3 } from 'three';
 import { Screen } from './screen';
-import { PALETTE, TABLE_D, TABLE_H, TABLE_W, buildClapper, buildProp, buildTable, buildTile, mat } from './toys';
+import { PALETTE, TABLE_D, TABLE_H, TABLE_W, buildClapper, buildProp, buildTable, buildTile, mat, nameHitBoxes } from './toys';
 import { PROPS, type PropId } from './types';
 
 export type PieceId = PropId | 'clapper' | 'tile-pause' | 'tile-volume' | 'tile-redo' | 'tile-glasses' | 'tile-calm';
@@ -43,6 +43,7 @@ export class Stage {
     this.root.add(this.table);
     for (const spec of PROPS) {
       const g = buildProp(spec.id);
+      nameHitBoxes(g);
       g.position.set(spec.x, TABLE_H, spec.z);
       this.table.add(g);
       this.addPiece(spec.id, g);
@@ -54,6 +55,7 @@ export class Stage {
     this.addPiece('clapper', clapper);
     TILES.forEach((t, i) => {
       const tile = buildTile(t.label);
+      tile.name = t.id;
       tile.position.set(TABLE_W / 2 - 0.05, TABLE_H, TABLE_D / 2 - 0.05 - i * 0.065);
       this.table.add(tile);
       this.addPiece(t.id, tile);

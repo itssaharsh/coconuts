@@ -1,7 +1,9 @@
+import { automationRun } from './foley/env';
 import { VisibilityState, World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { Vector3 } from 'three';
 import type { Cue } from './foley/cues';
+import { preTakeLine, reviewTake, speak } from './foley/director';
 import { FoleySystem, setFoleyHooks, type FoleyApi } from './foley/system';
 import type { Take } from './foley/types';
 import { mountLanding, type ClipMeta } from './landing/landing';
@@ -45,6 +47,8 @@ async function clipMeta(id: string): Promise<ClipMeta | null> {
 }
 
 let api: FoleyApi | null = null;
+let currentClip: ClipMeta | null = null;
+const takeEndListeners: ((take: Take, summary: string, line: string) => void)[] = [];
 const ready = new Promise<FoleyApi>((resolve) => {
   setFoleyHooks({
     onReady: (a) => {
@@ -52,17 +56,36 @@ const ready = new Promise<FoleyApi>((resolve) => {
       resolve(a);
     },
     onHit: () => {},
-    onTakeStart: () => {},
+    onTakeStart: (a) => {
+      if (!currentClip) return;
+      const line = preTakeLine(currentClip);
+      a.say(line, 'the Director', 7);
+      console.log('DIRECTOR', line);
+      void speak(line, base);
+    },
     onTakeEnd: (take, a) => {
       const tracker = a.cues();
-      console.log('TAKE summary', take.clipId, take.events.length, 'hits', tracker ? tracker.summary() : '');
-      for (const cb of takeEndListeners) cb(take, tracker ? tracker.summary() : '', '');
+      const summary = tracker ? tracker.summary() : '';
+      console.log('TAKE summary', take.clipId, take.events.length, 'hits', summary);
+      if (!tracker || !currentClip) return;
+      void reviewTake({ clip: currentClip, tracker, take, base }).then(({ line, source }) => {
+        console.log('DIRECTOR review', source, line);
+        a.say(line, source === 'model' ? 'the Director' : 'the Director, offline', 10);
+        void speak(line, base);
+        for (const cb of takeEndListeners) cb(take, summary, line);
+      });
     },
   });
 });
-const takeEndListeners: ((take: Take, summary: string, line: string) => void)[] = [];
 
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
+  if (automationRun()) {
+    // the emulator's headless browser renders in software: draw small and skip shadows so hand motion is sampled often enough to test
+    world.renderer.xr.setFramebufferScaleFactor(0.25);
+    world.renderer.setPixelRatio(1);
+    world.renderer.shadowMap.enabled = false;
+    console.log('RENDER low-fidelity (automation run)');
+  }
   world.registerSystem(FoleySystem);
   console.log('COCONUTS world ready', { xr: world.xrEnabled });
   world.visibilityState.subscribe((v) => {
@@ -82,6 +105,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
       const a = await ready;
       const [url, meta] = await Promise.all([clipUrl(id), clipMeta(id)]);
       console.log('CUES', id, meta?.cues.length ?? 0);
+      currentClip = meta;
       await a.loadClip(id, url, meta?.cues ?? [], `${base}films/${id}.jpg`);
       return meta;
     },

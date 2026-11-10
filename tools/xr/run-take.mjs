@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Scripted emulator run of the judge path, through the IWSDK CLI.
 // Requires: `npx iwsdk dev up --ai-mode agent --allow-browser-automation` (with LD_LIBRARY_PATH for libasound on this box).
-// Usage: node tools/xr/run-take.mjs [--until start|hits|replay] [--shots qa/take] [--glasses]
+// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses]
+// --until review waits for the Director's review line after the take; --state says where it must come from
+// (offline: the rules, as on the dev server with no /api; online: the model).
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -14,6 +16,7 @@ const opt = (name, def) => {
   return v && !v.startsWith('--') ? v : true;
 };
 const until = opt('until', 'start');
+const state = opt('state', null);
 const shots = opt('shots', null);
 const glasses = !!opt('glasses', false);
 if (shots) mkdirSync(shots, { recursive: true });
@@ -67,9 +70,13 @@ function centerOf(t) {
   return c;
 }
 
+const GRABBABLE = ['coconuts', 'thunder', 'whistle', 'glass'];
+/** The named target a prop answers to: grabbable props expose their invisible hit box. */
+const targetName = (prop) => (GRABBABLE.includes(prop) ? `hit-${prop}` : prop === 'clapper' ? 'clapper' : `prop-${prop}`);
+
 async function pinchAt(name, lift = 0.03) {
   const list = targets();
-  const t = list.find((x) => (x.name ?? x.id ?? '').includes(name));
+  const t = list.find((x) => (x.name ?? x.id ?? '') === name);
   if (!t) throw new Error(`target ${name} not found; have: ${list.map((x) => x.name ?? x.id).join(', ')}`);
   const c = centerOf(t);
   const target = { x: c.x, y: c.y + lift, z: c.z };
@@ -102,6 +109,14 @@ async function waitReady(maxMs = 120000) {
 
 async function main() {
   await waitReady();
+  // start from a fresh page, so no earlier take is still rolling
+  try {
+    iw(['browser', 'reload']);
+    await sleep(4000);
+    await waitReady();
+  } catch (e) {
+    log('reload skipped:', String(e.message).split('\n')[0]);
+  }
   const status = iw(['xr', 'status']);
   const active = status?.data?.result?.sessionActive ?? status?.data?.sessionActive ?? status?.sessionActive;
   if (!active) {
@@ -118,21 +133,23 @@ async function main() {
   log('stage:', logs('^STAGE ').slice(-2).join(' | '));
   log('film:', logs('^FILM ').slice(-2).join(' | '));
   shot('00-stage');
+  const startedBefore = logs('^TAKE start').length;
   await pinchAt('clapper');
   await sleep(1200);
   shot('01-rolling');
-  const started = logs('^TAKE start');
+  const started = logs('^TAKE start').slice(startedBefore);
   log('take:', started.join(' | '));
   if (!started.length) {
     console.error('FAIL: no TAKE start log');
     process.exit(1);
   }
   if (until === 'start') return log('PASS start');
+  const hitsBefore = logs('^HIT ').length;
   for (const p of ['coconuts', 'door', 'bell', 'whistle']) {
-    await pinchAt(`prop-${p}`);
+    await pinchAt(targetName(p));
   }
   shot('02-hits');
-  const hits = logs('^HIT ');
+  const hits = logs('^HIT ').slice(hitsBefore);
   log('hits:', hits.join(' | '));
   if (hits.length < 4) {
     console.error('FAIL: expected 4 HIT logs');
@@ -140,15 +157,39 @@ async function main() {
   }
   if (until === 'hits') return log('PASS hits');
   const dur = clipDuration();
+  const endedBefore = logs('^TAKE end').length;
+  const reviewBefore = logs('^DIRECTOR review').length;
   log(`waiting for the clip to end (${dur.toFixed(0)} s)`);
   await sleep(Math.min(200, dur + 4) * 1000);
   shot('03-end');
-  const ended = logs('^TAKE end');
+  const ended = logs('^TAKE end').slice(endedBefore);
   log('end:', ended.join(' | '));
   const replay = logs('^REPLAY ');
   log('replay:', replay.join(' | '));
-  log(ended.length ? 'PASS replay' : 'FAIL: no TAKE end');
-  if (!ended.length) process.exit(1);
+  if (!ended.length) {
+    console.error('FAIL: no TAKE end');
+    process.exit(1);
+  }
+  if (until !== 'review') return log('PASS replay');
+  // the Director's review: within 2.5 s of the take's end, from the model or the rules
+  let review = [];
+  for (let i = 0; i < 8 && !review.length; i++) {
+    await sleep(500);
+    review = logs('^DIRECTOR review').slice(reviewBefore);
+  }
+  shot('04-review');
+  log('director:', logs('^DIRECTOR').join(' | '));
+  if (!review.length) {
+    console.error('FAIL: no DIRECTOR review log');
+    process.exit(1);
+  }
+  const source = review[review.length - 1].split(' ')[2];
+  const want = state === 'offline' ? 'rules' : state === 'online' ? 'model' : null;
+  if (want && source !== want) {
+    console.error(`FAIL: review came from ${source}, expected ${want}`);
+    process.exit(1);
+  }
+  log('PASS review', source);
 }
 
 main().catch((e) => {

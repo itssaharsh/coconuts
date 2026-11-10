@@ -1,6 +1,6 @@
 // FoleySystem: places the stage, loads the clip, turns pinches, pokes and hand motion on props into hits,
 // records the take, replays it against the film, and runs the tiles and the Director's bubbles.
-import { Grabbed, Hovered, OneHandGrabbable, PokeInteractable, Pressed, RayInteractable, VisibilityState, createSystem, type Entity } from '@iwsdk/core';
+import { Hovered, PokeInteractable, Pressed, RayInteractable, VisibilityState, createSystem, type Entity } from '@iwsdk/core';
 import { Object3D, Quaternion, Vector3 } from 'three';
 import { Bubble } from './bubble';
 import { CueTracker, type Cue } from './cues';
@@ -60,24 +60,33 @@ const ONE_SHOT: Record<PropId, HitEvent['kind']> = {
 const GRABBABLE: PropId[] = ['coconuts', 'thunder', 'whistle', 'glass'];
 const POKEABLE: PropId[] = ['door', 'bell'];
 const SLAM_HOLD_MS = 350;
+/** A pinch that starts this close to a prop picks it up; a pinch from further away fires its one-shot. */
+const NEAR_GRAB_M = 0.18;
+
+type Hand = 'left' | 'right';
+const HANDS: Hand[] = ['right', 'left'];
 const VOLUME_STEPS = [1, 0.6, 0.25, 0];
 
 export class FoleySystem extends createSystem({
   pressed: { required: [RayInteractable, Pressed] },
   hovered: { required: [RayInteractable, Hovered] },
-  grabbed: { required: [Grabbed] },
 }) {
   private stage = new Stage();
   private rootEntity!: Entity;
   private entityPiece = new Map<Entity, string>();
   private pieceEntity = new Map<string, Entity>();
   private placed = false;
-  private placeFrames = 0;
+  /** Seconds the head has had a real pose since entering XR; the stage waits for tracking to settle. */
+  private placeTimer = 0;
   private lastHovered = new Set<string>();
   private lastPressed = new Set<string>();
   private pressStarted = new Map<string, number>();
-  private lastGrabbed = new Set<string>();
-  private grabStartedAt = new Map<string, number>();
+  /** Props currently held: which hand holds them and where the hand was when it closed. */
+  private held = new Map<string, { hand: Hand; offset: Vector3; startedAt: number }>();
+  /** What each hand's pinch is holding; the pinch opening lets it go, whatever the ray does. */
+  private pinchHeld: Record<Hand, PropId | null> = { left: null, right: null };
+  /** The invisible hit boxes of the grabbable props: what a near pinch has to be close to. */
+  private hitBoxes = new Map<PropId, Object3D>();
   private api!: FoleyApi;
   private clipId: string | null = null;
   private mode: Mode = 'idle';
@@ -118,10 +127,10 @@ export class FoleySystem extends createSystem({
       this.pieceEntity.set(piece.id, e);
       const id = piece.id as PropId;
       if (GRABBABLE.includes(id)) {
-        // the prop itself is grabbed by a near pinch; its invisible hit box is a separate entity the far ray can press
-        e.addComponent(OneHandGrabbable, { translate: true, rotate: true });
-        const hit = piece.root.getObjectByName('hit');
+        // the invisible hit box is what the pinch lands on; a near pinch holds the prop, a far pinch fires its one-shot
+        const hit = piece.root.getObjectByName(`hit-${id}`);
         if (hit) {
+          this.hitBoxes.set(id, hit);
           const h = this.world.createTransformEntity(hit, { parent: e, persistent: true });
           h.addComponent(RayInteractable);
           this.entityPiece.set(h, piece.id);
@@ -150,7 +159,7 @@ export class FoleySystem extends createSystem({
         // entering or leaving XR: place the stage again for the new viewpoint
         if (v !== lastVis && (v === VisibilityState.NonImmersive || lastVis === VisibilityState.NonImmersive)) {
           this.placed = false;
-          this.placeFrames = 0;
+          this.placeTimer = 0;
         }
         lastVis = v;
       }),
@@ -282,17 +291,109 @@ export class FoleySystem extends createSystem({
       return;
     }
     const prop = id as PropId;
-    const propEntity = this.pieceEntity.get(prop);
-    if (propEntity?.hasComponent(Grabbed)) return; // a near pinch that grabs the prop is not a one-shot
-    const started = this.grabStartedAt.get(prop);
-    if (started !== undefined && performance.now() - started < 200) return;
-    if (entity.hasComponent(Grabbed)) return;
     void sound.ensureAudio();
+    if (GRABBABLE.includes(prop)) {
+      if (this.held.has(prop)) return; // the pinch already picked it up this frame
+      // a ray press from a hand right beside the prop is a grab, not a far pinch
+      for (const hand of HANDS) {
+        if (this.pinchHeld[hand] === null && this.distanceToProp(hand, prop) < NEAR_GRAB_M) {
+          this.pinchHeld[hand] = prop;
+          this.beginHold(prop, hand);
+          return;
+        }
+      }
+    }
     if (prop === 'door') return; // the door fires on release: a short press knocks, a held press slams
     this.hit({ t: this.stage.screen.currentTime, prop, kind: ONE_SHOT[prop], v: 1, hand: 'right' });
   }
 
+  /** How far a hand's pinch point is from a grabbable prop's hit box. */
+  private distanceToProp(hand: Hand, prop: PropId): number {
+    const box = this.hitBoxes.get(prop);
+    const target = box ? box.getWorldPosition(tmpU) : this.stage.worldOf(prop, tmpU);
+    return this.pinchPoint(hand, tmpP).distanceTo(target);
+  }
+
+  /** The grabbable prop within reach of a hand's pinch, if any. */
+  private nearestGrabbable(hand: Hand): PropId | null {
+    let best: PropId | null = null;
+    let bestD = NEAR_GRAB_M;
+    for (const prop of GRABBABLE) {
+      if (this.held.has(prop)) continue;
+      const d = this.distanceToProp(hand, prop);
+      if (d < bestD) {
+        bestD = d;
+        best = prop;
+      }
+    }
+    return best;
+  }
+
+  /** Pinches drive the holds directly: closing near a prop picks it up, opening lets it go. */
+  private trackPinches(): void {
+    for (const hand of HANDS) {
+      const s = this.input.xr.getSelectState(hand);
+      if (s.start && this.pinchHeld[hand] === null) {
+        const prop = this.nearestGrabbable(hand);
+        if (prop) {
+          void sound.ensureAudio();
+          this.pinchHeld[hand] = prop;
+          this.beginHold(prop, hand);
+        }
+      }
+      const holding = this.pinchHeld[hand];
+      if (holding && (s.end || (!s.active && !s.start))) {
+        this.pinchHeld[hand] = null;
+        this.endHold(holding);
+      }
+    }
+  }
+
+  private pinchPoint(hand: Hand, out: Vector3): Vector3 {
+    const tip: Object3D | undefined = this.player.indexTipSpaces[hand];
+    const grip: Object3D | undefined = this.player.gripSpaces[hand];
+    if (tip) return tip.getWorldPosition(out);
+    if (grip) return grip.getWorldPosition(out);
+    return out.set(0, 0, 0);
+  }
+
+  private beginHold(prop: PropId, hand: Hand): void {
+    const piece = this.stage.pieces.get(prop);
+    if (!piece) return;
+    this.pinchPoint(hand, tmpP);
+    const offset = piece.root.getWorldPosition(new Vector3()).sub(tmpP);
+    if (offset.length() > 0.12) offset.setLength(0.03);
+    this.held.set(prop, { hand, offset, startedAt: performance.now() });
+    this.returning.delete(prop);
+    this.strike.reset();
+    this.shake.reset();
+    this.slide.reset();
+    this.lastY.delete(prop);
+    console.log('GRAB', prop, hand);
+  }
+
+  private endHold(prop: PropId): void {
+    const h = this.held.get(prop);
+    if (!h) return;
+    this.held.delete(prop);
+    console.log('RELEASE', prop);
+    if (prop === 'thunder') sound.rumbleStop();
+    if (prop === 'whistle') sound.whistleStop();
+    if (prop === 'glass') {
+      const piece = this.stage.pieces.get('glass');
+      if (piece) {
+        const tableTop = this.stage.table.getWorldPosition(tmpU).y + TABLE_H;
+        const hgt = piece.root.getWorldPosition(tmpP).y - tableTop;
+        const vy = this.lastVy.get('glass') ?? 0;
+        if (isDrop(hgt, -vy)) this.hit({ t: this.stage.screen.currentTime, prop: 'glass', kind: 'crash', v: Math.min(1, 0.5 + hgt * 2) });
+      }
+    }
+    this.lastY.delete(prop);
+    this.returning.set(prop, 0);
+  }
+
   private onPressEnd(id: string, heldMs: number): void {
+    if (this.held.has(id)) return; // a held prop is let go by the pinch opening, not by the ray drifting off
     if (id !== 'door') return;
     const slam = heldMs >= SLAM_HOLD_MS;
     this.stage.swingDoor(slam ? 1 : 0.35);
@@ -331,26 +432,16 @@ export class FoleySystem extends createSystem({
     this.lastPressed = now;
   }
 
-  /** Hand motion on held props: coconuts strike, thunder shakes, whistle slides, glass drops. */
-  private trackGrabbed(now: number): void {
-    const current = new Set<string>();
-    for (const e of this.queries.grabbed.entities) {
-      const id = this.entityPiece.get(e);
-      if (!id) continue;
-      current.add(id);
+  /** Held props follow the pinching hand; their motion makes the sound: coconuts strike, thunder shakes, whistle slides. */
+  private trackHeld(now: number, dt: number): void {
+    for (const [id, h] of this.held) {
       const piece = this.stage.pieces.get(id);
       if (!piece) continue;
-      const pos = piece.root.getWorldPosition(tmpP);
+      this.pinchPoint(h.hand, tmpP).add(h.offset);
+      piece.root.parent?.worldToLocal(tmpP);
+      piece.root.position.copy(tmpP);
+      const pos = piece.root.getWorldPosition(tmpF);
       const sample = { t: now, x: pos.x, y: pos.y, z: pos.z };
-      if (!this.lastGrabbed.has(id)) {
-        this.grabStartedAt.set(id, performance.now());
-        this.strike.reset();
-        this.shake.reset();
-        this.slide.reset();
-        this.returning.delete(id);
-        void sound.ensureAudio();
-        console.log('GRAB', id);
-      }
       switch (id) {
         case 'coconuts': {
           const v = this.strike.feed(sample);
@@ -364,12 +455,14 @@ export class FoleySystem extends createSystem({
           const level = this.shake.feed(sample);
           sound.rumbleSet(level);
           this.stage.flash('thunder', level * 0.8);
-          if (level > 0.35 && this.recorder.open && now - (this.lastRumbleMark ?? -1) > 0.5) {
+          if (level > 0.35 && now - (this.lastRumbleMark ?? -1) > 0.5) {
             this.lastRumbleMark = now;
             const ev: HitEvent = { t: this.stage.screen.currentTime, prop: 'thunder', kind: 'rumble', v: level };
-            this.recorder.add(ev);
-            const landed = this.tracker?.register(ev);
-            if (landed) console.log('CUE hit', landed.cue.label);
+            if (this.recorder.open) {
+              this.recorder.add(ev);
+              const landed = this.tracker?.register(ev);
+              if (landed) console.log('CUE hit', landed.cue.label);
+            }
             console.log('HIT thunder rumble', ev.t.toFixed(2), level.toFixed(2));
           }
           break;
@@ -378,39 +471,23 @@ export class FoleySystem extends createSystem({
           const pitch = this.slide.feed(pos.y);
           sound.whistleSet(pitch);
           this.stage.setWhistleSlide(pitch);
-          if (this.recorder.open && now - (this.lastWhistleMark ?? -1) > 0.4) {
+          if (now - (this.lastWhistleMark ?? -1) > 0.4) {
             this.lastWhistleMark = now;
             const ev: HitEvent = { t: this.stage.screen.currentTime, prop: 'whistle', kind: 'whistle', v: pitch };
-            this.recorder.add(ev);
-            const landed = this.tracker?.register(ev);
-            if (landed) console.log('CUE hit', landed.cue.label);
+            if (this.recorder.open) {
+              this.recorder.add(ev);
+              const landed = this.tracker?.register(ev);
+              if (landed) console.log('CUE hit', landed.cue.label);
+            }
             console.log('HIT whistle slide', ev.t.toFixed(2), pitch.toFixed(2));
           }
           break;
         }
       }
       const prevY = this.lastY.get(id);
-      this.lastVy.set(id, prevY === undefined ? 0 : (sample.y - prevY) * 72);
+      this.lastVy.set(id, prevY === undefined || dt <= 0 ? 0 : (sample.y - prevY) / dt);
       this.lastY.set(id, sample.y);
     }
-    for (const id of this.lastGrabbed) {
-      if (current.has(id)) continue;
-      console.log('RELEASE', id);
-      if (id === 'thunder') sound.rumbleStop();
-      if (id === 'whistle') sound.whistleStop();
-      if (id === 'glass') {
-        const piece = this.stage.pieces.get('glass');
-        if (piece) {
-          const tableTop = this.stage.table.getWorldPosition(tmpU).y + TABLE_H;
-          const h = piece.root.getWorldPosition(tmpP).y - tableTop;
-          const vy = this.lastVy.get('glass') ?? 0;
-          if (isDrop(h, -vy)) this.hit({ t: this.stage.screen.currentTime, prop: 'glass', kind: 'crash', v: Math.min(1, 0.5 + h * 2) });
-        }
-      }
-      this.lastY.delete(id);
-      this.returning.set(id, 0);
-    }
-    this.lastGrabbed = current;
   }
 
   private easeHome(dt: number): void {
@@ -426,7 +503,7 @@ export class FoleySystem extends createSystem({
     }
   }
 
-  private placeStage(): void {
+  private placeStage(dt: number): void {
     const inXR = this.world.visibilityState.value !== VisibilityState.NonImmersive;
     if (!inXR) {
       // in a 2D browser the stage sits where a seated player's eyes would be; the page camera frames it from the side
@@ -442,7 +519,8 @@ export class FoleySystem extends createSystem({
     src.updateWorldMatrix(true, false);
     src.getWorldPosition(tmpP);
     if (tmpP.y < 0.3) return; // no real pose yet
-    if (this.placeFrames++ < 10) return; // let the tracked pose settle for a few frames
+    this.placeTimer += dt;
+    if (this.placeTimer < 0.75) return; // let the tracked pose settle
     tmpF.set(0, 0, -1).applyQuaternion(src.getWorldQuaternion(tmpQ));
     this.stage.placeFrom(tmpP, tmpF);
     this.placed = true;
@@ -451,7 +529,7 @@ export class FoleySystem extends createSystem({
 
   reposition(): void {
     this.placed = false;
-    this.placeFrames = 0;
+    this.placeTimer = 0;
   }
 
   /** The landing's camera: wide screens see the stage from the right so it sits beside the copy; phones see it head-on. */
@@ -488,7 +566,7 @@ export class FoleySystem extends createSystem({
   }
 
   update(dt: number, time: number): void {
-    if (!this.placed) this.placeStage();
+    if (!this.placed) this.placeStage(dt);
     const inXR = this.world.visibilityState.value !== VisibilityState.NonImmersive;
     if (!inXR && window.innerWidth !== this.lastW) {
       this.lastW = window.innerWidth;
@@ -502,8 +580,9 @@ export class FoleySystem extends createSystem({
     for (const id of this.lastHovered) if (!now.has(id)) this.stage.setHovered(id, false);
     for (const id of now) if (!this.lastHovered.has(id)) this.stage.setHovered(id, true);
     this.lastHovered = now;
+    this.trackPinches();
     this.trackPressed();
-    this.trackGrabbed(time);
+    this.trackHeld(time, dt);
     this.easeHome(dt);
     if (this.mode === 'replay' && this.replayer) this.replayer.tick(this.stage.screen.currentTime);
     this.lane.update(this.stage.screen.currentTime);

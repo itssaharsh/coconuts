@@ -72,16 +72,26 @@ describe('composeDirector against the fixtures', () => {
         return fx.reply!;
       });
       const timeoutMs = fx.timeoutMs ?? 2200;
-      const t0 = Date.now();
-      const out = await composeDirector(input, call, timeoutMs);
-      const took = Date.now() - t0;
-      expect(call).toHaveBeenCalledTimes(1);
-      expect(out.source).toBe(fx.expect.source);
-      expect(out.line).toBe(fx.expect.line);
-      if (fx.expect.model) expect(out.model).toBe(fx.expect.model);
-      if (out.source === 'rules') expect(out.line).toBe(ruleLine(input));
-      expect(took).toBeLessThanOrEqual(timeoutMs + 100);
-      if (fx.hang) expect(took).toBeGreaterThanOrEqual(timeoutMs - 20);
+      // fake timers: the timeout path is measured on a virtual clock, so a loaded machine cannot skew it
+      vi.useFakeTimers();
+      try {
+        const t0 = Date.now();
+        const pending = composeDirector(input, call, timeoutMs);
+        await vi.advanceTimersByTimeAsync(timeoutMs - 10);
+        if (fx.hang) expect(Date.now() - t0).toBe(timeoutMs - 10);
+        await vi.advanceTimersByTimeAsync(20);
+        const out = await pending;
+        const took = Date.now() - t0;
+        expect(call).toHaveBeenCalledTimes(1);
+        expect(out.source).toBe(fx.expect.source);
+        expect(out.line).toBe(fx.expect.line);
+        if (fx.expect.model) expect(out.model).toBe(fx.expect.model);
+        if (out.source === 'rules') expect(out.line).toBe(ruleLine(input));
+        expect(took).toBeLessThanOrEqual(timeoutMs + 10);
+        if (fx.hang) expect(took).toBeGreaterThanOrEqual(timeoutMs);
+      } finally {
+        vi.useRealTimers();
+      }
     }, 5000);
   }
 

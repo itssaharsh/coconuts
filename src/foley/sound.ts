@@ -1,4 +1,5 @@
 // Every effect is synthesized here with Web Audio: no samples, no licences, and it plays offline.
+import { automationRun } from './env';
 import type { HitEvent, PropId } from './types';
 
 type Vec3Like = { x: number; y: number; z: number };
@@ -16,7 +17,7 @@ export function audioContext(): AudioContext | null {
 
 /** Automation runs (the emulator driven by scripts) have no ears; the audio graph stays off so nothing can crash. */
 export function audioSilenced(): boolean {
-  if (typeof navigator !== 'undefined' && navigator.webdriver) return true;
+  if (automationRun()) return true;
   return typeof location !== 'undefined' && new URLSearchParams(location.search).has('silent');
 }
 

@@ -25,8 +25,16 @@
       "near": 0.01,
       "far": 50,
       "camera": {
-        "position": [-0.55, 1.62, 1.35],
-        "lookAt": [0.08, 1.02, -0.9]
+        "position": [
+          -0.55,
+          1.62,
+          1.35
+        ],
+        "lookAt": [
+          0.08,
+          1.02,
+          -0.9
+        ]
       }
     },
     "features": {
@@ -43,8 +51,7 @@
   },
   "dev": {
     "emulator": {
-      "device": "metaQuest3",
-      "environment": "sunlit_living_room"
+      "device": "metaQuest3"
     }
   }
 }
