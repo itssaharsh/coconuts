@@ -1,5 +1,5 @@
 {
-  "name": "pointlings",
+  "name": "coconuts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -35,5 +35,5 @@
   "engines": {
     "node": ">=20.19.0 <21.0.0-0 || >=22.12.0 <23.0.0-0 || >=24.0.0"
   },
-  "description": "Pointlings: point at it, they will do the rest. A hands-first mixed-reality tabletop puzzle for Meta Quest and Meta VR Glasses (WebXR, IWSDK)."
+  "description": "Coconuts: be the sound of a silent movie. A hands-first mixed-reality foley table for Meta Quest and Meta VR Glasses (WebXR, IWSDK)."
 }

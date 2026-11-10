@@ -13,7 +13,7 @@
     "toneMapping": "aces",
     "exposure": 1,
     "shadows": true,
-    "shadowMapType": "pcfSoft"
+    "shadowMapType": "pcf"
   },
   "resources": {},
   "nodes": []

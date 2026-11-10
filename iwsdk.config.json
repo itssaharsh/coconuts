@@ -11,7 +11,7 @@
   "world": {
     "xr": {
       "mode": "ar",
-      "offer": "none",
+      "offer": "always",
       "features": {
         "handTracking": true,
         "gazeTracking": true
@@ -21,12 +21,12 @@
       "canvasPointerEvents": true
     },
     "render": {
-      "fov": 28,
+      "fov": 42,
       "near": 0.01,
       "far": 50,
       "camera": {
-        "position": [0.1, 1.42, 0.35],
-        "lookAt": [0.02, 0.9, -0.85]
+        "position": [0, 1.38, 0.15],
+        "lookAt": [0, 1.04, -0.9]
       }
     },
     "features": {

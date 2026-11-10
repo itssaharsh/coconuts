@@ -10,7 +10,26 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [iwsdkDev()],
-  server: { host: '0.0.0.0', port: 8081, open: false },
+  server: {
+    host: '0.0.0.0',
+    port: 8081,
+    open: false,
+    // films and cue sheets are written by tools while the dev runtime runs; a full reload would drop an XR session
+    watch: {
+      ignored: [
+        '**/public/films/**',
+        '**/public/clips/**',
+        '**/public/models/**',
+        '**/qa/**',
+        '**/assets-src/**',
+        '**/design/**',
+        '**/tools/**',
+        '**/docs/**',
+        '**/.prod-build/**',
+        '**/hackathon-idea/**',
+      ],
+    },
+  },
   build: {
     outDir: 'dist',
     sourcemap: process.env.NODE_ENV !== 'production',

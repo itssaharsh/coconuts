@@ -91,3 +91,7 @@ pids/
 # design studies and local agent tooling stay out of the judged repository
 design/
 .claude/
+
+# synthetic test reels
+public/films/test.*
+qa/
