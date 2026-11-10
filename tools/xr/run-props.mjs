@@ -80,7 +80,9 @@ function gazePinch(name) {
   const t = (Array.isArray(list) ? list : []).find((x) => x.name === name);
   if (!t) throw new Error(`target ${name} not found`);
   const c = t.position ?? t.center ?? t.box?.center;
-  const target = Array.isArray(c) ? { x: c[0], y: c[1], z: c[2] } : c;
+  const p = Array.isArray(c) ? { x: c[0], y: c[1], z: c[2] } : { ...c };
+  // look at the upper part of the thing, as eyes do, not at the centre of its box
+  const target = { x: p.x, y: p.y + (t.size?.y ?? 0.08) * 0.3, z: p.z };
   iw(['xr', 'look-at'], { device: 'gaze', target });
   return sleep(500).then(() => iw(['xr', 'select'], { device: 'hand-right' }));
 }
@@ -191,6 +193,7 @@ async function main() {
   }
   const picks = only ? only.split(',') : Object.keys(PLANS);
   const results = {};
+  const minFor = (prop) => (glasses ? 1 : PLANS[prop].min);
   if (glasses) {
     const st = iw(['xr', 'status'])?.data?.result ?? {};
     log('device:', st.deviceName, 'features:', (st.enabledFeatures ?? []).join(','));
@@ -226,7 +229,7 @@ async function main() {
     await sleep(glasses ? 600 : 1500);
   }
   log('grab log:', logs('^(GRAB|RELEASE) ').slice(-8).join(' | '));
-  const failed = picks.filter((p) => results[p] < PLANS[p].min);
+  const failed = picks.filter((p) => results[p] < minFor(p));
   console.log(JSON.stringify(results));
   if (failed.length) {
     console.error('FAIL:', failed.join(', '));

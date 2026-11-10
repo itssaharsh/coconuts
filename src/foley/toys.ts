@@ -232,7 +232,7 @@ export function buildProp(id: PropId): Group {
       g.add(slide);
       g.add(ring(0.045));
       g.add(lampPool(0.16));
-      g.add(hitBox(0.2, 0.08, 0.1));
+      g.add(hitBox(0.16, 0.08, 0.08));
       break;
     }
     case 'glass': {

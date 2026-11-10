@@ -73,7 +73,18 @@ export class Stage {
 
   /** Swap the primitives for the Blender models as they load; the stage works before them and without them. */
   private async dressAll(): Promise<void> {
-    const jobs: Promise<unknown>[] = [dress(this.table, 'table')];
+    const jobs: Promise<unknown>[] = [
+      dress(this.table, 'table').then((model) => {
+        // the painted spots on the table top move under the props (Spot1-3 back row, Spot4-6 front row)
+        if (!model) return;
+        const order = ['door', 'thunder', 'glass', 'coconuts', 'bell', 'whistle'];
+        order.forEach((id, i) => {
+          const spec = PROPS.find((p) => p.id === id);
+          const spot = model.getObjectByName(`Spot${i + 1}`);
+          if (spec && spot) spot.position.set(spec.x, spot.position.y, spec.z);
+        });
+      }),
+    ];
     for (const spec of PROPS) {
       const piece = this.pieces.get(spec.id);
       if (piece) jobs.push(dress(piece.root, spec.id));

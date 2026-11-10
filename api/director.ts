@@ -53,7 +53,16 @@ export async function POST(request: Request): Promise<Response> {
     }
     input = parseDirectorInput(body);
     if (!input) return json({ error: 'The take is not in the expected shape.' }, 400);
-    const out = await composeDirector(input, (prompt) => geminiJson(prompt, { timeoutMs: 2000, maxOutputTokens: 120 }), 2200);
+    const out = await composeDirector(
+      input,
+      (prompt) =>
+        geminiJson(prompt, { timeoutMs: 2000, maxOutputTokens: 160 }).then((r) => {
+          console.log('director model', r.model, JSON.stringify(r.text).slice(0, 200));
+          return r;
+        }),
+      2200,
+    );
+    if (out.source === 'rules') console.log('director fell back to the rules');
     return json({ line: out.line, source: out.source, model: out.model ?? null });
   } catch {
     if (input) return json({ line: ruleLine(input), source: 'rules', model: null });

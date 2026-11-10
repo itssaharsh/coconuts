@@ -5,7 +5,9 @@ export interface GeminiText {
   model: string;
 }
 
-const MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'];
+// 2.5 Flash answers the short JSON ask in about a second and keeps to it; 3 Flash spends the small output budget
+// thinking and comes back with a cut-off preamble, so it is the fallback, not the first call.
+const MODELS = ['gemini-2.5-flash', 'gemini-3-flash-preview'];
 
 export async function geminiJson(prompt: string, opts: { timeoutMs?: number; maxOutputTokens?: number } = {}): Promise<GeminiText> {
   const key = process.env.GEMINI_API_KEY;
@@ -24,7 +26,7 @@ export async function geminiJson(prompt: string, opts: { timeoutMs?: number; max
           generationConfig: {
             responseMimeType: 'application/json',
             maxOutputTokens: opts.maxOutputTokens ?? 200,
-            temperature: 0.9,
+            temperature: 0.8,
             thinkingConfig: model.startsWith('gemini-2.5') ? { thinkingBudget: 0 } : { thinkingLevel: 'low' },
           },
         }),

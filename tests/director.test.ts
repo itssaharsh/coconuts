@@ -178,7 +178,7 @@ describe('validateLine', () => {
 describe('buildPrompt and parseLine', () => {
   it('states the facts and the brief', () => {
     const p = buildPrompt(input);
-    expect(p).toContain('ONE sentence of at most 18 words');
+    expect(p).toContain('exactly one sentence of at most 18 words');
     expect(p).toContain('Cues hit: 2 of 4.');
     expect(p).toContain('“horse trots in”');
     expect(p).toContain('“falls off roof”');
