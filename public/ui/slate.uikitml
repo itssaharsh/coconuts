@@ -1,0 +1,66 @@
+<!-- The slate: the order you are giving, as three slots (WHO · WHAT · WHERE). Sizes are centimetres. -->
+<style>
+  .slate {
+    flex-direction: column;
+    width: 22;
+    padding-top: 1;
+    padding-bottom: 1;
+    padding-left: 1.2;
+    padding-right: 1.2;
+    gap: 0.6;
+    background-color: #f4e8d2;
+    border-radius: 1.2;
+    border-width: 0.12;
+    border-color: #c9b08a;
+  }
+  .row {
+    flex-direction: row;
+    gap: 0.8;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .slot {
+    width: 6;
+    height: 3.2;
+    border-radius: 0.8;
+    background-color: #ead9b9;
+    border-width: 0.1;
+    border-color: #c9b08a;
+    align-items: center;
+    justify-content: center;
+  }
+  .slot-filled {
+    background-color: #ffffff;
+    border-color: #4ea8de;
+  }
+  .label {
+    color: #6b5a44;
+    font-size: 0.9;
+    font-weight: 700;
+    text-align: center;
+  }
+  .value {
+    color: #2b2320;
+    font-size: 1.2;
+    font-weight: 700;
+    text-align: center;
+  }
+  .line {
+    color: #2b2320;
+    font-size: 1.1;
+    text-align: center;
+  }
+</style>
+<div class="slate">
+  <div class="row">
+    <div id="slot-who" class="slot"><span id="who" class="value">who</span></div>
+    <div id="slot-what" class="slot"><span id="what" class="value">what</span></div>
+    <div id="slot-where" class="slot"><span id="where" class="value">where</span></div>
+  </div>
+  <div class="row">
+    <span class="label">WHO</span>
+    <span class="label">WHAT</span>
+    <span class="label">WHERE</span>
+  </div>
+  <span id="status" class="line">Point at a helper.</span>
+</div>
