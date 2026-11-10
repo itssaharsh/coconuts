@@ -1,5 +1,5 @@
 // Probe: makes the cheapest real model call and answers {"ok":true} only when it succeeds.
-import { geminiJson } from './_lib/gemini';
+import { geminiJson } from './_lib/gemini.js';
 
 export default async function handler(_req: Request): Promise<Response> {
   try {
