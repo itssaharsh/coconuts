@@ -21,6 +21,9 @@ export function geminiKeys(): string[] {
 }
 
 const QUOTA = new Set([429, 403]);
+/** A key that hit its quota on a model is skipped for a while; the instance remembers across requests. */
+const spent = new Map<string, number>();
+const SPENT_MS = 5 * 60 * 1000;
 
 export async function geminiJson(prompt: string, opts: { timeoutMs?: number; maxOutputTokens?: number } = {}): Promise<GeminiText> {
   const keys = geminiKeys();
@@ -29,6 +32,8 @@ export async function geminiJson(prompt: string, opts: { timeoutMs?: number; max
   let lastErr: unknown = null;
   for (const model of MODELS) {
     for (const key of keys) {
+      const mark = `${model}:${key}`;
+      if ((spent.get(mark) ?? 0) > Date.now()) continue;
       const left = deadline - Date.now();
       if (left < 300) throw lastErr ?? new Error('no time left for a model');
       const ctl = new AbortController();
@@ -52,7 +57,10 @@ export async function geminiJson(prompt: string, opts: { timeoutMs?: number; max
         clearTimeout(timer);
         if (!res.ok) {
           lastErr = new Error(`${model}: HTTP ${res.status}`);
-          if (QUOTA.has(res.status)) continue; // this key is spent for this model: the next key, then the next model
+          if (QUOTA.has(res.status)) {
+            spent.set(mark, Date.now() + SPENT_MS); // this key is spent for this model: the next key, then the next model
+            continue;
+          }
           break; // another error on this model: try the next model with the first key
         }
         const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };

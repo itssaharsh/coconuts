@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // Scripted emulator run of the judge path, through the IWSDK CLI.
 // Requires: `npx iwsdk dev up --ai-mode agent --allow-browser-automation` (with LD_LIBRARY_PATH for libasound on this box).
-// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses] [--perf] [--keep]
+// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses] [--perf] [--keep] [--record qa/rec]
+// --record starts tools/xr/record-cdp.mjs (screencast + soundtrack when the sound flag is on) just before the clapper and stops it at the end.
 // --perf waits for the stage's PERF log once the models are in and fails above 100 draw calls.
 // --until review waits for the Director's review line after the take; --state says where it must come from
 // (offline: the rules, as on the dev server with no /api; online: the model).
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -21,6 +22,18 @@ const state = opt('state', null);
 const shots = opt('shots', null);
 const glasses = !!opt('glasses', false);
 const perf = !!opt('perf', false);
+const record = opt('record', null);
+let recorder = null;
+function stopRecorder() {
+  if (!recorder) return Promise.resolve();
+  const child = recorder;
+  recorder = null;
+  return new Promise((resolve) => {
+    child.on('exit', resolve);
+    child.kill('SIGTERM');
+    setTimeout(resolve, 15000);
+  });
+}
 if (shots) mkdirSync(shots, { recursive: true });
 
 const CLI = resolve('node_modules/@iwsdk/cli/dist/cli.js');
@@ -162,6 +175,10 @@ async function main() {
     }
   }
   shot('00-stage');
+  if (record) {
+    recorder = spawn(process.execPath, ['tools/xr/record-cdp.mjs'], { env: { ...process.env, REC_DIR: String(record), REC_SECONDS: '420' }, stdio: ['ignore', 'inherit', 'inherit'] });
+    await sleep(2500);
+  }
   const startedBefore = logs('^TAKE start').length;
   await pinchAt('clapper');
   await sleep(1200);
@@ -224,7 +241,10 @@ async function main() {
   log('PASS review', source);
 }
 
-main().catch((e) => {
-  console.error('FAIL', e.message);
-  process.exit(1);
-});
+main()
+  .then(() => stopRecorder())
+  .catch(async (e) => {
+    console.error('FAIL', e.message);
+    await stopRecorder();
+    process.exit(1);
+  });

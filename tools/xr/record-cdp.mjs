@@ -28,8 +28,10 @@ const pages = browser.contexts().flatMap((c) => c.pages());
 const page = pages.find((p) => p.url().includes(match));
 if (!page) throw new Error(`no page matching ${match}; have ${pages.map((p) => p.url()).join(', ')}`);
 const cdp = await page.context().newCDPSession(page);
+// the app runs inside the runtime's iframe; the top document is the dev shell
+const app = page.frames().find((f) => f.name() === 'workspace-runtime-frame') ?? page.mainFrame();
 
-const audioOn = await page.evaluate(async () => (await window.__coconuts?.start?.()) ?? false).catch(() => false);
+const audioOn = await app.evaluate(async () => (await window.__coconuts?.start?.()) ?? false).catch(() => false);
 const frames = [];
 let last = 0;
 const t0 = Date.now();
@@ -44,7 +46,7 @@ cdp.on('Page.screencastFrame', ({ data, metadata, sessionId }) => {
   cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => undefined);
 });
 await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 85, maxWidth: 1280, maxHeight: 1280, everyNthFrame: 1 });
-console.log(JSON.stringify({ recording: true, port, audio: audioOn, page: page.url() }));
+console.log(JSON.stringify({ recording: true, port, audio: audioOn, page: page.url(), app: app.url() }));
 
 let stopping = false;
 async function stop(reason) {
@@ -54,7 +56,7 @@ async function stop(reason) {
   writeFileSync(join(dir, 'frames.json'), JSON.stringify(frames));
   let audio = null;
   if (audioOn) {
-    const dataUrl = await page.evaluate(() => window.__coconuts?.stop?.() ?? '').catch(() => '');
+    const dataUrl = await app.evaluate(() => window.__coconuts?.stop?.() ?? '').catch(() => '');
     const b64 = dataUrl.split(',')[1] ?? '';
     if (b64) {
       writeFileSync(join(dir, 'take.webm'), Buffer.from(b64, 'base64'));
