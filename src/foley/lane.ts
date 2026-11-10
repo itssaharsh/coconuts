@@ -9,6 +9,7 @@ const LANE_W = 0.8;
 const SECONDS_ACROSS = 6; // seconds of film shown from the right edge to the now line
 const NOW_X = -LANE_W / 2 + 0.12; // the now line sits near the left end
 const ON_TOP = 20; // render order above the props and the bubbles
+const CARD_GEO = new PlaneGeometry(CARD_W, CARD_H); // shared by every card
 
 const COLORS = { paper: '#FFFDF8', ink: '#2B2320', muted: '#8A7A66', accent: '#3F8FD6', hit: '#E9F6EC', hitInk: '#256B42' };
 
@@ -100,6 +101,8 @@ function cardTexture(state: CueState, lit: boolean): CanvasTexture {
 export class Lane {
   readonly group = new Group();
   private cards = new Map<CueState, { mesh: Mesh; lit: boolean }>();
+  /** Each cue's two faces, drawn once and kept until the tracker changes. */
+  private faces = new Map<CueState, { unlit: CanvasTexture; lit: CanvasTexture | null }>();
   private tracker: CueTracker | null = null;
   private summaryMesh: Mesh | null = null;
 
@@ -118,21 +121,36 @@ export class Lane {
   }
 
   setTracker(tracker: CueTracker | null): void {
-    for (const c of this.cards.values()) {
-      this.group.remove(c.mesh);
-      (c.mesh.material as MeshBasicMaterial).map?.dispose();
-    }
+    for (const c of this.cards.values()) this.drop(c.mesh);
     this.cards.clear();
+    for (const f of this.faces.values()) {
+      f.unlit.dispose();
+      f.lit?.dispose();
+    }
+    this.faces.clear();
     this.tracker = tracker;
+  }
+
+  private drop(mesh: Mesh): void {
+    this.group.remove(mesh);
+    (mesh.material as MeshBasicMaterial).dispose(); // the textures live in `faces`
+  }
+
+  private face(state: CueState, lit: boolean): CanvasTexture {
+    let f = this.faces.get(state);
+    if (!f) {
+      f = { unlit: cardTexture(state, false), lit: null };
+      this.faces.set(state, f);
+    }
+    if (!lit) return f.unlit;
+    if (!f.lit) f.lit = cardTexture(state, true);
+    return f.lit;
   }
 
   private cardFor(state: CueState): { mesh: Mesh; lit: boolean } {
     let c = this.cards.get(state);
     if (!c) {
-      const mesh = new Mesh(
-        new PlaneGeometry(CARD_W, CARD_H),
-        new MeshBasicMaterial({ map: cardTexture(state, false), transparent: true, depthTest: false }),
-      );
+      const mesh = new Mesh(CARD_GEO, new MeshBasicMaterial({ map: this.face(state, false), transparent: true, depthTest: false }));
       mesh.name = `cue-${state.cue.t}`;
       mesh.renderOrder = ON_TOP + 2;
       this.group.add(mesh);
@@ -140,7 +158,7 @@ export class Lane {
       this.cards.set(state, c);
     }
     if (state.hit && !c.lit) {
-      (c.mesh.material as MeshBasicMaterial).map = cardTexture(state, true);
+      (c.mesh.material as MeshBasicMaterial).map = this.face(state, true);
       c.lit = true;
     }
     return c;
@@ -152,7 +170,7 @@ export class Lane {
     const visible = new Set(this.tracker.upcoming(filmTime, SECONDS_ACROSS + 1, 1.5));
     for (const [state, c] of this.cards) {
       if (!visible.has(state)) {
-        this.group.remove(c.mesh);
+        this.drop(c.mesh);
         this.cards.delete(state);
       }
     }

@@ -20,7 +20,7 @@
     {
       "t": 8.4,
       "prop": "door",
-      "label": "umbrella whacks Selenite",
+      "label": "umbrella whacks moon man",
       "window": [
         0.6,
         0.8
@@ -29,7 +29,7 @@
     {
       "t": 16.2,
       "prop": "bell",
-      "label": "another Selenite poofs",
+      "label": "another moon man poofs",
       "window": [
         0.6,
         0.8
@@ -38,7 +38,7 @@
     {
       "t": 21.0,
       "prop": "coconuts",
-      "label": "Selenites swarm in",
+      "label": "moon men swarm in",
       "window": [
         0.8,
         1.2
@@ -74,7 +74,7 @@
     {
       "t": 69.9,
       "prop": "bell",
-      "label": "Selenite vanishes",
+      "label": "moon man vanishes",
       "window": [
         0.6,
         0.8
@@ -83,7 +83,7 @@
     {
       "t": 75.0,
       "prop": "coconuts",
-      "label": "Selenite army charges",
+      "label": "moon men charge",
       "window": [
         0.8,
         1.5
@@ -92,7 +92,7 @@
     {
       "t": 84.8,
       "prop": "door",
-      "label": "last Selenite whacked",
+      "label": "last moon man whacked",
       "window": [
         0.6,
         0.8

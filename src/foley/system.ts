@@ -111,13 +111,17 @@ export class FoleySystem extends createSystem({
   private returning = new Map<string, number>();
   private lastW = 0;
   private perfLogged = false;
+  private waitLogged = false;
+  private boundSession: XRSession | null = null;
+  private hoverNext = new Set<string>();
+  private pressNext = new Set<string>();
 
   init(): void {
     this.lane.group.position.set(0, -(SCREEN_H / 2) - 0.105, 0.03); // just under the frame's footlights
     this.lane.group.rotation.x = -0.28;
     this.stage.screen.group.add(this.lane.group);
     // the Director's tag hangs beside the theatre's left pillar; the slate sits at the table's far edge
-    this.director.group.position.set(-0.62, 0.05, 0.02);
+    this.director.group.position.set(-0.5, 0.05, 0.02); // inside the glasses' view with room for its width
     this.stage.screen.group.add(this.director.group);
     this.slate.group.position.set(0.0, TABLE_H + 0.02, -0.14);
     this.stage.table.add(this.slate.group);
@@ -162,12 +166,34 @@ export class FoleySystem extends createSystem({
         if (v !== lastVis && (v === VisibilityState.NonImmersive || lastVis === VisibilityState.NonImmersive)) {
           this.placed = false;
           this.placeTimer = 0;
+          this.waitLogged = false;
         }
+        if (v !== VisibilityState.NonImmersive && lastVis === VisibilityState.NonImmersive) this.onSessionStart();
         lastVis = v;
       }),
     );
     console.log('STAGE ready');
     hooks.onReady(this.api);
+  }
+
+  /** Entering XR: the audio graph may start now, the display wants 72 Hz, and a recenter moves the room's origin. */
+  private onSessionStart(): void {
+    const session = this.world.session;
+    if (!session || session === this.boundSession) return;
+    this.boundSession = session;
+    void sound.ensureAudio();
+    const s = session as unknown as { updateTargetFrameRate?: (rate: number) => Promise<void> };
+    try {
+      s.updateTargetFrameRate?.(72)?.catch(() => undefined);
+    } catch {
+      // the runtime decides
+    }
+    try {
+      this.world.renderer.xr.setFoveation(1);
+    } catch {
+      // not every runtime supports it
+    }
+    this.world.renderer.xr.getReferenceSpace()?.addEventListener('reset', () => this.reposition());
   }
 
   private async loadClip(id: string, url: string, cues: Cue[] = [], posterUrl?: string): Promise<void> {
@@ -425,7 +451,8 @@ export class FoleySystem extends createSystem({
 
   /** Presses are tracked per frame so the door can tell a tap from a hold. */
   private trackPressed(): void {
-    const now = new Set<string>();
+    const now = this.pressNext;
+    now.clear();
     for (const e of this.queries.pressed.entities) {
       const id = this.entityPiece.get(e);
       if (!id) continue;
@@ -440,6 +467,7 @@ export class FoleySystem extends createSystem({
       const started = this.pressStarted.get(id) ?? performance.now();
       this.onPressEnd(id, performance.now() - started);
     }
+    this.pressNext = this.lastPressed;
     this.lastPressed = now;
   }
 
@@ -448,10 +476,18 @@ export class FoleySystem extends createSystem({
     for (const [id, h] of this.held) {
       const piece = this.stage.pieces.get(id);
       if (!piece) continue;
-      this.pinchPoint(h.hand, tmpP).add(h.offset);
+      this.pinchPoint(h.hand, tmpP);
+      if (tmpP.y < 0.25) {
+        // the hand's tracking is gone (its spaces sit at the origin): let the prop go rather than drag it to the floor
+        this.pinchHeld[h.hand] = null;
+        this.endHold(id as PropId);
+        continue;
+      }
+      tmpP.add(h.offset);
       piece.root.parent?.worldToLocal(tmpP);
       piece.root.position.copy(tmpP);
       const pos = piece.root.getWorldPosition(tmpF);
+      sound.placeSource(id as PropId, pos); // a held prop's sound travels with the hand
       const sample = { t: now, x: pos.x, y: pos.y, z: pos.z };
       switch (id) {
         case 'coconuts': {
@@ -530,8 +566,15 @@ export class FoleySystem extends createSystem({
     const src: Object3D = this.player.head;
     src.updateWorldMatrix(true, false);
     src.getWorldPosition(tmpP);
-    if (tmpP.y < 0.3) return; // no real pose yet
     this.placeTimer += dt;
+    // a head near the floor is no pose yet, or a reference space whose origin is the head: wait a little, then place anyway
+    if (tmpP.y < 0.3 && this.placeTimer < 2) {
+      if (!this.waitLogged) {
+        this.waitLogged = true;
+        console.log('STAGE waiting for a head pose');
+      }
+      return;
+    }
     if (this.placeTimer < 0.75) return; // let the tracked pose settle
     tmpF.set(0, 0, -1).applyQuaternion(src.getWorldQuaternion(tmpQ));
     this.stage.placeFrom(tmpP, tmpF);
@@ -590,13 +633,15 @@ export class FoleySystem extends createSystem({
       this.lastW = window.innerWidth;
       this.frameBrowserCamera();
     }
-    const now = new Set<string>();
+    const now = this.hoverNext;
+    now.clear();
     for (const e of this.queries.hovered.entities) {
       const id = this.entityPiece.get(e);
       if (id) now.add(id);
     }
     for (const id of this.lastHovered) if (!now.has(id)) this.stage.setHovered(id, false);
     for (const id of now) if (!this.lastHovered.has(id)) this.stage.setHovered(id, true);
+    this.hoverNext = this.lastHovered;
     this.lastHovered = now;
     this.trackPinches();
     this.trackPressed();

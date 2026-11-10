@@ -15,6 +15,16 @@
       "features": {
         "handTracking": true,
         "gazeTracking": true
+      },
+      "referenceSpace": {
+        "type": "local-floor",
+        "required": false,
+        "fallbackOrder": [
+          "local-floor",
+          "bounded-floor",
+          "local",
+          "viewer"
+        ]
       }
     },
     "input": {

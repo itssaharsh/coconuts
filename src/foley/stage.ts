@@ -62,7 +62,7 @@ export class Stage {
     TILES.forEach((t, i) => {
       const tile = buildTile(t.label);
       tile.name = t.id;
-      tile.position.set(TABLE_W / 2 - 0.05, TABLE_H, TABLE_D / 2 - 0.05 - i * 0.065);
+      tile.position.set(TABLE_W / 2 - 0.03, TABLE_H, TABLE_D / 2 - 0.04 - i * 0.1); // 10 cm apart: wider than the gaze cone
       this.table.add(tile);
       this.addPiece(t.id, tile);
     });

@@ -26,6 +26,7 @@ export class Bubble {
   private material: MeshBasicMaterial;
   private hideAt = 0;
   private target = new Vector3();
+  private here = new Vector3();
   private shown = false;
 
   constructor(
@@ -103,7 +104,7 @@ export class Bubble {
     this.material.opacity += ((this.shown ? 1 : 0) - this.material.opacity) * k;
     if (this.material.opacity < 0.02 && !this.shown) this.group.visible = false;
     viewer.getWorldPosition(this.target);
-    const p = this.group.getWorldPosition(new Vector3());
+    const p = this.group.getWorldPosition(this.here);
     this.target.y = p.y;
     this.group.lookAt(this.target);
   }

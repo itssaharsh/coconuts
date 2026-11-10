@@ -3,6 +3,7 @@ import './landing.css';
 import { CueTracker, type Cue } from '../foley/cues';
 import { directorLine } from '../foley/director';
 import { decodeTake, encodeTake } from '../foley/recorder';
+import { ensureAudio } from '../foley/sound';
 import type { Take } from '../foley/types';
 
 export interface ClipMeta {
@@ -67,22 +68,24 @@ export function mountLanding(engine: EngineBridge): void {
     }
     const tracker = new CueTracker(meta.cues);
     for (const e of take.events) tracker.register(e);
-    $('takeTitle').textContent = `${label}: ${tracker.hits} of ${tracker.total} cues hit.`;
+    $('takeTitle').textContent = `${label}: ${tracker.hits} of ${tracker.total} cues hit.${label === 'Shared take' ? ' Your turn.' : ''}`;
     for (const s of tracker.states) {
       const li = document.createElement('li');
       if (!s.hit) li.className = 'miss';
       hits.appendChild(li);
     }
     $('takeLine').textContent = directorLine(tracker);
-    $('takeMeta').innerHTML = `${meta.title} (${meta.year})<span class="sep"> · </span>${fmt(meta.duration)}`;
+    const scripted = label === 'Sample take' ? '<span class="sep"> · </span>scripted from the cue sheet' : '';
+    $('takeMeta').innerHTML = `${meta.title} (${meta.year})<span class="sep"> · </span>${fmt(meta.duration)}${scripted}`;
   };
 
   const selectClip = async (id: string) => {
     for (const c of chips) c.setAttribute('aria-pressed', String(c.dataset.clip === id));
     [clip, demo] = await Promise.all([engine.loadClip(id), loadDemoTake(id)]);
     if (shared && shared.clipId === id) demo = shared;
-    showResult(demo, clip, shared && demo === shared ? 'Shared take' : 'Demo take');
+    showResult(demo, clip, shared && demo === shared ? 'Shared take' : 'Sample take');
     playTake.hidden = !demo;
+    play.hidden = !demo;
     copyLink.hidden = !(shared && demo === shared);
   };
 
@@ -95,7 +98,10 @@ export function mountLanding(engine: EngineBridge): void {
 
   chips.forEach((c) => c.addEventListener('click', () => void selectClip(c.dataset.clip!)));
 
-  enter.addEventListener('click', () => engine.launchXR());
+  enter.addEventListener('click', () => {
+    void ensureAudio(); // the click is the gesture that lets the audio graph start
+    engine.launchXR();
+  });
   play.addEventListener('click', () => {
     if (demo) void engine.playTake(demo);
     else void engine.startTake();
@@ -166,7 +172,7 @@ export function mountLanding(engine: EngineBridge): void {
     }
   };
   const loop = () => {
-    aim();
+    if (!document.body.classList.contains('in-xr')) aim();
     requestAnimationFrame(loop);
   };
   loop();

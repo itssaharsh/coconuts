@@ -121,7 +121,7 @@ describe('ruleLine', () => {
     );
   });
   it('hits without a best mark', () => {
-    expect(ruleLine(withHits({ best: null, late: null }))).toBe('2 of 4. The horse would like a word.');
+    expect(ruleLine(withHits({ best: null, late: null }))).toBe('2 of 4. The props would like a word.');
   });
 
   it('matches the client directorLine word for word for the same take', () => {
@@ -157,7 +157,12 @@ describe('validateLine', () => {
     expect(validateLine('The accordion was late.', input)).toBe(false);
     expect(validateLine('The glass shattered on cue.', input)).toBe(false);
     expect(validateLine('The bell rang twice.', input)).toBe(false);
-    expect(validateLine('The door was early, the horse was not.', input)).toBe(true);
+    expect(validateLine('The door was late, the horse was not.', input)).toBe(true);
+  });
+  it('lets a line call something late or early only when the take says so', () => {
+    expect(validateLine('The door was early, the horse was not.', input)).toBe(false); // the door was late
+    expect(validateLine('The door was late.', withHits({ late: null }))).toBe(false);
+    expect(validateLine('The door came early.', withHits({ best: { label: 'door slams', offset: -0.3 } }))).toBe(true);
   });
   it('rejects counts that are not the hits or the total', () => {
     expect(validateLine('2 of 4, which is a start.', input)).toBe(true);
@@ -304,14 +309,14 @@ describe('the API handlers without a key', () => {
 describe('client: lines before and after the take', () => {
   it('has the written bank, keyed by the first cue', () => {
     expect(DIRECTOR_LINES).toEqual({
-      coconuts: 'Horse coming up. Grab the coconuts.',
-      door: 'Doors in this one. Mind the slam.',
-      bell: 'A bell first. Then it gets loud.',
-      thunder: 'Thunder, then glass. Hold the sheet.',
-      whistle: 'Starts with a fall. Whistle ready.',
-      glass: 'Something breaks early. Hands on the bag.',
+      coconuts: 'Running feet first. Hold the coconuts and shake them.',
+      door: 'A bang to start. Tap the door to knock, hold it to slam.',
+      bell: 'A bell first. Poke it. Then it gets loud.',
+      thunder: 'Thunder early. Hold the sheet and shake it.',
+      whistle: 'Starts with a swing. Hold the whistle and pull.',
+      glass: 'Something breaks early. Lift the bag and let it go.',
     });
-    expect(preTakeLine({ id: 'x', title: 'X', cues: [cues[2], cues[0]] })).toBe('Horse coming up. Grab the coconuts.');
+    expect(preTakeLine({ id: 'x', title: 'X', cues: [cues[2], cues[0]] })).toBe('Running feet first. Hold the coconuts and shake them.');
     expect(preTakeLine({ id: 'x', title: 'X', cues: [] })).toBe('Quiet on set. Pinch the clapper when you are ready.');
     for (const line of [...Object.values(DIRECTOR_LINES)]) expect(line).not.toMatch(/[\u2014!]/);
   });

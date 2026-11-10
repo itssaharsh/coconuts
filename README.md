@@ -30,8 +30,12 @@ Entertainment track, New Experience division.
 
    Tiles on the table rim pause the film, step the volume and redo the take.
 4. **Play it back.** When the reel ends the slate says how many cues you hit, the Director gives you one line
-   ("Right on time with “horse trots in”, and the door a breath late."), and the clapperboard replays the film
-   with your sounds. The take's code lands in the address bar: `/#take=<code>` replays it anywhere.
+   ("“couple runs in panic” landed, and “train whistle blows” never came."), and the clapperboard replays the
+   film with your sounds. The take's code lands in the address bar: `/#take=<code>` replays it anywhere, and
+   a shared take says "Your turn."
+
+   Hits count the prop and the moment: a cue is hit when its prop sounds inside the cue's window, however the
+   sound was made. The lane never shows a miss in red.
 
 All sounds are synthesised in Web Audio and spatialised from the prop's position; nothing is sampled.
 
@@ -41,10 +45,13 @@ Two things in the game come from a model, and the game stands without either:
 
 - The **cue sheets** for the three bundled clips were proposed by Gemini watching each clip
   (`tools/cue-sheet.mjs`), then hand-checked; every cue carries its provenance in `public/clips/*.json`.
-- After a take, `POST /api/director` asks Gemini for one in-character line about your take. The line is
-  validated before it is shown: it may only name cues and props that were in the take, and only the numbers the
-  take has. Anything else, a slow answer (over 2.2 s), a rate limit or no key at all, and a rule-written line
-  takes its place. `GET /api/tts` speaks the line.
+- After a take, `POST /api/director` asks Gemini for one in-character line about your take: a reviewer with a
+  fact-checking guard, not an agent. The line is validated before it is shown: it may only name cues and props
+  that were in the take, only the numbers the take has, and it may only call something late or early when the
+  take's timing says so. Anything else, a slow answer (2.2 s in the function, 2.5 s end to end), a rate limit or
+  no key at all, and a rule-written line takes its place. `GET /api/tts` speaks the line.
+
+The raw cue proposals the model made are kept beside the checked sheets as `public/clips/*.proposed.json`.
 
 ## The films
 
@@ -63,7 +70,7 @@ Original prints, US public domain (published before 1929), trimmed and credited 
 npm install
 npm run dev         # the IWSDK dev runtime with the desktop emulator (Quest 3 profile)
 npm run build       # static site in dist/ plus the Vercel functions in api/
-npm test            # 84 unit tests: triggers, cues, replay, the Director, shipped data
+npm test            # 85 unit tests: triggers, cues, replay, the Director, shipped data
 ```
 
 The functions need `GEMINI_API_KEY` in the environment; without it the Director answers from the rules and the
@@ -95,6 +102,23 @@ without shadows or audio, so hand motion is sampled often enough to test. Nothin
 - `src/landing/`: the page around the engine. `api/`: the Director, the voice, the health probe.
 
 Hands only, no controllers. Seated, everything inside a two-foot radius. 78 draw calls.
+
+## Accessibility
+
+- One hand is enough: every prop answers a single far pinch with its one-shot, and the clapperboard and tiles
+  are pinch targets. Nothing needs both hands or a controller.
+- Eyes do the aiming on Meta VR Glasses: look at a prop and pinch once with either hand.
+- Seated and stationary: the table is 75 cm ahead and 25 cm below the eyes; nothing is above eye level
+  except the top of the screen, and nothing leaves the glasses' view.
+- The cue lane is a visual channel for every cue, and a landed cue lights its card; the volume tile mutes
+  the effects in three steps and the pause tile holds the film.
+- The landing page replays any take in a plain browser with no headset.
+
+## Testing
+
+85 unit tests (motion detectors on synthetic traces, cue windows, replay determinism, the Director's
+validator and fallbacks, shipped data) and scripted emulator runs through the IWSDK CLI (every prop by hand
+and by gaze, the full judge path to the review, the draw-call count). The live site has a health probe.
 
 ## Licence
 

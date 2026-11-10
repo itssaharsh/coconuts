@@ -23,7 +23,7 @@ export const PROPS: PropSpec[] = [
   { id: 'bell', name: 'Desk bell', sound: 'ding', x: 0.05, z: 0.11 },
   { id: 'thunder', name: 'Thunder sheet', sound: 'rumble', x: 0.1, z: -0.1 },
   { id: 'whistle', name: 'Slide whistle', sound: 'fall', x: 0.2, z: 0.07 },
-  { id: 'glass', name: 'Bag of glass', sound: 'crash', x: 0.32, z: -0.1 },
+  { id: 'glass', name: 'Bag of glass', sound: 'crash', x: 0.3, z: -0.15 },
 ];
 
 export type HitKind = 'clop' | 'knock' | 'slam' | 'ding' | 'rumble' | 'whistle' | 'crash';

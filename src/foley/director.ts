@@ -10,17 +10,17 @@ export function directorLine(tracker: CueTracker): string {
   const q = (label: string) => `“${label}”`;
   if (best && late && best !== late) return `Right on time: ${q(best.cue.label)}. Fashionably late: ${q(late.cue.label)}.`;
   if (best) return `Right on time: ${q(best.cue.label)}. The rest can rehearse.`;
-  return `${tracker.hits} of ${tracker.total}. The horse would like a word.`;
+  return `${tracker.hits} of ${tracker.total}. The props would like a word.`;
 }
 
 /** What the Director says before the clapper, keyed by the prop of the clip's first cue. */
 export const DIRECTOR_LINES: Record<PropId, string> = {
-  coconuts: 'Horse coming up. Grab the coconuts.',
-  door: 'Doors in this one. Mind the slam.',
-  bell: 'A bell first. Then it gets loud.',
-  thunder: 'Thunder, then glass. Hold the sheet.',
-  whistle: 'Starts with a fall. Whistle ready.',
-  glass: 'Something breaks early. Hands on the bag.',
+  coconuts: 'Running feet first. Hold the coconuts and shake them.',
+  door: 'A bang to start. Tap the door to knock, hold it to slam.',
+  bell: 'A bell first. Poke it. Then it gets loud.',
+  thunder: 'Thunder early. Hold the sheet and shake it.',
+  whistle: 'Starts with a swing. Hold the whistle and pull.',
+  glass: 'Something breaks early. Lift the bag and let it go.',
 };
 
 const QUIET_ON_SET = 'Quiet on set. Pinch the clapper when you are ready.';

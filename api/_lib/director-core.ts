@@ -50,7 +50,7 @@ export function ruleLine(input: DirectorInput): string {
   if (hits === 0) return 'Not a single cue, and yet a performance.';
   if (best && late && !sameMark(best, late)) return `Right on time: ${q(best.label)}. Fashionably late: ${q(late.label)}.`;
   if (best) return `Right on time: ${q(best.label)}. The rest can rehearse.`;
-  return `${hits} of ${total}. The horse would like a word.`;
+  return `${hits} of ${total}. The props would like a word.`;
 }
 
 /** The six props and the everyday words a line may use for each. */
@@ -163,13 +163,23 @@ export function buildPrompt(input: DirectorInput): string {
     ...facts,
     '',
     'Write exactly one sentence of at most 18 words, with a single full stop at its end and no other sentence.',
-    'For example: {"line": "Right on time with “horse trots in”, and the door a breath late."}',
+    `For example: {"line": "${exampleLine(input)}"}`,
     'Name at most two cues, quoting their labels exactly as written above, inside “ ”.',
     'Mention only the cues and props listed above. Never invent events, people, props or sounds.',
     `The only numbers you may use are ${hits} and ${total}.`,
     'No emoji, no exclamation marks, no dashes.',
     'Reply with JSON only: {"line": "..."}',
   ].join('\n');
+}
+
+/** An example in the take's own words, so the model copies the shape and never a cue that is not there. */
+function exampleLine(input: DirectorInput): string {
+  const hit = input.hits.hit[0];
+  const missed = input.hits.missed[0];
+  if (hit && missed) return `“${hit}” landed, and “${missed}” never came.`;
+  if (hit) return `“${hit}” landed, and so did the rest.`;
+  if (missed) return `“${missed}” never came, nor did the others.`;
+  return 'A quiet reel, and a quiet take.';
 }
 
 const QUOTED = /“([^”]*)”|"([^"]*)"|‘([^’]*)’/g;
@@ -214,6 +224,11 @@ export function validateLine(line: string, input: DirectorInput): boolean {
     const n = NUMBER_WORDS.get(w);
     if (n !== undefined && !allowedNumbers.has(n)) return false;
   }
+
+  // a claim about timing must come from the take's marks
+  const marks = [input.hits.best, input.hits.late].filter((m): m is DirectorMark => !!m);
+  if (/\b(late|lately|behind)\b/i.test(rest) && !input.hits.late) return false;
+  if (/\b(early|ahead|soon)\b/i.test(rest) && !marks.some((m) => m.offset < 0)) return false;
 
   // a capitalised word mid-sentence looks like a name or a label; it must come from the take
   const allowedCaps = new Set([...known, ...PROP_WORDS.keys(), 'i', 'director']);
