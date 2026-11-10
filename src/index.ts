@@ -1,4 +1,5 @@
-import { automationRun } from './foley/env';
+import { automationRun, soundForced } from './foley/env';
+import { ensureAudio, recordStream } from './foley/sound';
 import { VisibilityState, World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { Vector3 } from 'three';
@@ -87,6 +88,34 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
     console.log('RENDER low-fidelity (automation run)');
   }
   world.registerSystem(FoleySystem);
+  if (soundForced()) {
+    // the video's soundtrack: start() records the mix, stop() resolves with a data URL of the WebM audio
+    let rec: MediaRecorder | null = null;
+    let chunks: Blob[] = [];
+    (window as unknown as { __coconuts: unknown }).__coconuts = {
+      start: async () => {
+        await ensureAudio(); // the graph (and its recordable mix) exists only once the context does
+        const stream = recordStream();
+        if (!stream) return false;
+        chunks = [];
+        rec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        rec.ondataavailable = (e) => chunks.push(e.data);
+        rec.start(250);
+        return true;
+      },
+      stop: () =>
+        new Promise<string>((resolve) => {
+          if (!rec) return resolve('');
+          rec.onstop = () => {
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.readAsDataURL(blob);
+          };
+          rec.stop();
+        }),
+    };
+  }
   console.log('COCONUTS world ready', { xr: world.xrEnabled });
   world.visibilityState.subscribe((v) => {
     document.body.classList.toggle('in-xr', v !== VisibilityState.NonImmersive);

@@ -1,5 +1,5 @@
 // Every effect is synthesized here with Web Audio: no samples, no licences, and it plays offline.
-import { automationRun } from './env';
+import { automationRun, soundForced } from './env';
 import type { HitEvent, PropId } from './types';
 
 type Vec3Like = { x: number; y: number; z: number };
@@ -17,7 +17,7 @@ export function audioContext(): AudioContext | null {
 
 /** Automation runs (the emulator driven by scripts) have no ears; the audio graph stays off so nothing can crash. */
 function audioSilenced(): boolean {
-  if (automationRun()) return true;
+  if (automationRun() && !soundForced()) return true;
   return typeof location !== 'undefined' && new URLSearchParams(location.search).has('silent');
 }
 
@@ -47,6 +47,11 @@ export async function ensureAudio(): Promise<AudioContext | null> {
 
 export function setMasterVolume(v: number): void {
   if (master && ctx) master.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), ctx.currentTime, 0.02);
+}
+
+/** The mix as a stream, for recording the video's soundtrack. */
+export function recordStream(): MediaStream | null {
+  return recDest?.stream ?? null;
 }
 
 function noise(): AudioBuffer {

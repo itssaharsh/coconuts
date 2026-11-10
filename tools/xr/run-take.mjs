@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Scripted emulator run of the judge path, through the IWSDK CLI.
 // Requires: `npx iwsdk dev up --ai-mode agent --allow-browser-automation` (with LD_LIBRARY_PATH for libasound on this box).
-// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses] [--perf]
+// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses] [--perf] [--keep]
 // --perf waits for the stage's PERF log once the models are in and fails above 100 draw calls.
 // --until review waits for the Director's review line after the take; --state says where it must come from
 // (offline: the rules, as on the dev server with no /api; online: the model).
@@ -111,8 +111,9 @@ async function waitReady(maxMs = 120000) {
 
 async function main() {
   await waitReady();
-  // start from a fresh page, so no earlier take is still rolling
+  // start from a fresh page, so no earlier take is still rolling (--keep leaves the page as it is, e.g. for recording)
   try {
+    if (opt('keep', false)) throw new Error('kept');
     iw(['browser', 'reload']);
     await sleep(4000);
     await waitReady();

@@ -5,10 +5,24 @@ A public-domain silent film plays on a little proscenium in front of you; a beec
 within reach. You make the sound effects with your hands, in time with the picture, then play your take back
 with the film and send the link to a friend.
 
-Live: https://coconuts-foley.vercel.app (open it in the Quest browser; any browser shows a demo take).
+Live: https://coconuts-foley.vercel.app (open it in the Quest browser; any browser shows a sample take).
+Video: (coming; under three minutes).
 
-Built from scratch between 10 and 18 November 2026, inside the Meta VR Start Developer Competition window.
-Entertainment track, New Experience division.
+![The stage in the emulator: the proscenium with One Week playing, the cue lane, and the table of props](docs/media/stage.png)
+
+Built from scratch inside the Meta VR Start Developer Competition window: the first commit (ca173c2) is
+timestamped 2026-11-10T17:13:38Z, after the build opened on 24 September 2026. Entertainment track, New
+Experience division.
+
+## What is real
+
+| Piece | State |
+|---|---|
+| Six props, each a hand interaction, with synthesised spatial sound and a replayable take | real, in the build |
+| The three films and their cue sheets | real public-domain prints, cue sheets proposed by Gemini and checked by hand |
+| The Director's one-line review and voice | real model calls with a validator; a rule-written line stands in when the model is slow or absent |
+| The sample take on the landing page | scripted from the cue sheet by `tools/make-demo-take.mjs`, labelled as such |
+| Headset testing | the IWSDK desktop emulator only (Quest 3 and Meta VR Glasses profiles); no physical headset was available |
 
 ## How it plays
 
