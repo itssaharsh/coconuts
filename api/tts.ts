@@ -1,5 +1,6 @@
 // GET /api/tts?t=<text>&v=director: the Director's voice as WAV. The URL is the cache key, so a line is
 // synthesized once and then served from the CDN. Any failure is a 503 and the client keeps the text bubble.
+import { geminiKeys } from './_lib/gemini.js';
 import { Buffer } from 'node:buffer';
 import { audioToWav } from './_lib/director-core.js';
 import { allow, clientIp } from './_lib/ratelimit.js';
@@ -53,7 +54,7 @@ export async function GET(request: Request): Promise<Response> {
     const text = (params.get('t') ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
     const voice = params.get('v') ?? 'director';
     if (!text || text.length > 160 || voice !== 'director') return fail(400, 'Give a line of at most 160 characters.');
-    const key = process.env.GEMINI_API_KEY;
+    const key = geminiKeys()[0];
     if (!key) return fail(503, 'The voice is not set up.');
     const deadline = Date.now() + BUDGET_MS;
     for (const [model, name] of ATTEMPTS) {
