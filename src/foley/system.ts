@@ -5,6 +5,7 @@ import { Object3D, Quaternion, Vector3 } from 'three';
 import { Bubble } from './bubble';
 import { CueTracker, type Cue } from './cues';
 import { Lane } from './lane';
+import { modelStats } from './models';
 import { Recorder, encodeTake } from './recorder';
 import { Replayer, schedule } from './replay';
 import * as sound from './sound';
@@ -109,9 +110,10 @@ export class FoleySystem extends createSystem({
   private lastY = new Map<string, number>();
   private returning = new Map<string, number>();
   private lastW = 0;
+  private perfLogged = false;
 
   init(): void {
-    this.lane.group.position.set(0, -(SCREEN_H / 2) - 0.06, 0.03);
+    this.lane.group.position.set(0, -(SCREEN_H / 2) - 0.105, 0.03); // just under the frame's footlights
     this.lane.group.rotation.x = -0.28;
     this.stage.screen.group.add(this.lane.group);
     // the Director's tag hangs beside the theatre's left pillar; the slate sits at the table's far edge
@@ -225,6 +227,7 @@ export class FoleySystem extends createSystem({
     this.replayer = new Replayer(schedule(take), (e) => {
       sound.playHit(e);
       this.stage.flash(e.prop, 0.9);
+      this.animateProp(e);
       this.tracker?.register(e);
     });
     this.mode = 'replay';
@@ -400,9 +403,17 @@ export class FoleySystem extends createSystem({
     this.hit({ t: this.stage.screen.currentTime, prop: 'door', kind: slam ? 'slam' : 'knock', v: slam ? 1 : 0.8, hand: 'right' });
   }
 
+  /** The prop moves with its sound: the bell's button dips, the door rattles or slams, the sheet shivers. */
+  private animateProp(hit: HitEvent): void {
+    if (hit.prop === 'bell') this.stage.pressBell();
+    if (hit.prop === 'door') this.stage.swingDoor(hit.kind === 'slam' ? 1 : 0.35);
+    if (hit.prop === 'thunder') this.stage.setThunderShake(Math.max(0.5, hit.v));
+  }
+
   private hit(hit: HitEvent): void {
     sound.playHit(hit);
     this.stage.flash(hit.prop);
+    if (hit.prop !== 'door') this.animateProp(hit); // the door swings where its press ends
     if (this.mode === 'take') {
       this.recorder.add(hit);
       const landed = this.tracker?.register(hit);
@@ -455,6 +466,7 @@ export class FoleySystem extends createSystem({
           const level = this.shake.feed(sample);
           sound.rumbleSet(level);
           this.stage.flash('thunder', level * 0.8);
+          this.stage.setThunderShake(level);
           if (level > 0.35 && now - (this.lastRumbleMark ?? -1) > 0.5) {
             this.lastRumbleMark = now;
             const ev: HitEvent = { t: this.stage.screen.currentTime, prop: 'thunder', kind: 'rumble', v: level };
@@ -566,6 +578,12 @@ export class FoleySystem extends createSystem({
   }
 
   update(dt: number, time: number): void {
+    if (this.stage.dressed && !this.perfLogged) {
+      this.perfLogged = true;
+      const r = this.world.renderer.info.render;
+      const s = modelStats();
+      console.log('PERF calls', r.calls, 'triangles', r.triangles, 'models', `${s.loaded}/${s.loaded + s.failed}`);
+    }
     if (!this.placed) this.placeStage(dt);
     const inXR = this.world.visibilityState.value !== VisibilityState.NonImmersive;
     if (!inXR && window.innerWidth !== this.lastW) {

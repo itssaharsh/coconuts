@@ -577,6 +577,11 @@ h1 .brush::after {
   text-decoration-color: var(--accent);
 }
 
+.result-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 @media (max-width: 900px) {
   :root {
     --gutter: 16px;
@@ -591,7 +596,7 @@ h1 .brush::after {
   }
   #scene-container {
     position: absolute;
-    top: 160px;
+    top: 222px;
     height: 56svh;
     min-height: 380px;
   }
@@ -610,19 +615,19 @@ h1 .brush::after {
     font-size: 44px;
   }
   .spacer {
-    order: 2;
+    order: 3;
     height: 56svh;
     min-height: 380px;
     pointer-events: none;
   }
   .result {
     position: static;
-    order: 3;
+    order: 4;
     width: auto;
     margin: 12px 16px 0;
   }
   .try {
-    order: 4;
+    order: 5;
     margin: 12px 0 0;
     display: flex;
     align-items: center;
@@ -650,16 +655,18 @@ h1 .brush::after {
     font-size: 14px;
   }
   .actions {
-    order: 5;
-    margin: 12px 0 0;
+    order: 2;
+    margin: 10px 0 0;
     padding: 0 16px;
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
   .btn {
-    height: 52px;
+    height: 48px;
     width: 100%;
+    padding: 0 10px;
+    font-size: 15px;
   }
   .device,
   .note {

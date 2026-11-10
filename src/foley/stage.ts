@@ -1,5 +1,6 @@
 // The stage: the table with its props, clapperboard and tiles, and the screen, as one root group.
 import { CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, Quaternion, SRGBColorSpace, Vector3 } from 'three';
+import { dress, modelStats } from './models';
 import { Screen } from './screen';
 import { PALETTE, TABLE_D, TABLE_H, TABLE_W, buildClapper, buildProp, buildTable, buildTile, mat, nameHitBoxes } from './toys';
 import { PROPS, type PropId } from './types';
@@ -18,7 +19,7 @@ export interface PropPiece {
 }
 
 const SCREEN_AHEAD = 1.3;
-const SCREEN_LIFT = 0.12; // screen centre 12 cm above eye height, so the lane under it clears the props
+const SCREEN_LIFT = 0.15; // screen centre 15 cm above eye height, so the lane under it clears most props
 const TABLE_AHEAD = 0.75;
 const TABLE_BELOW = 0.25;
 
@@ -36,6 +37,11 @@ export class Stage {
   private byObject = new WeakMap<Object3D, PropPiece>();
   private doorSwing = 0;
   private clapSnap = 0;
+  private bellPress = 0;
+  private thunderLevel = 0;
+  private thunderPhase = 0;
+  /** True once every Blender model is in (or has failed): the stage's final shape. */
+  dressed = false;
 
   constructor() {
     this.root.name = 'coconuts-stage';
@@ -62,6 +68,25 @@ export class Stage {
     });
     this.screen.group.position.set(0, TABLE_BELOW + SCREEN_LIFT, -(SCREEN_AHEAD - TABLE_AHEAD));
     this.root.add(this.screen.group);
+    void this.dressAll();
+  }
+
+  /** Swap the primitives for the Blender models as they load; the stage works before them and without them. */
+  private async dressAll(): Promise<void> {
+    const jobs: Promise<unknown>[] = [dress(this.table, 'table')];
+    for (const spec of PROPS) {
+      const piece = this.pieces.get(spec.id);
+      if (piece) jobs.push(dress(piece.root, spec.id));
+    }
+    const clapper = this.pieces.get('clapper');
+    if (clapper) jobs.push(dress(clapper.root, 'clapper'));
+    // the frame's opening is centred 0.28 m above its base, and the film plane has to sit behind its back face
+    const frame = this.screen.group.getObjectByName('screen-frame');
+    if (frame) jobs.push(dress(frame, 'screen', { y: -0.28, z: 0.02 }));
+    await Promise.all(jobs);
+    const s = modelStats();
+    this.dressed = true;
+    console.log('MODELS', s.loaded, 'in', s.failed, 'failed');
   }
 
   private addPiece(id: PieceId, root: Group): void {
@@ -123,9 +148,20 @@ export class Stage {
     this.clapSnap = 1;
   }
 
+  pressBell(): void {
+    this.bellPress = 1;
+  }
+
+  /** How hard the thunder sheet is being shaken, 0..1; it wobbles on its cords and settles. */
+  setThunderShake(level: number): void {
+    this.thunderLevel = Math.max(this.thunderLevel, Math.min(1, level));
+  }
+
   setWhistleSlide(pitch: number): void {
     const slide = this.pieces.get('whistle')?.root.getObjectByName('Slide');
-    if (slide) slide.position.x = -0.03 + 0.03 * Math.max(0, Math.min(1, pitch));
+    if (!slide) return;
+    const home = (slide.userData.homeX ??= slide.position.x) as number;
+    slide.position.x = home - 0.02 * (1 - Math.max(0, Math.min(1, pitch))); // pushed in at the bottom, pulled out at the top
   }
 
   setTileLabel(tile: 'pause' | 'volume' | 'redo' | 'glasses' | 'calm', label: string): void {
@@ -163,12 +199,24 @@ export class Stage {
       clap.rotation.z = this.clapSnap * 0.45;
       this.clapSnap = Math.max(0, this.clapSnap - dt * 5);
     }
+    const button = this.pieces.get('bell')?.root.getObjectByName('Button');
+    if (button) {
+      const home = (button.userData.homeY ??= button.position.y) as number;
+      button.position.y = home - 0.003 * this.bellPress;
+      this.bellPress = Math.max(0, this.bellPress - dt * 6);
+    }
+    const sheet = this.pieces.get('thunder')?.root.getObjectByName('Sheet');
+    if (sheet) {
+      this.thunderPhase += dt * 40 * (0.3 + this.thunderLevel);
+      sheet.rotation.x = Math.sin(this.thunderPhase) * 0.12 * this.thunderLevel;
+      this.thunderLevel = Math.max(0, this.thunderLevel - dt * 2);
+    }
   }
 
   static readonly accentMaterial = () => mat(PALETTE.accent, 0.6);
 }
 
-export function tileTexture(label: string): CanvasTexture {
+function tileTexture(label: string): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 256;
   c.height = 256;

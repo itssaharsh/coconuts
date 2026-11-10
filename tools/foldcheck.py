@@ -337,7 +337,7 @@ async def run(args):
             # a plain narrow window, not phone emulation: emulation zooms a too-wide page out to fit, which hides
             # the sideways scroll this is here to catch
             kw = {"storage_state": args.storage_state} if args.storage_state else {}
-            ctx = await b.new_context(viewport={"width": w, "height": h}, device_scale_factor=1, has_touch=w < 600,
+            ctx = await b.new_context(ignore_https_errors=True, viewport={"width": w, "height": h}, device_scale_factor=1, has_touch=w < 600,
                                       **kw)
             if args.init_script:
                 src = args.init_script

@@ -2,6 +2,7 @@
 import './landing.css';
 import { CueTracker, type Cue } from '../foley/cues';
 import { directorLine } from '../foley/director';
+import { decodeTake, encodeTake } from '../foley/recorder';
 import type { Take } from '../foley/types';
 
 export interface ClipMeta {
@@ -47,7 +48,10 @@ export function mountLanding(engine: EngineBridge): void {
   const enter = $<HTMLButtonElement>('enter');
   const play = $<HTMLButtonElement>('play');
   const playTake = $<HTMLButtonElement>('playTake');
+  const copyLink = $<HTMLButtonElement>('copyLink');
   const note = $<HTMLParagraphElement>('note');
+  // a take travels as a code in the URL: /#take=<clip>.<events>
+  const shared = decodeTake(new URLSearchParams(location.hash.replace(/^#/, '')).get('take') ?? '');
   const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('#chips .chip'));
   let clip: ClipMeta | null = null;
   let demo: Take | null = null;
@@ -76,9 +80,18 @@ export function mountLanding(engine: EngineBridge): void {
   const selectClip = async (id: string) => {
     for (const c of chips) c.setAttribute('aria-pressed', String(c.dataset.clip === id));
     [clip, demo] = await Promise.all([engine.loadClip(id), loadDemoTake(id)]);
-    showResult(demo, clip, 'Demo take');
+    if (shared && shared.clipId === id) demo = shared;
+    showResult(demo, clip, shared && demo === shared ? 'Shared take' : 'Demo take');
     playTake.hidden = !demo;
+    copyLink.hidden = !(shared && demo === shared);
   };
+
+  copyLink.addEventListener('click', () => {
+    void navigator.clipboard?.writeText(location.href).then(
+      () => (copyLink.textContent = 'Link copied'),
+      () => (copyLink.textContent = 'Copy the address bar'),
+    );
+  });
 
   chips.forEach((c) => c.addEventListener('click', () => void selectClip(c.dataset.clip!)));
 
@@ -97,6 +110,10 @@ export function mountLanding(engine: EngineBridge): void {
     showResult(take, clip, 'Your take');
     if (line) $('takeLine').textContent = line;
     playTake.hidden = false;
+    // the take's code goes into the address, so the link replays it anywhere
+    history.replaceState(null, '', `#take=${encodeTake(take)}`);
+    copyLink.textContent = 'Copy link';
+    copyLink.hidden = false;
   });
 
   void engine.xrSupported().then((ok) => {
@@ -170,5 +187,5 @@ export function mountLanding(engine: EngineBridge): void {
   layout();
   setTimeout(layout, 300);
 
-  void selectClip(params.get('clip') ?? 'one-week');
+  void selectClip(shared?.clipId ?? params.get('clip') ?? 'one-week');
 }

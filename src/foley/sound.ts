@@ -16,7 +16,7 @@ export function audioContext(): AudioContext | null {
 }
 
 /** Automation runs (the emulator driven by scripts) have no ears; the audio graph stays off so nothing can crash. */
-export function audioSilenced(): boolean {
+function audioSilenced(): boolean {
   if (automationRun()) return true;
   return typeof location !== 'undefined' && new URLSearchParams(location.search).has('silent');
 }
@@ -47,11 +47,6 @@ export async function ensureAudio(): Promise<AudioContext | null> {
 
 export function setMasterVolume(v: number): void {
   if (master && ctx) master.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), ctx.currentTime, 0.02);
-}
-
-/** The recordable output (for the demo video and takes exported as audio). */
-export function recordStream(): MediaStream | null {
-  return recDest?.stream ?? null;
 }
 
 function noise(): AudioBuffer {
@@ -143,7 +138,7 @@ function tone(out: AudioNode, t0: number, f: number, peak: number, attack: numbe
 }
 
 /** A coconut half striking: a woody knock with a hollow ring. `v` strength 0..1; `which` picks the shell. */
-export function clop(v = 1, which: 0 | 1 = 0, at?: number): void {
+function clop(v = 1, which: 0 | 1 = 0, at?: number): void {
   if (!ctx) return;
   const t0 = at ?? ctx.currentTime;
   const out = pannerFor('coconuts');
@@ -154,7 +149,7 @@ export function clop(v = 1, which: 0 | 1 = 0, at?: number): void {
   burst(out, t0, amp * 0.5, 0.002, 0.03, { type: 'bandpass', f: 1800, q: 2 });
 }
 
-export function knock(v = 1, at?: number): void {
+function knock(v = 1, at?: number): void {
   if (!ctx) return;
   const t0 = at ?? ctx.currentTime;
   const out = pannerFor('door');
@@ -163,7 +158,7 @@ export function knock(v = 1, at?: number): void {
   burst(out, t0, amp * 0.7, 0.001, 0.04, { type: 'lowpass', f: 1200, q: 0.7 });
 }
 
-export function slam(v = 1, at?: number): void {
+function slam(v = 1, at?: number): void {
   if (!ctx) return;
   const t0 = at ?? ctx.currentTime;
   const out = pannerFor('door');
@@ -175,7 +170,7 @@ export function slam(v = 1, at?: number): void {
   for (let i = 0; i < 3; i++) tone(out, t0 + 0.09 + i * 0.045, 1900 + i * 150, amp * 0.12, 0.001, 0.03, 'square');
 }
 
-export function ding(v = 1, at?: number): void {
+function ding(v = 1, at?: number): void {
   if (!ctx) return;
   const t0 = at ?? ctx.currentTime;
   const out = pannerFor('bell');
@@ -188,7 +183,7 @@ export function ding(v = 1, at?: number): void {
 }
 
 /** The thunder sheet: a continuous rumble whose level follows the shake. */
-export function rumbleStart(): void {
+function rumbleStart(): void {
   if (!ctx || held.has('thunder')) return;
   const out = pannerFor('thunder');
   const src = ctx.createBufferSource();
@@ -231,7 +226,7 @@ export function rumbleStop(): void {
 }
 
 /** A one-shot thunder clap for pinch play. */
-export function rumbleOnce(v = 1, at?: number): void {
+function rumbleOnce(v = 1, at?: number): void {
   if (!ctx) return;
   const t0 = at ?? ctx.currentTime;
   const out = pannerFor('thunder');
@@ -240,7 +235,7 @@ export function rumbleOnce(v = 1, at?: number): void {
 }
 
 /** The slide whistle: a held tone whose pitch follows the slide (0 low .. 1 high). */
-export function whistleStart(pitch = 0.5): void {
+function whistleStart(pitch = 0.5): void {
   if (!ctx || held.has('whistle')) return;
   const out = pannerFor('whistle');
   const o = ctx.createOscillator();
@@ -282,14 +277,14 @@ export function whistleStop(): void {
 }
 
 /** A one-shot pratfall: the classic slide from high to low. */
-export function whistleFall(v = 1, at?: number): void {
+function whistleFall(v = 1, at?: number): void {
   if (!ctx) return;
   const t0 = at ?? ctx.currentTime;
   const out = pannerFor('whistle');
   tone(out, t0, whistleHz(0.95), 0.3 + 0.2 * v, 0.02, 0.75, 'triangle', whistleHz(0.05));
 }
 
-export function crash(v = 1, at?: number): void {
+function crash(v = 1, at?: number): void {
   if (!ctx) return;
   const t0 = at ?? ctx.currentTime;
   const out = pannerFor('glass');

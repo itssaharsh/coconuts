@@ -1,20 +1,20 @@
 // The Director's brain without the network: the rule line, the prompt, the checks on a model line, and the WAV wrapper.
 // Pure functions only, so the tests can drive every path with fixtures.
 
-export interface DirectorCue {
+interface DirectorCue {
   t: number;
   prop: string;
   label: string;
 }
 
-export interface DirectorEvent {
+interface DirectorEvent {
   t: number;
   prop: string;
   kind: string;
   v: number;
 }
 
-export interface DirectorMark {
+interface DirectorMark {
   label: string;
   offset: number;
 }

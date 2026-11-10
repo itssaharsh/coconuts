@@ -33,9 +33,10 @@ export class Bubble {
     private tone: 'paper' | 'accent' = 'paper',
   ) {
     this.group.name = 'bubble';
-    this.material = new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    // a paper tag is a readout: it draws over the props so a door or a sheet never hides a line
+    this.material = new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, depthTest: false });
     this.mesh = new Mesh(new PlaneGeometry(widthM, widthM * 0.3), this.material);
-    this.mesh.renderOrder = 5;
+    this.mesh.renderOrder = 25;
     this.group.add(this.mesh);
     this.group.visible = false;
   }

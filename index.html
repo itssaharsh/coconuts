@@ -53,11 +53,14 @@
         </svg>
 
         <div class="result" id="result" role="status" aria-live="polite">
-          <p class="result-title" id="takeTitle">A take: 9 of 13 cues hit.</p>
+          <p class="result-title" id="takeTitle">Loading the reel…</p>
           <ul class="hits" id="hits" aria-hidden="true"></ul>
-          <p class="result-line" id="takeLine">The horse arrived on time. The door was fashionably late.</p>
-          <p class="result-meta" id="takeMeta">One Week (1920)<span class="sep"> · </span>2:00</p>
-          <button class="btn btn-secondary" type="button" id="playTake">Play it back</button>
+          <p class="result-line" id="takeLine">Pinch the clapperboard and the film rolls.</p>
+          <p class="result-meta" id="takeMeta"></p>
+          <div class="result-actions">
+            <button class="btn btn-secondary" type="button" id="playTake" hidden>Play it back</button>
+            <button class="btn btn-secondary" type="button" id="copyLink" hidden>Copy link</button>
+          </div>
         </div>
 
         <div class="hand-wrap" aria-hidden="true">

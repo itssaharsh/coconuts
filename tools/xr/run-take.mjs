@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Scripted emulator run of the judge path, through the IWSDK CLI.
 // Requires: `npx iwsdk dev up --ai-mode agent --allow-browser-automation` (with LD_LIBRARY_PATH for libasound on this box).
-// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses]
+// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses] [--perf]
+// --perf waits for the stage's PERF log once the models are in and fails above 100 draw calls.
 // --until review waits for the Director's review line after the take; --state says where it must come from
 // (offline: the rules, as on the dev server with no /api; online: the model).
 import { execFileSync } from 'node:child_process';
@@ -19,6 +20,7 @@ const until = opt('until', 'start');
 const state = opt('state', null);
 const shots = opt('shots', null);
 const glasses = !!opt('glasses', false);
+const perf = !!opt('perf', false);
 if (shots) mkdirSync(shots, { recursive: true });
 
 const CLI = resolve('node_modules/@iwsdk/cli/dist/cli.js');
@@ -117,21 +119,47 @@ async function main() {
   } catch (e) {
     log('reload skipped:', String(e.message).split('\n')[0]);
   }
-  const status = iw(['xr', 'status']);
-  const active = status?.data?.result?.sessionActive ?? status?.data?.sessionActive ?? status?.sessionActive;
-  if (!active) {
-    iw(['xr', 'enter']);
-    await sleep(3000);
-  }
-  iw(['xr', 'set-transform'], { device: 'headset', position: { x: 0, y: 1.2, z: 0 } });
-  iw(['xr', 'set-input-mode'], { mode: 'hand' });
-  iw(['xr', 'set-transform'], { device: 'hand-right', position: { x: 0.15, y: 1.0, z: -0.25 } });
-  for (let i = 0; i < 10; i++) {
-    await sleep(1000);
-    if (logs('^STAGE placed').some((l) => l.endsWith('xr'))) break;
+  // the stage is placed for the head's height soon after entering, so the head takes its seat first
+  const HEAD = { x: 0, y: 1.2, z: 0 };
+  const placedFor = () => {
+    const l = logs('^STAGE placed').filter((x) => x.endsWith('xr')).pop();
+    return l ? Number(l.split(' ')[2].split(',')[1]) : null;
+  };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const status = iw(['xr', 'status']);
+    const active = status?.data?.result?.sessionActive ?? status?.data?.sessionActive ?? status?.sessionActive;
+    if (!active) iw(['xr', 'enter']);
+    iw(['xr', 'set-transform'], { device: 'headset', position: HEAD });
+    iw(['xr', 'set-input-mode'], { mode: 'hand' });
+    iw(['xr', 'set-transform'], { device: 'hand-right', position: { x: 0.15, y: 1.0, z: -0.25 } });
+    const n0 = logs('^STAGE placed').filter((x) => x.endsWith('xr')).length;
+    for (let i = 0; i < 15; i++) {
+      await sleep(1000);
+      if (logs('^STAGE placed').filter((x) => x.endsWith('xr')).length > n0 || (attempt === 0 && active)) break;
+    }
+    const y = placedFor();
+    if (y !== null && Math.abs(y - (HEAD.y - 0.25)) < 0.02) break;
+    log('stage placed for another height', y, '- entering again');
+    iw(['xr', 'exit']);
+    await sleep(1500);
   }
   log('stage:', logs('^STAGE ').slice(-2).join(' | '));
   log('film:', logs('^FILM ').slice(-2).join(' | '));
+  if (perf) {
+    // the stage logs its draw calls once every model is in (or has failed)
+    let line = null;
+    for (let i = 0; i < 30 && !line; i++) {
+      await sleep(1000);
+      line = logs('^PERF ').pop() ?? null;
+    }
+    log('perf:', line ?? 'no PERF log in 30 s');
+    const calls = line ? Number((line.match(/calls (\d+)/) ?? [])[1]) : NaN;
+    const models = line ? line.match(/models (\d+)\/(\d+)/) : null;
+    if (!line || !(calls <= 100) || (models && models[1] !== models[2])) {
+      console.error('FAIL: perf (want every model in and draw calls <= 100)');
+      process.exit(1);
+    }
+  }
   shot('00-stage');
   const startedBefore = logs('^TAKE start').length;
   await pinchAt('clapper');

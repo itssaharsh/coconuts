@@ -18,7 +18,7 @@ import type { PropId } from './types';
 export const TABLE_W = 0.7;
 export const TABLE_D = 0.4;
 export const TABLE_H = 0.015;
-export const HIT_BOX = 0.09;
+const HIT_BOX = 0.09;
 
 export const PALETTE = {
   beech: '#EAD9B9',
@@ -50,7 +50,7 @@ export function mat(hex: string, roughness = 0.7, metalness = 0): MeshStandardMa
 }
 
 /** An invisible box the ray can hit: bigger than the thing, so a shaky pinch still lands. */
-export function hitBox(size = HIT_BOX, height = size, depth = size, name = 'hit'): Mesh {
+function hitBox(size = HIT_BOX, height = size, depth = size, name = 'hit'): Mesh {
   const m = new Mesh(
     new BoxGeometry(size, height, depth),
     new MeshBasicMaterial({ colorWrite: false, depthWrite: false, transparent: true, opacity: 0 }),
@@ -68,7 +68,7 @@ export function nameHitBoxes(root: Group): void {
   });
 }
 
-export function ring(radius: number, hex: string = PALETTE.beechDark): Mesh {
+function ring(radius: number, hex: string = PALETTE.beechDark): Mesh {
   const m = new Mesh(new TorusGeometry(radius, 0.004, 10, 36), mat(hex, 0.6));
   m.rotation.x = Math.PI / 2;
   m.position.y = 0.004;
@@ -92,7 +92,7 @@ function glowTexture(): CanvasTexture {
   return glowTex;
 }
 
-export function lampPool(size = 0.12): Mesh {
+function lampPool(size = 0.12): Mesh {
   const m = new Mesh(
     new PlaneGeometry(size, size),
     new MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, opacity: 0 }),

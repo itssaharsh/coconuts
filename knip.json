@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "api/*.ts",
+    "tools/**/*.mjs",
+    "tests/**/*.test.ts"
+  ],
+  "project": [
+    "src/**/*.ts",
+    "api/**/*.ts",
+    "tools/**/*.mjs",
+    "tests/**/*.ts"
+  ],
+  "ignore": [
+    "src/assets.ts",
+    "src/components.ts"
+  ],
+  "ignoreDependencies": []
+}

@@ -8,6 +8,7 @@ const CARD_H = 0.07;
 const LANE_W = 0.8;
 const SECONDS_ACROSS = 6; // seconds of film shown from the right edge to the now line
 const NOW_X = -LANE_W / 2 + 0.12; // the now line sits near the left end
+const ON_TOP = 20; // render order above the props and the bubbles
 
 const COLORS = { paper: '#FFFDF8', ink: '#2B2320', muted: '#8A7A66', accent: '#3F8FD6', hit: '#E9F6EC', hitInk: '#256B42' };
 
@@ -104,12 +105,15 @@ export class Lane {
 
   constructor() {
     this.group.name = 'lane';
-    const rail = new Mesh(new PlaneGeometry(LANE_W, 0.004), new MeshBasicMaterial({ color: 0xc9b08a }));
+    // the lane is a readout, drawn over whatever stands in front of it, so a tall prop never hides a cue
+    const rail = new Mesh(new PlaneGeometry(LANE_W, 0.004), new MeshBasicMaterial({ color: 0xc9b08a, depthTest: false }));
     rail.position.y = -CARD_H / 2 - 0.01;
+    rail.renderOrder = ON_TOP;
     this.group.add(rail);
-    const now = new Mesh(new PlaneGeometry(0.006, CARD_H + 0.04), new MeshBasicMaterial({ color: 0x3f8fd6 }));
+    const now = new Mesh(new PlaneGeometry(0.006, CARD_H + 0.04), new MeshBasicMaterial({ color: 0x3f8fd6, depthTest: false }));
     now.position.set(NOW_X, 0, 0.002);
     now.name = 'now';
+    now.renderOrder = ON_TOP + 1;
     this.group.add(now);
   }
 
@@ -125,8 +129,12 @@ export class Lane {
   private cardFor(state: CueState): { mesh: Mesh; lit: boolean } {
     let c = this.cards.get(state);
     if (!c) {
-      const mesh = new Mesh(new PlaneGeometry(CARD_W, CARD_H), new MeshBasicMaterial({ map: cardTexture(state, false), transparent: true }));
+      const mesh = new Mesh(
+        new PlaneGeometry(CARD_W, CARD_H),
+        new MeshBasicMaterial({ map: cardTexture(state, false), transparent: true, depthTest: false }),
+      );
       mesh.name = `cue-${state.cue.t}`;
+      mesh.renderOrder = ON_TOP + 2;
       this.group.add(mesh);
       c = { mesh, lit: false };
       this.cards.set(state, c);

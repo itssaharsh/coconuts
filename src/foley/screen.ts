@@ -2,7 +2,7 @@
 import { Group, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace, TextureLoader, VideoTexture } from 'three';
 import { buildScreenFrame } from './toys';
 
-export const SCREEN_W = 0.8;
+const SCREEN_W = 0.8;
 export const SCREEN_H = 0.45;
 
 export class Screen {

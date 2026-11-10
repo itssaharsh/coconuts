@@ -7,7 +7,6 @@ export const CLIP_IDS = ['one-week', 'safety-last', 'trip-to-the-moon'] as const
 export type ClipId = (typeof CLIP_IDS)[number];
 
 /** Seconds before and after a cue's time that still count as a hit. */
-export const DEFAULT_WINDOW: [number, number] = [0.6, 0.8];
 /** Cue labels are shown on the cue cards: short enough to read at a glance. */
 export const MAX_LABEL_WORDS = 4;
 
@@ -21,7 +20,7 @@ export interface Cue {
   window: [number, number];
 }
 
-export interface ClipSource {
+interface ClipSource {
   /** archive.org item identifier. */
   item: string;
   /** File name inside the item. */
@@ -32,7 +31,7 @@ export interface ClipSource {
   segment?: { start: number; length: number };
 }
 
-export interface CueProvenance {
+interface CueProvenance {
   /** The model that proposed cues, e.g. "gemini-2.5-flash". */
   proposed_by: string;
   /** ISO time of the proposal. */
@@ -40,12 +39,6 @@ export interface CueProvenance {
   /** Who checked the shipped sheet against the frames. */
   checked_by: 'hand';
   notes: string;
-}
-
-export interface CueSheet {
-  clipId: ClipId;
-  cues: Cue[];
-  provenance: CueProvenance;
 }
 
 export interface Clip {
@@ -65,11 +58,11 @@ export interface Clip {
   provenance: CueProvenance;
 }
 
-export function isClipId(id: string): id is ClipId {
+function isClipId(id: string): id is ClipId {
   return (CLIP_IDS as readonly string[]).includes(id);
 }
 
-export function isPropId(id: string): id is PropId {
+function isPropId(id: string): id is PropId {
   return (PROP_IDS as readonly string[]).includes(id);
 }
 
@@ -81,11 +74,6 @@ export function wordCount(label: string): number {
 export function inWindow(cue: Cue, t: number): boolean {
   const [before, after] = cue.window;
   return t >= cue.t - before && t <= cue.t + after;
-}
-
-/** The cue sheet view of a clip. */
-export function cueSheetOf(clip: Clip): CueSheet {
-  return { clipId: clip.id, cues: clip.cues, provenance: clip.provenance };
 }
 
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
