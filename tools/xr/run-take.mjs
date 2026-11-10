@@ -170,6 +170,7 @@ async function main() {
   log('take:', started.join(' | '));
   if (!started.length) {
     console.error('FAIL: no TAKE start log');
+    await stopRecorder();
     process.exit(1);
   }
   if (until === 'start') return log('PASS start');
@@ -182,6 +183,7 @@ async function main() {
   log('hits:', hits.join(' | '));
   if (hits.length < 4) {
     console.error('FAIL: expected 4 HIT logs');
+    await stopRecorder();
     process.exit(1);
   }
   if (until === 'hits') return log('PASS hits');
@@ -197,6 +199,7 @@ async function main() {
   log('replay:', replay.join(' | '));
   if (!ended.length) {
     console.error('FAIL: no TAKE end');
+    await stopRecorder();
     process.exit(1);
   }
   if (until !== 'review') return log('PASS replay');

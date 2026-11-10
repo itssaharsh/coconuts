@@ -5,14 +5,17 @@ export function automationRun(): boolean {
 
 /**
  * `?sound` keeps the audio graph on in an automation run, for recording the video's soundtrack. The flag is
- * kept in sessionStorage because the dev runtime reloads the page without its query on entering XR.
+ * kept in localStorage because the dev runtime reloads the page without its query on entering XR.
  */
 export function soundForced(): boolean {
   if (typeof location === 'undefined') return false;
+  const q = new URLSearchParams(location.search);
   try {
-    if (new URLSearchParams(location.search).has('sound')) sessionStorage.setItem('coconuts.sound', '1');
-    return sessionStorage.getItem('coconuts.sound') === '1';
+    // the dev runtime reopens the page in a fresh tab on entering XR, so the flag lives in localStorage; ?nosound clears it
+    if (q.has('nosound')) localStorage.removeItem('coconuts.sound');
+    else if (q.has('sound')) localStorage.setItem('coconuts.sound', '1');
+    return localStorage.getItem('coconuts.sound') === '1';
   } catch {
-    return new URLSearchParams(location.search).has('sound');
+    return q.has('sound');
   }
 }
