@@ -82,7 +82,8 @@ const ready = new Promise<FoleyApi>((resolve) => {
 World.create(document.getElementById('scene-container') as HTMLDivElement, projectOptions).then((world) => {
   if (automationRun()) {
     // the emulator's headless browser renders in software: draw small and skip shadows so hand motion is sampled often enough to test
-    world.renderer.xr.setFramebufferScaleFactor(0.25);
+    // (a recording run, with the sound flag on, draws at half scale so the footage is sharp)
+    world.renderer.xr.setFramebufferScaleFactor(soundForced() ? 0.35 : 0.25);
     world.renderer.setPixelRatio(1);
     world.renderer.shadowMap.enabled = false;
     console.log('RENDER low-fidelity (automation run)');

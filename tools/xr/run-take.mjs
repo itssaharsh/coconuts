@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Scripted emulator run of the judge path, through the IWSDK CLI.
 // Requires: `npx iwsdk dev up --ai-mode agent --allow-browser-automation` (with LD_LIBRARY_PATH for libasound on this box).
-// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses] [--perf] [--keep] [--record qa/rec] [--cues [skip,list]]
+// Usage: node tools/xr/run-take.mjs [--until start|hits|replay|review] [--state offline|online] [--shots qa/take] [--glasses] [--perf] [--keep] [--record qa/rec] [--cues [skip,list]] [--fov 55]
 // --cues plays the clip's own cue sheet: a far pinch on each cue's prop at its time (skipping the listed cue indexes, so the take looks human).
 // --record starts tools/xr/record-cdp.mjs (screencast + soundtrack when the sound flag is on) just before the clapper and stops it at the end.
 // --perf waits for the stage's PERF log once the models are in and fails above 100 draw calls.
@@ -24,9 +24,10 @@ const shots = opt('shots', null);
 const glasses = !!opt('glasses', false);
 const perf = !!opt('perf', false);
 const record = opt('record', null);
+const fov = opt('fov', null); // the emulator view's vertical field of view while recording (it resets on a reload)
 const cuesMode = opt('cues', null);
 const FILM_LAG_MS = 800; // the film starts about this long after the clapper's TAKE start
-const PINCH_LEAD_MS = 950; // look-at plus select take about this long to land
+const PINCH_LEAD_MS = 2800; // look-at plus select take about this long to land as a HIT (measured: hits logged 1.3 s after a 950 ms lead)
 let recorder = null;
 function stopRecorder() {
   if (!recorder) return Promise.resolve();
@@ -60,6 +61,12 @@ function logs(pattern, count = 80) {
   const r = iw(['browser', 'logs'], { pattern, count });
   const items = r?.data?.result ?? r?.result ?? [];
   return (Array.isArray(items) ? items : []).map((x) => (typeof x === 'string' ? x : x.message ?? JSON.stringify(x)));
+}
+/** Log lines matching `pattern` written at or after `sinceMs` (the console buffer is a ring, so counts drift). */
+function logsSince(pattern, sinceMs, count = 80) {
+  const r = iw(['browser', 'logs'], { pattern, count });
+  const items = r?.data?.result ?? r?.result ?? [];
+  return (Array.isArray(items) ? items : []).filter((x) => typeof x !== 'string' && (x.timestamp ?? 0) >= sinceMs).map((x) => x.message ?? '');
 }
 
 function shot(name) {
@@ -122,22 +129,28 @@ async function playCues(startLine) {
   const skip = new Set(typeof cuesMode === 'string' ? cuesMode.split(',').map(Number) : []);
   const cues = [...sheet.cues].sort((a, b) => a.t - b.t);
   let lastDone = 0;
+  let drift = 0; // wall ms the film clock has fallen behind, measured from each HIT's film time
   for (let i = 0; i < cues.length; i++) {
     const cue = cues[i];
     if (skip.has(i)) {
       log(`cue ${i} ${cue.t}s ${cue.prop} skipped on purpose`);
       continue;
     }
-    const due = startAt + FILM_LAG_MS + cue.t * 1000 - PINCH_LEAD_MS;
+    const due = startAt + FILM_LAG_MS + cue.t * 1000 + drift - PINCH_LEAD_MS;
     const wait = due - Date.now();
     if (wait < -1500) {
       log(`cue ${i} ${cue.t}s ${cue.prop} missed (behind by ${-wait} ms)`);
       continue;
     }
     if (wait > 0) await sleep(wait);
-    await pinchAt(targetName(cue.prop));
+    await pinchAt(targetName(cue.prop), 0.045);
     lastDone = Date.now();
-    log(`cue ${i} ${cue.t}s ${cue.prop} '${cue.label}' pinched`);
+    const hit = logs('^HIT ', 3).pop();
+    const filmT = hit ? Number(hit.split(' ')[3]) : NaN;
+    if (Number.isFinite(filmT)) {
+      drift = Math.max(0, lastDone - startAt - FILM_LAG_MS - filmT * 1000 - 600); // the select lands about 600 ms before the log
+    }
+    log(`cue ${i} ${cue.t}s ${cue.prop} '${cue.label}' pinched -> ${hit ? hit.split(' ').slice(1, 4).join(' ') : 'no hit'} drift ${drift} ms`);
   }
   return lastDone;
 }
@@ -179,7 +192,7 @@ async function main() {
     if (!active) iw(['xr', 'enter']);
     iw(['xr', 'set-transform'], { device: 'headset', position: HEAD });
     iw(['xr', 'set-input-mode'], { mode: 'hand' });
-    iw(['xr', 'set-transform'], { device: 'hand-right', position: { x: 0.15, y: 1.0, z: -0.25 } });
+    iw(['xr', 'set-transform'], { device: 'hand-right', position: { x: 0.15, y: 1.3, z: -0.25 } });
     const n0 = logs('^STAGE placed').filter((x) => x.endsWith('xr')).length;
     for (let i = 0; i < 15; i++) {
       await sleep(1000);
@@ -208,16 +221,20 @@ async function main() {
       process.exit(1);
     }
   }
+  if (fov) {
+    iw(['xr', 'set-device-state'], { state: { fov: Number(fov) } });
+    await sleep(1000);
+  }
   shot('00-stage');
   if (record) {
     recorder = spawn(process.execPath, ['tools/xr/record-cdp.mjs'], { env: { ...process.env, REC_DIR: String(record), REC_SECONDS: '420' }, stdio: ['ignore', 'inherit', 'inherit'] });
     await sleep(2500);
   }
-  const startedBefore = logs('^TAKE start').length;
+  const clapAt = Date.now() - 1000;
   await pinchAt('clapper');
   await sleep(1200);
   shot('01-rolling');
-  const started = logs('^TAKE start').slice(startedBefore);
+  const started = logsSince('^TAKE start', clapAt);
   log('take:', started.join(' | '));
   if (!started.length) {
     console.error('FAIL: no TAKE start log');
@@ -225,7 +242,6 @@ async function main() {
     process.exit(1);
   }
   if (until === 'start') return log('PASS start');
-  const hitsBefore = logs('^HIT ').length;
   if (cuesMode) {
     await playCues(started[started.length - 1]);
   } else {
@@ -234,7 +250,7 @@ async function main() {
     }
   }
   shot('02-hits');
-  const hits = logs('^HIT ').slice(hitsBefore);
+  const hits = logsSince('^HIT ', clapAt);
   log('hits:', hits.join(' | '));
   if (hits.length < (cuesMode ? 6 : 4)) {
     console.error(`FAIL: expected ${cuesMode ? 6 : 4} HIT logs`);
@@ -243,12 +259,17 @@ async function main() {
   }
   if (until === 'hits') return log('PASS hits');
   const dur = clipDuration();
-  const endedBefore = logs('^TAKE end').length;
-  const reviewBefore = logs('^DIRECTOR review').length;
+
   log(`waiting for the clip to end (${dur.toFixed(0)} s)`);
-  await sleep(Math.min(200, dur + 4) * 1000);
+  const giveUp = Date.now() + Math.min(300, dur * 1.4 + 10) * 1000;
+  let ended = [];
+  while (Date.now() < giveUp) {
+    await sleep(2000);
+    ended = logsSince('^TAKE end', clapAt);
+    if (ended.length) break;
+  }
+  await sleep(1500);
   shot('03-end');
-  const ended = logs('^TAKE end').slice(endedBefore);
   log('end:', ended.join(' | '));
   const replay = logs('^REPLAY ');
   log('replay:', replay.join(' | '));
@@ -262,7 +283,7 @@ async function main() {
   let review = [];
   for (let i = 0; i < 8 && !review.length; i++) {
     await sleep(500);
-    review = logs('^DIRECTOR review').slice(reviewBefore);
+    review = logsSince('^DIRECTOR review', clapAt);
   }
   shot('04-review');
   log('director:', logs('^DIRECTOR').join(' | '));

@@ -49,7 +49,7 @@ cdp.on('Page.screencastFrame', ({ data, metadata, sessionId }) => {
 const W = Number(process.env.REC_W ?? 0);
 const H = Number(process.env.REC_H ?? 0);
 if (W && H) await cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
-await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 85, maxWidth: W || 1280, maxHeight: H || 1280, everyNthFrame: 1 });
+await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 85, maxWidth: W || 1280, maxHeight: H || 1280, everyNthFrame: Number(process.env.REC_NTH ?? 1) });
 console.log(JSON.stringify({ recording: true, port, audio: audioOn, page: page.url(), app: app.url() }));
 
 let stopping = false;
