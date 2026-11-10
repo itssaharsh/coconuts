@@ -2,6 +2,8 @@
 // records the take and replays it against the film.
 import { Grabbed, Hovered, OneHandGrabbable, Pressed, RayInteractable, VisibilityState, createSystem, type Entity } from '@iwsdk/core';
 import { Object3D, Quaternion, Vector3 } from 'three';
+import { CueTracker, type Cue } from './cues';
+import { Lane } from './lane';
 import { Recorder, encodeTake } from './recorder';
 import { Replayer, schedule } from './replay';
 import * as sound from './sound';
@@ -17,7 +19,8 @@ const tmpU = new Vector3();
 
 export interface FoleyApi {
   stage: Stage;
-  loadClip: (id: string, url: string) => Promise<void>;
+  loadClip: (id: string, url: string, cues?: Cue[]) => Promise<void>;
+  cues: () => CueTracker | null;
   startTake: () => Promise<void>;
   replay: () => Promise<void>;
   lastTake: () => Take | null;
@@ -75,38 +78,62 @@ export class FoleySystem extends createSystem({
   private clopSide: 0 | 1 = 0;
   private lastPos = new Map<string, Vector3>();
   private lastSourceSync = 0;
+  private lane = new Lane();
+  private tracker: CueTracker | null = null;
 
   init(): void {
+    this.lane.group.position.set(0, -0.285, 0.03);
+    this.lane.group.rotation.x = -0.28;
+    this.stage.screen.group.add(this.lane.group);
     this.rootEntity = this.world.createTransformEntity(this.stage.root, { persistent: true });
     for (const piece of this.stage.pieces.values()) {
       const e = this.world.createTransformEntity(piece.root, { parent: this.rootEntity, persistent: true });
-      e.addComponent(RayInteractable);
-      if (GRABBABLE.includes(piece.id as PropId)) e.addComponent(OneHandGrabbable, { translate: true, rotate: true });
       this.entityPiece.set(e, piece.id);
       this.pieceEntity.set(piece.id, e);
+      if (GRABBABLE.includes(piece.id as PropId)) {
+        // the prop itself is grabbed by a near pinch; its invisible hit box is a separate entity the far ray can press
+        e.addComponent(OneHandGrabbable, { translate: true, rotate: true });
+        const hit = piece.root.getObjectByName('hit');
+        if (hit) {
+          const h = this.world.createTransformEntity(hit, { parent: e, persistent: true });
+          h.addComponent(RayInteractable);
+          this.entityPiece.set(h, piece.id);
+        }
+      } else {
+        e.addComponent(RayInteractable);
+      }
     }
     this.stage.screen.onEnded = () => this.endTake();
     this.api = {
       stage: this.stage,
-      loadClip: (id, url) => this.loadClip(id, url),
+      loadClip: (id, url, cues) => this.loadClip(id, url, cues),
+      cues: () => this.tracker,
       startTake: () => this.startTake(),
       replay: () => this.replay(),
       lastTake: () => this.last,
       log: (...a) => console.log(...a),
     };
     this.queries.pressed.subscribe('qualify', (entity) => this.onPressed(entity));
+    let lastVis = this.world.visibilityState.value;
     this.cleanupFuncs.push(
       this.world.visibilityState.subscribe((v) => {
-        if (v === VisibilityState.NonImmersive) this.placed = false; // re-place when XR starts
+        // entering or leaving XR: place the stage again for the new viewpoint
+        if (v !== lastVis && (v === VisibilityState.NonImmersive || lastVis === VisibilityState.NonImmersive)) {
+          this.placed = false;
+          this.placeFrames = 0;
+        }
+        lastVis = v;
       }),
     );
     console.log('STAGE ready');
     hooks.onReady(this.api);
   }
 
-  private async loadClip(id: string, url: string): Promise<void> {
+  private async loadClip(id: string, url: string, cues: Cue[] = []): Promise<void> {
     this.clipId = id;
     this.mode = 'idle';
+    this.tracker = cues.length ? new CueTracker(cues) : null;
+    this.lane.setTracker(this.tracker);
     await this.stage.screen.load(id, url);
   }
 
@@ -116,6 +143,7 @@ export class FoleySystem extends createSystem({
     const ok = await this.stage.screen.play(0);
     if (!ok) return;
     this.recorder.start(this.clipId);
+    this.tracker?.reset();
     this.mode = 'take';
     console.log('TAKE start', this.clipId);
     hooks.onTakeStart(this.api);
@@ -132,7 +160,7 @@ export class FoleySystem extends createSystem({
     this.mode = 'ended';
     if (!take) return;
     this.last = take;
-    console.log('TAKE code', encodeTake(take), 'hits', take.events.length);
+    console.log('TAKE code', encodeTake(take), 'hits', take.events.length, this.tracker ? this.tracker.summary() : '');
     hooks.onTakeEnd(take, this.api);
   }
 
@@ -170,7 +198,8 @@ export class FoleySystem extends createSystem({
     }
     const prop = id as PropId;
     // a near pinch that grabs the prop is not a one-shot
-    if (entity.hasComponent(Grabbed)) return;
+    const propEntity = this.pieceEntity.get(prop);
+    if (propEntity?.hasComponent(Grabbed)) return;
     const started = this.grabStartedAt.get(prop);
     if (started !== undefined && performance.now() - started < 200) return;
     void sound.ensureAudio();
@@ -180,7 +209,11 @@ export class FoleySystem extends createSystem({
   private hit(hit: HitEvent): void {
     sound.playHit(hit);
     this.stage.flash(hit.prop);
-    if (this.mode === 'take') this.recorder.add(hit);
+    if (this.mode === 'take') {
+      this.recorder.add(hit);
+      const landed = this.tracker?.register(hit);
+      if (landed) console.log('CUE hit', landed.cue.label, (landed.offset ?? 0).toFixed(2));
+    }
     console.log('HIT', hit.prop, hit.kind, hit.t.toFixed(2), hit.v.toFixed(2));
     hooks.onHit(hit, this.api);
   }
@@ -280,12 +313,15 @@ export class FoleySystem extends createSystem({
     }
   }
 
+  private placeFrames = 0;
+
   private placeStage(): void {
     const inXR = this.world.visibilityState.value !== VisibilityState.NonImmersive;
     const src: Object3D = inXR ? this.player.head : this.world.camera;
     src.updateWorldMatrix(true, false);
     src.getWorldPosition(tmpP);
     if (tmpP.y < 0.3) return; // no real pose yet
+    if (inXR && this.placeFrames++ < 10) return; // let the tracked pose settle for a few frames
     tmpF.set(0, 0, -1).applyQuaternion(src.getWorldQuaternion(tmpQ));
     this.stage.placeFrom(tmpP, tmpF);
     this.placed = true;
@@ -327,6 +363,7 @@ export class FoleySystem extends createSystem({
     this.trackGrabbed(time);
     this.easeHome(dt);
     if (this.mode === 'replay' && this.replayer) this.replayer.tick(this.stage.screen.currentTime);
+    this.lane.update(this.stage.screen.currentTime);
     this.syncAudioSpace(time);
     this.stage.update(dt);
   }

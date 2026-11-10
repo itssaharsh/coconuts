@@ -111,7 +111,10 @@ async function main() {
   iw(['xr', 'set-transform'], { device: 'headset', position: { x: 0, y: 1.2, z: 0 } });
   iw(['xr', 'set-input-mode'], { mode: 'hand' });
   iw(['xr', 'set-transform'], { device: 'hand-right', position: { x: 0.15, y: 1.0, z: -0.25 } });
-  await sleep(1500);
+  for (let i = 0; i < 10; i++) {
+    await sleep(1000);
+    if (logs('^STAGE placed').some((l) => l.endsWith('xr'))) break;
+  }
   log('stage:', logs('^STAGE ').slice(-2).join(' | '));
   log('film:', logs('^FILM ').slice(-2).join(' | '));
   shot('00-stage');

@@ -14,23 +14,32 @@ export function audioContext(): AudioContext | null {
   return ctx;
 }
 
+/** Automation runs (the emulator driven by scripts) have no ears; the audio graph stays off so nothing can crash. */
+export function audioSilenced(): boolean {
+  if (typeof navigator !== 'undefined' && navigator.webdriver) return true;
+  return typeof location !== 'undefined' && new URLSearchParams(location.search).has('silent');
+}
+
 /** Create (or resume) the audio graph. Call from a user gesture such as the clapper pinch. */
-export async function ensureAudio(): Promise<AudioContext> {
-  if (!ctx) {
-    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    ctx = new AC({ latencyHint: 'interactive' });
-    master = ctx.createGain();
-    master.gain.value = 0.9;
-    master.connect(ctx.destination);
-    recDest = ctx.createMediaStreamDestination();
-    master.connect(recDest);
+export async function ensureAudio(): Promise<AudioContext | null> {
+  if (audioSilenced()) {
+    if (!ctx) console.log('AUDIO silent (automation run)');
+    return null;
   }
-  if (ctx.state !== 'running') {
-    try {
-      await ctx.resume();
-    } catch {
-      // the next gesture retries
+  try {
+    if (!ctx) {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      ctx = new AC({ latencyHint: 'interactive' });
+      master = ctx.createGain();
+      master.gain.value = 0.9;
+      master.connect(ctx.destination);
+      recDest = ctx.createMediaStreamDestination();
+      master.connect(recDest);
+      console.log('AUDIO ready', ctx.sampleRate);
     }
+    if (ctx.state !== 'running') await ctx.resume();
+  } catch (err) {
+    console.warn('AUDIO unavailable', err);
   }
   return ctx;
 }

@@ -15,7 +15,7 @@ export interface PropPiece {
 }
 
 const SCREEN_AHEAD = 1.3;
-const SCREEN_LIFT = -0.05; // relative to eye height
+const SCREEN_LIFT = 0.12; // screen centre 12 cm above eye height, so the lane under it clears the props
 const TABLE_AHEAD = 0.75;
 const TABLE_BELOW = 0.25;
 

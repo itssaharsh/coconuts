@@ -1,5 +1,6 @@
 import { World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
+import type { Cue } from './foley/cues';
 import { FoleySystem, setFoleyHooks } from './foley/system';
 
 const base = import.meta.env.BASE_URL;
@@ -32,9 +33,23 @@ async function clipUrl(id: string): Promise<string> {
   return `${base}films/test.${ext}`;
 }
 
+async function clipCues(id: string): Promise<Cue[]> {
+  try {
+    const res = await fetch(`${base}clips/${id}.json`);
+    if (!res.ok) return [];
+    const meta = (await res.json()) as { cues?: Cue[] };
+    return Array.isArray(meta.cues) ? meta.cues : [];
+  } catch {
+    return [];
+  }
+}
+
 setFoleyHooks({
   onReady: (api) => {
-    clipUrl(clipId).then((url) => api.loadClip(clipId, url));
+    Promise.all([clipUrl(clipId), clipCues(clipId)]).then(([url, cues]) => {
+      console.log('CUES', clipId, cues.length);
+      return api.loadClip(clipId, url, cues);
+    });
   },
   onHit: () => {},
   onTakeStart: () => {},
