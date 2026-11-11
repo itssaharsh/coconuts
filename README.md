@@ -1,14 +1,16 @@
-# Coconuts: be the sound of a silent movie
+# Coconuts: the Serial
 
-A hands-first mixed-reality toy for Meta Quest and Meta VR Glasses, built on Meta's Immersive Web SDK (WebXR).
-A public-domain silent film plays on a little proscenium in front of you; a beech table of toy foley props sits
-within reach. You make the sound effects with your hands, in time with the picture, then play your take back
-with the film and send the link to a friend.
+A toy theatre on your desk plays a silent-film serial, and you make every sound in it. Mixed reality for Meta
+Quest and Meta VR Glasses, hands only, seated, in the headset's browser (Meta's Immersive Web SDK, WebXR).
 
-Live: https://coconuts-foley.vercel.app (open it in the Quest browser; any browser shows a sample take).
-Video: a 2:51 cut is ready for upload (the public link goes here).
+Six foley props sit on a small table in front of you: coconut shells, a little door, a desk bell, a thunder
+sheet, a slide whistle and a bag of glass. The stage waits for you. The knight raises his fist at the castle
+gate and nothing happens until you knock; his horse runs only as fast as you clop; the sleeping thief wakes
+differently for every sound. When a reel ends a card asks "What happens next?", you answer with a sound (or by
+holding the megaphone and saying it), and an AI Director writes the next reel around your answer.
 
-![The stage in the emulator: the proscenium with One Week playing, the cue lane, and the table of props](docs/media/stage.png)
+Live: https://coconuts-foley.vercel.app (open it in the Quest browser; without a headset the page itself plays:
+click the props, or use the keys C D B T W G and the space bar).
 
 Built from scratch inside the Meta VR Start Developer Competition window: the first commit (ca173c2) is
 timestamped 2026-11-10T17:13:38Z, after the build opened on 24 September 2026. Entertainment track, New
@@ -18,65 +20,52 @@ Experience division.
 
 | Piece | State |
 |---|---|
-| Six props, each a hand interaction, with synthesised spatial sound and a replayable take | real, in the build |
-| The three films and their cue sheets | real public-domain prints, cue sheets proposed by Gemini and checked by hand |
-| The Director's one-line review and voice | real model calls with a validator; a rule-written line stands in when the model is slow or absent |
-| The sample take on the landing page | scripted from the cue sheet by `tools/make-demo-take.mjs`, labelled as such |
-| Headset testing | the IWSDK desktop emulator only (Quest 3 and Meta VR Glasses profiles); no physical headset was available |
+| The theatre: six 3D sets, an endless road, nine rigged characters, a horse, its own lighting and film look | real, in the build; CC0 kits baked by the scripts in `tools/serial/` |
+| Reel one (the gate, the ride, the robbers' den) | written by hand; every moment waits for the player's sound |
+| The reels after it | planned by the Director (Claude) from the player's pitch and what their sounds did so far, then assembled from hand-staged pieces and checked; a written reel for every prop plays whenever the model is slow, wrong or absent |
+| The six props | hand interactions: a pat, a pinch from afar, gaze and pinch, or pick up and shake; recorded CC0 sounds with a synthesised fallback |
+| Speaking a pitch | optional: hold the megaphone, speech-to-text by AssemblyAI; off without a microphone or the key, and the pitch cards always work |
+| Wall size | the player's thunder bursts the toy theatre to the size of the wall; a tile switches back, and it stays small if the headset cannot keep its frame rate |
+| Headset testing | the IWSDK desktop emulator only (Quest 3 profile); no physical headset was available to the builder |
 
 ## How it plays
 
-1. **Enter in your headset.** The table appears 75 cm ahead, the screen above it. The Director's paper tag says
-   what is coming up ("Doors in this one. Mind the slam.").
-2. **Pinch the clapperboard.** The film rolls and the cue lane under the screen slides pictogram cards toward
-   the now line: a horse, a door, a fall.
-3. **Make the sounds.** Each prop is a real hand interaction, and every prop also answers a far pinch (or a
-   gaze and a pinch on the glasses) with its one-shot:
+1. **Enter in your headset.** Your room dims and the theatre stands behind a small table, 46 cm ahead and at
+   desk height. The marquee says what to do: try the props, then tap the clapper.
+2. **Reel one.** "A knight. A door." He walks to the gate and waits. Knock three times on the little door and
+   the gate opens. "His horse runs on your hooves": clop the coconuts and the road slides by; stop, and the
+   knight nearly goes over the horse's neck. In the robbers' den the thief sleeps on his loot: whatever you
+   sound wakes him in its own way. Thunder, a slammed door, a duel that rings on your bell, a leap through
+   the window on your crash of glass.
+3. **What happens next?** Three pitches, each on a prop. Sound one, or hold the megaphone and say your own.
+   The Director writes the reel; it rolls by itself.
+4. **Come back.** The serial keeps its place in the browser: next time the marquee says "Previously…" and the
+   clapper goes on with the story.
 
-   | Prop | In the hand | One-shot |
-   |---|---|---|
-   | Coconut shells | pinch to hold, shake down: a clop on each strike, left and right shells alternate | clop |
-   | Little door | tap: knock; hold a third of a second: slam (the leaf swings) | knock |
-   | Desk bell | poke or pinch the button | ding |
-   | Thunder sheet | hold the handle and shake: the rumble follows your speed, the sheet shivers | rumble |
-   | Slide whistle | hold and pull up or down: the pitch follows your hand, the slide moves | whistle |
-   | Bag of glass | hold, lift, let go: a crash if it drops from height | crash |
+Every prop answers four ways, so nothing depends on one kind of tracking: an open hand's pat, a pinch from
+afar, gaze and pinch (Meta VR Glasses), or pick it up and shake. A stage kept waiting asks twice (the actor
+looks out at you, the prop glows), then takes any sound, then goes on by itself: no reel can stall.
 
-   Tiles on the table rim pause the film, step the volume and redo the take.
-4. **Play it back.** When the reel ends the slate says how many cues you hit, the Director gives you one line
-   ("“couple runs in panic” landed, and “train whistle blows” never came."), and the clapperboard replays the
-   film with your sounds. The take's code lands in the address bar: `/#take=<code>` replays it anywhere, and
-   a shared take says "Your turn."
-
-   Hits count the prop and the moment: a cue is hit when its prop sounds inside the cue's window, however the
-   sound was made. The lane never shows a miss in red.
-
-All sounds are synthesised in Web Audio and spatialised from the prop's position; nothing is sampled.
+Tiles on the table rim pause, step the volume, start the reel again and switch the stage between desk and wall.
 
 ## The Director
 
-Two things in the game come from a model, and the game stands without either:
+`POST /api/reel` takes the story so far (what each reel was and what the player's sounds did in it) and the
+player's pitch, and answers with a plan: up to three scenes, who is in them, which pieces play in which order,
+and the words on the cards, plus three pitches for the reel after and one line to the player.
 
-- The **cue sheets** for the three bundled clips were proposed by Gemini watching each clip
-  (`tools/cue-sheet.mjs`), then hand-checked; every cue carries its provenance in `public/clips/*.json`.
-- After a take, `POST /api/director` asks Gemini for one in-character line about your take: a reviewer with a
-  fact-checking guard, not an agent. The line is validated before it is shown: it may only name cues and props
-  that were in the take, only the numbers the take has, and it may only call something late or early when the
-  take's timing says so. Anything else, a slow answer (2.2 s in the function, 2.5 s end to end), a rate limit or
-  no key at all, and a rule-written line takes its place. `GET /api/tts` speaks the line.
+- The model never writes stage directions. It chooses from twelve **pieces** (a knock, a ride, a sleeper
+  to wake, a duel, a storm, a smash, a whistle, a slammed door, a chase, a toast, an arrival, a card), each
+  staged once by hand in `src/serial/pieces.ts` and each waiting for one kind of sound.
+- The plan is checked twice (`checkPlan` on the server and again in the browser, then the assembled reel
+  against the set's marks). One repair turn; after that, or after 9 seconds, a written reel plays.
+- Claude (`claude-opus-5-5`, one structured-output call, low effort, cached system prompt) is tried first,
+  Gemini second, the written reels last. A per-IP limit and a daily cap bound the cost.
+- The player's spoken pitch is story material, never instructions: it is cleaned, kept out of the system
+  prompt, and echoed on a card.
 
-The raw cue proposals the model made are kept beside the checked sheets as `public/clips/*.proposed.json`.
-
-## The films
-
-| Clip | Year | Source | Length |
-|---|---|---|---|
-| One Week (Buster Keaton) | 1920 | archive.org item OneWeek1920 | 2:00 |
-| Safety Last! (Harold Lloyd), the clock | 1923 | archive.org item safety-last-1923 | 2:00 |
-| A Trip to the Moon (Georges Méliès) | 1902 | archive.org item ATripToTheMoonGeorgeMelies | 2:00 |
-
-Original prints, US public domain (published before 1929), trimmed and credited on the landing page. The
-`tools/films/` scripts rebuild the MP4 and WebM files from the originals.
+The classic mode from the first version is still here at `?films`: three public-domain silent films
+(Keaton, Lloyd, Méliès) to dub by hand, with a cue lane, a replayable take and a one-line review.
 
 ## Run it
 
@@ -84,56 +73,62 @@ Original prints, US public domain (published before 1929), trimmed and credited 
 npm install
 npm run dev         # the IWSDK dev runtime with the desktop emulator (Quest 3 profile)
 npm run build       # static site in dist/ plus the Vercel functions in api/
-npm test            # 85 unit tests: triggers, cues, replay, the Director, shipped data
+npm test            # unit tests: the stage runtime with a fake stage, the pieces, the Director, hearing, the foley kit
 ```
 
-The functions need `GEMINI_API_KEY` in the environment; without it the Director answers from the rules and the
-health probe reports it.
+Keys, all optional (in the environment of the functions): `ANTHROPIC_API_KEY` for the Director,
+`GEMINI_API_KEY` as its second, `ASSEMBLYAI_API_KEY` for spoken pitches. Without any of them the serial plays
+its written reels.
 
-### Scripted emulator runs
-
-With `npx iwsdk dev up --ai-mode agent --allow-browser-automation --headless` running:
+Two more ways to look at the stage:
 
 ```bash
-node tools/xr/run-take.mjs --until review --state offline   # the judge path: clapper, four hits, the reel ends, the review
-node tools/xr/run-props.mjs                                 # every prop driven by a natural hand (grab, shake, pull, drop, press)
-node tools/xr/run-props.mjs --glasses                       # the same by gaze and pinch (set dev.emulator.device to metaVRGlasses)
-node tools/xr/run-take.mjs --until start --perf             # the stage dressed with its models, draw calls counted
+npx vite --config vite.stage.config.ts      # the theatre alone on http://127.0.0.1:8792/stage.html (keys play the props)
+python3 qa/stage/play.py out "written=thunder" bell 200   # a reel plays itself and saves a still at every wait
+node tools/director/serve.mjs               # the functions on http://127.0.0.1:8796 for the dev pages
 ```
 
-The headless emulator renders in software; the app notices automation (`navigator.webdriver`) and draws small,
-without shadows or audio, so hand motion is sampled often enough to test. Nothing of that runs on a headset.
+Scripted emulator runs, with `npx iwsdk dev up --ai-mode agent --allow-browser-automation --headless` running:
+
+```bash
+node tools/xr/run-serial.mjs --reels 2 --pitch thunder --shots qa/serial   # clapper, reel one by far pinches, the pitch, the next reel
+node tools/xr/run-serial.mjs --silent                                      # nobody plays: the reel still reaches its end
+node tools/xr/run-props.mjs                                                # every prop driven by a natural hand
+```
 
 ## How it is built
 
-- `src/foley/system.ts`: the one ECS system. Places the stage for the player's eyes, turns pinches, pokes and hand
-  motion into hits, records and replays takes, runs the tiles and the Director's tags.
-- `src/foley/triggers.ts`: pure motion detectors (strike, shake, slide, drop) with tests on synthetic traces.
-- `src/foley/sound.ts`: the Web Audio foley kit. `src/foley/recorder.ts`: the take and its share code.
-- `src/foley/stage.ts`, `toys.ts`, `models.ts`: the table, props and screen; primitives first, Blender models
-  (`assets-src/build_props.py`, deterministic) dress them as they load.
-- `src/foley/cues.ts`, `lane.ts`, `bubble.ts`: the cue sheet, the lane and the paper tags.
-- `src/landing/`: the page around the engine. `api/`: the Director, the voice, the health probe.
+- `src/serial/`: the stage, in plain three.js with no engine dependency.
+  `theatre.ts` (proscenium, curtain, sets, lamps, cards), `film.ts` (one shader for the stage: its own light in
+  stage space, the faded print that every landed cue restores, and the wings, so it looks the same in any room
+  and costs the same), `cast.ts` (nine characters on one rig, the horse), `player.ts` (beats into tasks; cues,
+  rides and open moments that wait for sound), `pieces.ts` (plans into reels), `serial.ts` (reels, pitches,
+  the Director, the saved place), `tasks.ts` (a cooperative scheduler: no timers, so a reel can be stepped
+  and tested).
+- `src/foley/`: the table, the props and the hands. `system.ts` is the one ECS system: it places the stage for
+  the player's eyes, turns pats, pinches and hand motion into sounds, and feeds them to the stage.
+- `api/`: the Director (`reel.ts`), hearing (`hear.ts`), the classic mode's reviewer and voice.
+- `tools/serial/`, `assets-src/`: the asset pipeline (Blender and glTF-Transform scripts that bake the sets and
+  strip the characters). `tools/audio/`: the cuts of the recorded sounds. `tools/xr/`: emulator drivers.
 
-Hands only, no controllers. Seated, everything inside a two-foot radius. 78 draw calls.
+Hands only, no controllers. Seated, everything inside a two-foot radius.
 
 ## Accessibility
 
-- One hand is enough: every prop answers a single far pinch with its one-shot, and the clapperboard and tiles
-  are pinch targets. Nothing needs both hands or a controller.
+- One hand is enough, and no grip is needed: a pat or a far pinch sounds every prop; the clapper and the tiles
+  answer a touch.
 - Eyes do the aiming on Meta VR Glasses: look at a prop and pinch once with either hand.
-- Seated and stationary: the table is 75 cm ahead and 25 cm below the eyes; nothing is above eye level
-  except the top of the screen, and nothing leaves the glasses' view.
-- The cue lane is a visual channel for every cue, and a landed cue lights its card; the volume tile mutes
-  the effects in three steps and the pause tile holds the film.
-- The landing page replays any take in a plain browser with no headset.
+- Nothing is timed: the stage waits, asks again, then goes on. Every sound is also seen (a sound word on the
+  stage, a card that names what it did).
+- The volume tile mutes in three steps; the pause tile holds the reel; the size tile keeps the stage small.
+- The page plays without a headset, by mouse or keyboard.
 
-## Testing
+## Credits and licences
 
-85 unit tests (motion detectors on synthetic traces, cue windows, replay determinism, the Director's
-validator and fallbacks, shipped data) and scripted emulator runs through the IWSDK CLI (every prop by hand
-and by gaze, the full judge path to the review, the draw-call count). The live site has a health probe.
+MIT for the code (see `LICENSE`).
 
-## Licence
-
-MIT for the code (see `LICENSE`). The films are public domain; see each clip's provenance.
+- Characters, dungeon, graveyard and furniture: KayKit packs by Kay Lousberg (CC0). Nature, village and the
+  horse: Quaternius (CC0).
+- Sounds and the piano rags: CC0 or public domain; every file with its source and licence line in
+  [`public/audio/CREDITS.md`](public/audio/CREDITS.md).
+- The classic mode's films are public domain; see each clip's provenance in `public/clips/`.
