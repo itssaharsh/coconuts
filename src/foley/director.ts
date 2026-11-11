@@ -134,7 +134,8 @@ export async function reviewTake(args: {
 }
 
 /** Say a line in the Director's voice. Resolves true once it has played, false (quietly) when it could not. */
-export async function speak(text: string, base: string = defaultBase(), timeoutMs = defaultTimeout(2500)): Promise<boolean> {
+// the voice takes the model a few seconds to make; the tag is already up, so the line may arrive late
+export async function speak(text: string, base: string = defaultBase(), timeoutMs = defaultTimeout(6500)): Promise<boolean> {
   try {
     const t = text.trim();
     if (!t || t.length > 160) return false;
