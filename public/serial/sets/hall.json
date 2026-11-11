@@ -1,0 +1,190 @@
+{
+ "id": "hall",
+ "title": "Throne room",
+ "glb": "sets/hall.glb",
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "kind": "interior",
+ "sky": "dark",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "floorY": 0,
+ "marks": {
+  "throne": [
+   0,
+   -1.2
+  ],
+  "dais_left": [
+   -3.4,
+   -2.6
+  ],
+  "dais_right": [
+   3.4,
+   -2.6
+  ],
+  "door": [
+   -5.6,
+   -2.6
+  ],
+  "centre": [
+   0,
+   1.2
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [
+  {
+   "name": "brazier_l",
+   "kind": "torch",
+   "pos": [
+    -2.9,
+    2.6,
+    -3.2
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "brazier_r",
+   "kind": "torch",
+   "pos": [
+    2.9,
+    2.6,
+    -3.2
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "torch_l",
+   "kind": "torch",
+   "pos": [
+    -3.3,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "torch_r",
+   "kind": "torch",
+   "pos": [
+    3.3,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  }
+ ],
+ "torches": [
+  [
+   -2.9,
+   2.6,
+   -3.2
+  ],
+  [
+   2.9,
+   2.6,
+   -3.2
+  ],
+  [
+   -3.3,
+   3.05,
+   -3.5
+  ],
+  [
+   3.3,
+   3.05,
+   -3.5
+  ]
+ ],
+ "dynamic": {
+  "door": {
+   "src": "dg:wall_doorway",
+   "axis": [
+    0,
+    1,
+    0
+   ],
+   "closed": 0,
+   "open": -1.75,
+   "note": "hinge on the -x edge of the leaf; negative angle swings the free edge towards the audience (+z), positive swings it away behind the wall",
+   "node": "door",
+   "pivot": [
+    -6.4201,
+    0.0,
+    -4.5
+   ],
+   "baseQuaternion": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "triangles": 620
+  }
+ },
+ "bounds": {
+  "min": [
+   -11.6,
+   -0.1,
+   -5.0
+  ],
+  "max": [
+   8.4,
+   4.327,
+   4.0
+  ]
+ },
+ "stats": {
+  "triangles": 9355,
+  "materials": 1,
+  "materialNames": [
+   "texture"
+  ],
+  "drawCalls": 2,
+  "staticMeshes": 1,
+  "dynamicNodes": 1
+ },
+ "bytes": 609180,
+ "meta": {}
+}

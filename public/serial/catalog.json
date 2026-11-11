@@ -1,0 +1,1071 @@
+{
+ "version": 1,
+ "units": "kit units; runtime scale 1 unit = 1/12 of the proscenium opening width (opening x in [-6,6], y in [0,6.75]); glTF Y-up; origin of characters at the feet",
+ "root": "public/serial/",
+ "animationsFile": "anims.glb",
+ "note": "three.js GLTFLoader strips \".\" from node names: bone \"handslot.r\" is \"handslotr\" at runtime (PropertyBinding.sanitizeNodeName); clip tracks use the same sanitised names, so mixer.clipAction(clip) on any character just works.",
+ "characters": {
+  "knight": {
+   "file": "chars/knight.glb",
+   "bytes": 321792,
+   "height": 2.47,
+   "triangles": 4712,
+   "materials": 1,
+   "joints": 41,
+   "rig": "Rig > root > hips ...",
+   "skinnedMeshNode": "knight"
+  },
+  "barbarian": {
+   "file": "chars/barbarian.glb",
+   "bytes": 303788,
+   "height": 2.4,
+   "triangles": 4777,
+   "materials": 1,
+   "joints": 41,
+   "rig": "Rig > root > hips ...",
+   "skinnedMeshNode": "barbarian"
+  },
+  "mage": {
+   "file": "chars/mage.glb",
+   "bytes": 295164,
+   "height": 2.72,
+   "triangles": 4509,
+   "materials": 1,
+   "joints": 41,
+   "rig": "Rig > root > hips ...",
+   "skinnedMeshNode": "mage"
+  },
+  "rogue": {
+   "file": "chars/rogue.glb",
+   "bytes": 280200,
+   "height": 2.19,
+   "triangles": 4347,
+   "materials": 1,
+   "joints": 41,
+   "rig": "Rig > root > hips ...",
+   "skinnedMeshNode": "rogue"
+  },
+  "rogue_hooded": {
+   "file": "chars/rogue_hooded.glb",
+   "bytes": 258472,
+   "height": 2.25,
+   "triangles": 4005,
+   "materials": 1,
+   "joints": 41,
+   "rig": "Rig > root > hips ...",
+   "skinnedMeshNode": "rogue_hooded"
+  },
+  "skeleton_warrior": {
+   "file": "chars/skeleton_warrior.glb",
+   "bytes": 442576,
+   "height": 2.59,
+   "triangles": 5934,
+   "materials": 2,
+   "joints": 41,
+   "rig": "Rig > root > hips ...",
+   "skinnedMeshNode": "skeleton_warrior"
+  },
+  "skeleton_minion": {
+   "file": "chars/skeleton_minion.glb",
+   "bytes": 364316,
+   "height": 2.17,
+   "triangles": 5288,
+   "materials": 2,
+   "joints": 41,
+   "rig": "Rig > root > hips ...",
+   "skinnedMeshNode": "skeleton_minion"
+  },
+  "skeleton_rogue": {
+   "file": "chars/skeleton_rogue.glb",
+   "bytes": 386668,
+   "height": 2.31,
+   "triangles": 5278,
+   "materials": 2,
+   "joints": 41,
+   "rig": "Rig > root > hips ...",
+   "skinnedMeshNode": "skeleton_rogue"
+  },
+  "skeleton_mage": {
+   "file": "chars/skeleton_mage.glb",
+   "bytes": 311000,
+   "height": 2.63,
+   "triangles": 4588,
+   "materials": 2,
+   "joints": 41,
+   "rig": "Rig > root > hips ...",
+   "skinnedMeshNode": "skeleton_mage"
+  }
+ },
+ "clips": {
+  "1H_Melee_Attack_Chop": 1.067,
+  "1H_Melee_Attack_Slice_Horizontal": 1.067,
+  "1H_Melee_Attack_Stab": 1.6,
+  "Block": 1.067,
+  "Cheer": 1.667,
+  "Death_A": 0.8,
+  "Death_B": 2.633,
+  "Dodge_Backward": 0.4,
+  "Hit_A": 0.667,
+  "Hit_B": 0.867,
+  "Idle": 1.067,
+  "Interact": 1.3,
+  "Jump_Full_Short": 1.167,
+  "Lie_Down": 3,
+  "Lie_Idle": 2.667,
+  "Lie_StandUp": 2.333,
+  "PickUp": 1.3,
+  "Running_A": 0.8,
+  "Sit_Chair_Down": 0.8,
+  "Sit_Chair_Idle": 3.6,
+  "Sit_Chair_StandUp": 0.8,
+  "Sit_Floor_Down": 1,
+  "Sit_Floor_Idle": 4,
+  "Spellcast_Raise": 2.1,
+  "Spellcast_Shoot": 0.933,
+  "Throw": 1.367,
+  "Unarmed_Melee_Attack_Kick": 0.933,
+  "Unarmed_Melee_Attack_Punch_A": 1.467,
+  "Use_Item": 1.6,
+  "Walking_A": 1.067,
+  "Walking_Backwards": 1.067,
+  "Idle_Combat": 4.267,
+  "Skeletons_Awaken_Floor": 2.3,
+  "Death_C_Skeletons": 2,
+  "Death_C_Skeletons_Resurrect": 2.7
+ },
+ "animations": {
+  "file": "anims.glb",
+  "bytes": 938296,
+  "clips": [
+   {
+    "name": "1H_Melee_Attack_Chop",
+    "duration": 1.067
+   },
+   {
+    "name": "1H_Melee_Attack_Slice_Horizontal",
+    "duration": 1.067
+   },
+   {
+    "name": "1H_Melee_Attack_Stab",
+    "duration": 1.6
+   },
+   {
+    "name": "Block",
+    "duration": 1.067
+   },
+   {
+    "name": "Cheer",
+    "duration": 1.667
+   },
+   {
+    "name": "Death_A",
+    "duration": 0.8
+   },
+   {
+    "name": "Death_B",
+    "duration": 2.633
+   },
+   {
+    "name": "Dodge_Backward",
+    "duration": 0.4
+   },
+   {
+    "name": "Hit_A",
+    "duration": 0.667
+   },
+   {
+    "name": "Hit_B",
+    "duration": 0.867
+   },
+   {
+    "name": "Idle",
+    "duration": 1.067
+   },
+   {
+    "name": "Interact",
+    "duration": 1.3
+   },
+   {
+    "name": "Jump_Full_Short",
+    "duration": 1.167
+   },
+   {
+    "name": "Lie_Down",
+    "duration": 3
+   },
+   {
+    "name": "Lie_Idle",
+    "duration": 2.667
+   },
+   {
+    "name": "Lie_StandUp",
+    "duration": 2.333
+   },
+   {
+    "name": "PickUp",
+    "duration": 1.3
+   },
+   {
+    "name": "Running_A",
+    "duration": 0.8
+   },
+   {
+    "name": "Sit_Chair_Down",
+    "duration": 0.8
+   },
+   {
+    "name": "Sit_Chair_Idle",
+    "duration": 3.6
+   },
+   {
+    "name": "Sit_Chair_StandUp",
+    "duration": 0.8
+   },
+   {
+    "name": "Sit_Floor_Down",
+    "duration": 1
+   },
+   {
+    "name": "Sit_Floor_Idle",
+    "duration": 4
+   },
+   {
+    "name": "Spellcast_Raise",
+    "duration": 2.1
+   },
+   {
+    "name": "Spellcast_Shoot",
+    "duration": 0.933
+   },
+   {
+    "name": "Throw",
+    "duration": 1.367
+   },
+   {
+    "name": "Unarmed_Melee_Attack_Kick",
+    "duration": 0.933
+   },
+   {
+    "name": "Unarmed_Melee_Attack_Punch_A",
+    "duration": 1.467
+   },
+   {
+    "name": "Use_Item",
+    "duration": 1.6
+   },
+   {
+    "name": "Walking_A",
+    "duration": 1.067
+   },
+   {
+    "name": "Walking_Backwards",
+    "duration": 1.067
+   },
+   {
+    "name": "Idle_Combat",
+    "duration": 4.267
+   },
+   {
+    "name": "Skeletons_Awaken_Floor",
+    "duration": 2.3
+   },
+   {
+    "name": "Death_C_Skeletons",
+    "duration": 2
+   },
+   {
+    "name": "Death_C_Skeletons_Resurrect",
+    "duration": 2.7
+   }
+  ]
+ },
+ "attach": {
+  "rightHand": {
+   "glTF": "handslot.r",
+   "three": "handslotr"
+  },
+  "leftHand": {
+   "glTF": "handslot.l",
+   "three": "handslotl"
+  },
+  "head": {
+   "glTF": "head",
+   "three": "head"
+  },
+  "chest": {
+   "glTF": "chest",
+   "three": "chest"
+  }
+ },
+ "items": {
+  "sword_1handed": {
+   "file": "items/sword_1handed.glb",
+   "bytes": 28996,
+   "triangles": 300,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     0,
+     0.03330930517626057,
+     -1.2071546962033608e-7
+    ],
+    "quaternion": [
+     -1.3270667409415182e-7,
+     -1,
+     1.0331601174584648e-7,
+     2.276513422216908e-9
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "shield_round": {
+   "file": "items/shield_round.glb",
+   "bytes": 27668,
+   "triangles": 284,
+   "attachBone": "handslot.l",
+   "attachBoneThree": "handslotl",
+   "offset": {
+    "position": [
+     0,
+     0.01701178596925984,
+     0.15588533878326416
+    ],
+    "quaternion": [
+     -1.0331633149007757e-7,
+     1.6853415729656263e-7,
+     0.0000014002976058691274,
+     1
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "staff": {
+   "file": "items/staff.glb",
+   "bytes": 36376,
+   "triangles": 440,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     5.960464477539063e-8,
+     3.819317842546077e-7,
+     -1.2323022247073823e-7
+    ],
+    "quaternion": [
+     -1.3270667409415182e-7,
+     -1,
+     4.3711366970455856e-8,
+     2.2765060947449456e-9
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "wand": {
+   "file": "items/wand.glb",
+   "bytes": 23756,
+   "triangles": 150,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     5.960464477539063e-8,
+     3.819317842546077e-7,
+     -1.2323022247073823e-7
+    ],
+    "quaternion": [
+     -1.3270667409415182e-7,
+     -1,
+     4.3711366970455856e-8,
+     2.2765060947449456e-9
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "dagger": {
+   "file": "items/dagger.glb",
+   "bytes": 25880,
+   "triangles": 172,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     0,
+     -0.000015323892114060822,
+     -1.232314019716796e-7
+    ],
+    "quaternion": [
+     -1.4007341064825596e-7,
+     -1,
+     1.0331601174584648e-7,
+     9.11950781556925e-9
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "crossbow_1handed": {
+   "file": "items/crossbow_1handed.glb",
+   "bytes": 43476,
+   "triangles": 584,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     -0.10462832450866699,
+     -0.010373746886727708,
+     -1.2353707745660358e-7
+    ],
+    "quaternion": [
+     1.840417382936721e-7,
+     0.7071068286895752,
+     -1.1883614803309683e-7,
+     0.7071068286895752
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "mug": {
+   "file": "items/mug.glb",
+   "bytes": 32284,
+   "triangles": 426,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "spellbook": {
+   "file": "items/spellbook.glb",
+   "bytes": 32428,
+   "triangles": 292,
+   "attachBone": "handslot.l",
+   "attachBoneThree": "handslotl",
+   "offset": {
+    "position": [
+     -5.960464477539063e-8,
+     0.2657395248265291,
+     1.6041727946003448e-8
+    ],
+    "quaternion": [
+     8.953732333338849e-8,
+     -0.7071068286895752,
+     -0.7071068286895752,
+     9.813827972493527e-8
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "skeleton_blade": {
+   "file": "items/skeleton_blade.glb",
+   "bytes": 38496,
+   "triangles": 457,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "skeleton_axe": {
+   "file": "items/skeleton_axe.glb",
+   "bytes": 43792,
+   "triangles": 534,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "skeleton_staff": {
+   "file": "items/skeleton_staff.glb",
+   "bytes": 87696,
+   "triangles": 1519,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "skeleton_crossbow": {
+   "file": "items/skeleton_crossbow.glb",
+   "bytes": 47072,
+   "triangles": 584,
+   "attachBone": "handslot.r",
+   "attachBoneThree": "handslotr",
+   "offset": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  },
+  "skeleton_shield_small": {
+   "file": "items/skeleton_shield_small.glb",
+   "bytes": 40148,
+   "triangles": 500,
+   "attachBone": "handslot.l",
+   "attachBoneThree": "handslotl",
+   "offset": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "note": "bone.add(itemScene): the glTF root node already carries the hand-slot offset"
+  }
+ },
+ "horse": {
+  "file": "horse.glb",
+  "bytes": 403212,
+  "scale": 0.75,
+  "height": 3.61,
+  "backHeight": 2.62,
+  "length": 4.26,
+  "width": 1.06,
+  "facing": "+z (head towards +z)",
+  "clips": [
+   {
+    "name": "Gallop",
+    "duration": 0.58
+   },
+   {
+    "name": "Gallop_Jump",
+    "duration": 1.46
+   },
+   {
+    "name": "Idle",
+    "duration": 3.33
+   },
+   {
+    "name": "Walk",
+    "duration": 1.17
+   }
+  ],
+  "triangles": 2182,
+  "materials": 1,
+  "material": "vertex colours (COLOR_0), no texture",
+  "riderSeat": {
+   "note": "parent the rider (KayKit rig, origin = pelvis in Sit_Chair_Idle) under the horse root at this offset; verified in qa/lookdev/baked.html?scene=road",
+   "position": [
+    0,
+    2.25,
+    -0.1
+   ]
+  },
+  "bones": {
+   "body": "Body",
+   "back": "Back",
+   "head": "Head"
+  }
+ },
+ "sets": {
+  "camp": {
+   "glb": "sets/camp.glb",
+   "json": "sets/camp.json",
+   "bytes": 282424,
+   "triangles": 5056,
+   "materials": 1,
+   "drawCalls": 1,
+   "footprint": {
+    "x": [
+     -8,
+     8
+    ],
+    "z": [
+     -4,
+     4
+    ],
+    "floorY": 0,
+    "backWallInnerZ": -4,
+    "frontEdgeZ": 4,
+    "visibleX": [
+     -6,
+     6
+    ],
+    "openingY": [
+     0,
+     6.75
+    ]
+   },
+   "marks": [
+    "fire",
+    "log",
+    "cart",
+    "centre",
+    "left",
+    "right",
+    "wings_left",
+    "wings_right"
+   ],
+   "dynamicNodes": []
+  },
+  "gate": {
+   "glb": "sets/gate.glb",
+   "json": "sets/gate.json",
+   "bytes": 762132,
+   "triangles": 12060,
+   "materials": 2,
+   "drawCalls": 3,
+   "footprint": {
+    "x": [
+     -8,
+     8
+    ],
+    "z": [
+     -4,
+     4
+    ],
+    "floorY": 0,
+    "backWallInnerZ": -4,
+    "frontEdgeZ": 4,
+    "visibleX": [
+     -6,
+     6
+    ],
+    "openingY": [
+     0,
+     6.75
+    ]
+   },
+   "marks": [
+    "door",
+    "centre",
+    "left",
+    "right",
+    "guard",
+    "wings_left",
+    "wings_right"
+   ],
+   "dynamicNodes": [
+    "door"
+   ]
+  },
+  "graveyard": {
+   "glb": "sets/graveyard.glb",
+   "json": "sets/graveyard.json",
+   "bytes": 533908,
+   "triangles": 9435,
+   "materials": 1,
+   "drawCalls": 1,
+   "footprint": {
+    "x": [
+     -8,
+     8
+    ],
+    "z": [
+     -4,
+     4
+    ],
+    "floorY": 0,
+    "backWallInnerZ": -4,
+    "frontEdgeZ": 4,
+    "visibleX": [
+     -6,
+     6
+    ],
+    "openingY": [
+     0,
+     6.75
+    ]
+   },
+   "marks": [
+    "grave_a",
+    "grave_b",
+    "grave_c",
+    "centre",
+    "left",
+    "right",
+    "tree",
+    "wings_left",
+    "wings_right"
+   ],
+   "dynamicNodes": []
+  },
+  "hall": {
+   "glb": "sets/hall.glb",
+   "json": "sets/hall.json",
+   "bytes": 609180,
+   "triangles": 9355,
+   "materials": 1,
+   "drawCalls": 2,
+   "footprint": {
+    "x": [
+     -8,
+     8
+    ],
+    "z": [
+     -4,
+     4
+    ],
+    "floorY": 0,
+    "backWallInnerZ": -4,
+    "frontEdgeZ": 4,
+    "visibleX": [
+     -6,
+     6
+    ],
+    "openingY": [
+     0,
+     6.75
+    ]
+   },
+   "marks": [
+    "throne",
+    "dais_left",
+    "dais_right",
+    "door",
+    "centre",
+    "left",
+    "right",
+    "wings_left",
+    "wings_right"
+   ],
+   "dynamicNodes": [
+    "door"
+   ]
+  },
+  "inn": {
+   "glb": "sets/inn.glb",
+   "json": "sets/inn.json",
+   "bytes": 1172208,
+   "triangles": 18013,
+   "materials": 1,
+   "drawCalls": 2,
+   "footprint": {
+    "x": [
+     -8,
+     8
+    ],
+    "z": [
+     -4,
+     4
+    ],
+    "floorY": 0,
+    "backWallInnerZ": -4,
+    "frontEdgeZ": 4,
+    "visibleX": [
+     -6,
+     6
+    ],
+    "openingY": [
+     0,
+     6.75
+    ]
+   },
+   "marks": [
+    "bar",
+    "behind_bar",
+    "table_l",
+    "table_r",
+    "door",
+    "centre",
+    "left",
+    "right",
+    "wings_left",
+    "wings_right"
+   ],
+   "dynamicNodes": [
+    "door"
+   ]
+  },
+  "vault": {
+   "glb": "sets/vault.glb",
+   "json": "sets/vault.json",
+   "bytes": 1134692,
+   "triangles": 18952,
+   "materials": 1,
+   "drawCalls": 3,
+   "footprint": {
+    "x": [
+     -8,
+     8
+    ],
+    "z": [
+     -4,
+     4
+    ],
+    "floorY": 0,
+    "backWallInnerZ": -4,
+    "frontEdgeZ": 4,
+    "visibleX": [
+     -6,
+     6
+    ],
+    "openingY": [
+     0,
+     6.75
+    ]
+   },
+   "marks": [
+    "door",
+    "chest",
+    "window",
+    "table",
+    "centre",
+    "left",
+    "right",
+    "wings_left",
+    "wings_right"
+   ],
+   "dynamicNodes": [
+    "door",
+    "chest_lid"
+   ]
+  }
+ },
+ "scenery": {
+  "index": "scenery/index.json",
+  "pieces": [
+   {
+    "id": "tree_cone",
+    "file": "scenery/tree_cone.glb",
+    "kind": "tree",
+    "height": 6.58,
+    "footprint": [
+     3.16,
+     3.01
+    ],
+    "triangles": 50,
+    "bytes": 20384
+   },
+   {
+    "id": "tree_round",
+    "file": "scenery/tree_round.glb",
+    "kind": "tree",
+    "height": 6.67,
+    "footprint": [
+     3.77,
+     3.96
+    ],
+    "triangles": 220,
+    "bytes": 24416
+   },
+   {
+    "id": "tree_grove",
+    "file": "scenery/tree_grove.glb",
+    "kind": "tree",
+    "height": 6.48,
+    "footprint": [
+     8.76,
+     9.07
+    ],
+    "triangles": 480,
+    "bytes": 48728
+   },
+   {
+    "id": "tree_grove_b",
+    "file": "scenery/tree_grove_b.glb",
+    "kind": "tree",
+    "height": 4.61,
+    "footprint": [
+     6.64,
+     5.69
+    ],
+    "triangles": 660,
+    "bytes": 39224
+   },
+   {
+    "id": "bush_a",
+    "file": "scenery/bush_a.glb",
+    "kind": "bush",
+    "height": 2.98,
+    "footprint": [
+     3.19,
+     4.06
+    ],
+    "triangles": 364,
+    "bytes": 26520
+   },
+   {
+    "id": "bush_b",
+    "file": "scenery/bush_b.glb",
+    "kind": "bush",
+    "height": 2.67,
+    "footprint": [
+     3.09,
+     3.23
+    ],
+    "triangles": 266,
+    "bytes": 19724
+   },
+   {
+    "id": "rock_a",
+    "file": "scenery/rock_a.glb",
+    "kind": "rock",
+    "height": 1.56,
+    "footprint": [
+     2.75,
+     2.75
+    ],
+    "triangles": 40,
+    "bytes": 19224
+   },
+   {
+    "id": "rock_b",
+    "file": "scenery/rock_b.glb",
+    "kind": "rock",
+    "height": 1.56,
+    "footprint": [
+     3.23,
+     4.05
+    ],
+    "triangles": 71,
+    "bytes": 21340
+   },
+   {
+    "id": "fence",
+    "file": "scenery/fence.glb",
+    "kind": "fence",
+    "height": 2.2,
+    "footprint": [
+     4.62,
+     0.4
+    ],
+    "triangles": 212,
+    "bytes": 32072
+   },
+   {
+    "id": "signpost",
+    "file": "scenery/signpost.glb",
+    "kind": "signpost",
+    "height": 3.75,
+    "footprint": [
+     3.6,
+     1.8
+    ],
+    "triangles": 60,
+    "bytes": 5232
+   },
+   {
+    "id": "house_a",
+    "file": "scenery/house_a.glb",
+    "kind": "house",
+    "height": 4.19,
+    "footprint": [
+     3.56,
+     3.84
+    ],
+    "triangles": 1011,
+    "bytes": 72400
+   },
+   {
+    "id": "house_b",
+    "file": "scenery/house_b.glb",
+    "kind": "house",
+    "height": 5.76,
+    "footprint": [
+     3.94,
+     4.94
+    ],
+    "triangles": 1393,
+    "bytes": 99164
+   },
+   {
+    "id": "windmill",
+    "file": "scenery/windmill.glb",
+    "kind": "windmill",
+    "height": 7.29,
+    "footprint": [
+     5.61,
+     4.06
+    ],
+    "triangles": 1400,
+    "bytes": 147496
+   },
+   {
+    "id": "well",
+    "file": "scenery/well.glb",
+    "kind": "well",
+    "height": 3.72,
+    "footprint": [
+     2.93,
+     3.38
+    ],
+    "triangles": 726,
+    "bytes": 59384
+   },
+   {
+    "id": "cart",
+    "file": "scenery/cart.glb",
+    "kind": "cart",
+    "height": 3.34,
+    "footprint": [
+     1.94,
+     3.9
+    ],
+    "triangles": 1489,
+    "bytes": 89176
+   },
+   {
+    "id": "haystack",
+    "file": "scenery/haystack.glb",
+    "kind": "haystack",
+    "height": 2.5,
+    "footprint": [
+     1.69,
+     1.75
+    ],
+    "triangles": 488,
+    "bytes": 34440
+   }
+  ]
+ }
+}

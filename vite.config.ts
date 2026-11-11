@@ -20,6 +20,7 @@ export default defineConfig({
         '**/public/films/**',
         '**/public/clips/**',
         '**/public/models/**',
+        '**/public/serial/**',
         '**/qa/**',
         '**/assets-src/**',
         '**/design/**',

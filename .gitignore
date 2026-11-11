@@ -95,3 +95,11 @@ design/
 # synthetic test reels
 public/films/test.*
 qa/
+
+# downloaded CC0 kits (sources; only processed GLBs ship in public/)
+assets-src/kits/
+public/models/spike/
+assets-src/audio-raw/
+
+# intermediate files of the set pipeline
+assets-src/serial/work/

@@ -1,0 +1,104 @@
+{
+ "id": "camp",
+ "title": "Forest camp",
+ "glb": "sets/camp.glb",
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "kind": "exterior",
+ "sky": "night",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "floorY": 0,
+ "marks": {
+  "fire": [
+   -1.6,
+   0.5
+  ],
+  "log": [
+   -3.7,
+   0.0
+  ],
+  "cart": [
+   1.8,
+   -2.5
+  ],
+  "centre": [
+   1.2,
+   1
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [
+  {
+   "name": "campfire",
+   "kind": "fire",
+   "pos": [
+    -1.6,
+    1.0,
+    -0.8
+   ],
+   "color": "#ff8a30",
+   "intensity": 1.6,
+   "distance": 14
+  }
+ ],
+ "torches": [],
+ "dynamic": {},
+ "bounds": {
+  "min": [
+   -10.68,
+   -0.5,
+   -9.828
+  ],
+  "max": [
+   9.41,
+   6.629,
+   4.0
+  ]
+ },
+ "stats": {
+  "triangles": 5056,
+  "materials": 1,
+  "materialNames": [
+   "hexagons_medieval"
+  ],
+  "drawCalls": 1,
+  "staticMeshes": 1,
+  "dynamicNodes": 0
+ },
+ "bytes": 282424,
+ "meta": {}
+}

@@ -1,0 +1,583 @@
+{
+ "id": "vault",
+ "title": "Treasury vault",
+ "kind": "interior",
+ "sky": "dark",
+ "kits": {
+  "dg": "kaykit/Dungeon-Remastered/addons/kaykit_dungeon_remastered/Assets/gltf",
+  "hx": "kaykit/Medieval-Hexagon-Pack/addons/kaykit_medieval_hexagon_pack/Assets/gltf",
+  "hw": "kaykit/Halloween-Bits/addons/kaykit_halloween_bits/Assets/gltf"
+ },
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "pieces": [
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -6,
+    0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -6,
+    0,
+    2
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -2,
+    0,
+    -2
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -2,
+    0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    2,
+    0,
+    -2
+   ],
+   "rotY": 180,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    2,
+    0,
+    2
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large_rocks",
+   "pos": [
+    6,
+    0,
+    -2
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    6,
+    0,
+    2
+   ],
+   "rotY": 180,
+   "scale": 1
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    -7.6,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "src": "dg:wall_doorway",
+   "pos": [
+    -3.6,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "dynamic_children": {
+    "wall_doorway_door": "door"
+   }
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    -0.5,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    0.55,
+    1,
+    1
+   ]
+  },
+  {
+   "src": "dg:wall_archedwindow_gated",
+   "pos": [
+    2.6,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    6.6,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    -6.5,
+    0,
+    -2
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "dg:wall_window_open",
+   "pos": [
+    6.5,
+    0,
+    -2
+   ],
+   "rotY": -90,
+   "scale": 1
+  },
+  {
+   "src": "dg:torch_mounted",
+   "pos": [
+    -6.0,
+    2.4,
+    -3.95
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:torch_mounted",
+   "pos": [
+    0.6,
+    2.4,
+    -3.95
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:torch_mounted",
+   "pos": [
+    4.9,
+    2.4,
+    -3.95
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:banner_thin_red",
+   "pos": [
+    -0.5,
+    -0.3,
+    -4.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:banner_patternA_red",
+   "pos": [
+    5.9,
+    0.1,
+    -4.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:banner_patternB_yellow",
+   "pos": [
+    -6.35,
+    0.1,
+    -1.0
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "dg:chest_gold",
+   "pos": [
+    -0.6,
+    0,
+    -2.6
+   ],
+   "rotY": 0,
+   "scale": 1,
+   "dynamic_children": {
+    "chest_gold_lid": "chest_lid"
+   }
+  },
+  {
+   "src": "dg:coin_stack_large",
+   "pos": [
+    -2.0,
+    0,
+    -2.4
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:coin_stack_medium",
+   "pos": [
+    -1.5,
+    0,
+    -1.7
+   ],
+   "rotY": 40,
+   "scale": 1
+  },
+  {
+   "src": "dg:coin_stack_small",
+   "pos": [
+    0.9,
+    0,
+    -1.8
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:coin_stack_medium",
+   "pos": [
+    1.4,
+    0,
+    -2.7
+   ],
+   "rotY": 70,
+   "scale": 1
+  },
+  {
+   "src": "dg:coin_stack_small",
+   "pos": [
+    0.9,
+    0,
+    -2.0
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:coin",
+   "pos": [
+    0.2,
+    0,
+    -1.4
+   ],
+   "rotY": 20,
+   "scale": 1
+  },
+  {
+   "src": "dg:coin",
+   "pos": [
+    -1.4,
+    0,
+    -1.1
+   ],
+   "rotY": 80,
+   "scale": 1
+  },
+  {
+   "src": "dg:table_medium_decorated_A",
+   "pos": [
+    4.2,
+    0,
+    -1.6
+   ],
+   "rotY": 12,
+   "scale": 1.0
+  },
+  {
+   "src": "dg:candle_lit",
+   "pos": [
+    3.7,
+    1.0,
+    -1.6
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:bottle_A_green",
+   "pos": [
+    4.5,
+    1.0,
+    -1.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:bottle_B_brown",
+   "pos": [
+    4.1,
+    1.0,
+    -2.0
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:stool",
+   "pos": [
+    5.7,
+    0,
+    -0.9
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:stool",
+   "pos": [
+    3.0,
+    0,
+    -0.9
+   ],
+   "rotY": 80,
+   "scale": 1
+  },
+  {
+   "src": "dg:barrel_large",
+   "pos": [
+    5.5,
+    0,
+    -3.1
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:barrel_small_stack",
+   "pos": [
+    4.2,
+    0,
+    -3.3
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:barrel_small",
+   "pos": [
+    6.2,
+    0,
+    -2.0
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:crates_stacked",
+   "pos": [
+    -5.2,
+    0,
+    -3.0
+   ],
+   "rotY": 12,
+   "scale": 1
+  },
+  {
+   "src": "dg:trunk_medium_A",
+   "pos": [
+    -4.0,
+    0,
+    -0.6
+   ],
+   "rotY": 20,
+   "scale": 1
+  },
+  {
+   "src": "dg:box_small",
+   "pos": [
+    -5.8,
+    0,
+    -0.2
+   ],
+   "rotY": -15,
+   "scale": 1
+  }
+ ],
+ "prims": [],
+ "marks": {
+  "door": [
+   -3.6,
+   -2.6
+  ],
+  "chest": [
+   -2.4,
+   -1.7
+  ],
+  "window": [
+   2.6,
+   -2.6
+  ],
+  "table": [
+   4.2,
+   -0.2
+  ],
+  "centre": [
+   0,
+   1
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [
+  {
+   "name": "torch_l",
+   "kind": "torch",
+   "pos": [
+    -6.0,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "torch_c",
+   "kind": "torch",
+   "pos": [
+    0.6,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "torch_r",
+   "kind": "torch",
+   "pos": [
+    4.9,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 0.8,
+   "distance": 12
+  },
+  {
+   "name": "candle_table",
+   "kind": "candle",
+   "pos": [
+    3.7,
+    1.8,
+    -1.6
+   ],
+   "color": "#ffc070",
+   "intensity": 0.4,
+   "distance": 6
+  }
+ ],
+ "dynamic": {
+  "door": {
+   "axis": [
+    0,
+    1,
+    0
+   ],
+   "closed": 0,
+   "open": -1.75,
+   "note": "hinge on the -x edge of the leaf; negative angle swings the free edge towards the audience (+z), positive swings it away behind the wall"
+  },
+  "chest_lid": {
+   "axis": [
+    1,
+    0,
+    0
+   ],
+   "closed": 0,
+   "open": -1.9,
+   "note": "hinge along the back edge; negative angle lifts the front"
+  }
+ },
+ "meta": {}
+}

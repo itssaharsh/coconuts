@@ -1,0 +1,247 @@
+{
+ "units": "kit units (runtime scales by 0.0625)",
+ "up": "y",
+ "origin": "base centre",
+ "pieces": [
+  {
+   "id": "tree_cone",
+   "file": "scenery/tree_cone.glb",
+   "kind": "tree",
+   "height": 6.58,
+   "footprint": [
+    3.16,
+    3.01
+   ],
+   "triangles": 50,
+   "materials": 1,
+   "bytes": 20384,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "tree_round",
+   "file": "scenery/tree_round.glb",
+   "kind": "tree",
+   "height": 6.67,
+   "footprint": [
+    3.77,
+    3.96
+   ],
+   "triangles": 220,
+   "materials": 1,
+   "bytes": 24416,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "tree_grove",
+   "file": "scenery/tree_grove.glb",
+   "kind": "tree",
+   "height": 6.48,
+   "footprint": [
+    8.76,
+    9.07
+   ],
+   "triangles": 480,
+   "materials": 1,
+   "bytes": 48728,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "tree_grove_b",
+   "file": "scenery/tree_grove_b.glb",
+   "kind": "tree",
+   "height": 4.61,
+   "footprint": [
+    6.64,
+    5.69
+   ],
+   "triangles": 660,
+   "materials": 1,
+   "bytes": 39224,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "bush_a",
+   "file": "scenery/bush_a.glb",
+   "kind": "bush",
+   "height": 2.98,
+   "footprint": [
+    3.19,
+    4.06
+   ],
+   "triangles": 364,
+   "materials": 1,
+   "bytes": 26520,
+   "textured": false,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "bush_b",
+   "file": "scenery/bush_b.glb",
+   "kind": "bush",
+   "height": 2.67,
+   "footprint": [
+    3.09,
+    3.23
+   ],
+   "triangles": 266,
+   "materials": 1,
+   "bytes": 19724,
+   "textured": false,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "rock_a",
+   "file": "scenery/rock_a.glb",
+   "kind": "rock",
+   "height": 1.56,
+   "footprint": [
+    2.75,
+    2.75
+   ],
+   "triangles": 40,
+   "materials": 1,
+   "bytes": 19224,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "rock_b",
+   "file": "scenery/rock_b.glb",
+   "kind": "rock",
+   "height": 1.56,
+   "footprint": [
+    3.23,
+    4.05
+   ],
+   "triangles": 71,
+   "materials": 1,
+   "bytes": 21340,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "fence",
+   "file": "scenery/fence.glb",
+   "kind": "fence",
+   "height": 2.2,
+   "footprint": [
+    4.62,
+    0.4
+   ],
+   "triangles": 212,
+   "materials": 1,
+   "bytes": 32072,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "signpost",
+   "file": "scenery/signpost.glb",
+   "kind": "signpost",
+   "height": 3.75,
+   "footprint": [
+    3.6,
+    1.8
+   ],
+   "triangles": 60,
+   "materials": 1,
+   "bytes": 5232,
+   "textured": false,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "house_a",
+   "file": "scenery/house_a.glb",
+   "kind": "house",
+   "height": 4.19,
+   "footprint": [
+    3.56,
+    3.84
+   ],
+   "triangles": 1011,
+   "materials": 1,
+   "bytes": 72400,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "house_b",
+   "file": "scenery/house_b.glb",
+   "kind": "house",
+   "height": 5.76,
+   "footprint": [
+    3.94,
+    4.94
+   ],
+   "triangles": 1393,
+   "materials": 1,
+   "bytes": 99164,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "windmill",
+   "file": "scenery/windmill.glb",
+   "kind": "windmill",
+   "height": 7.29,
+   "footprint": [
+    5.61,
+    4.06
+   ],
+   "triangles": 1400,
+   "materials": 1,
+   "bytes": 147496,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "well",
+   "file": "scenery/well.glb",
+   "kind": "well",
+   "height": 3.72,
+   "footprint": [
+    2.93,
+    3.38
+   ],
+   "triangles": 726,
+   "materials": 1,
+   "bytes": 59384,
+   "textured": true,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "cart",
+   "file": "scenery/cart.glb",
+   "kind": "cart",
+   "height": 3.34,
+   "footprint": [
+    1.94,
+    3.9
+   ],
+   "triangles": 1489,
+   "materials": 1,
+   "bytes": 89176,
+   "textured": false,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  },
+  {
+   "id": "haystack",
+   "file": "scenery/haystack.glb",
+   "kind": "haystack",
+   "height": 2.5,
+   "footprint": [
+    1.69,
+    1.75
+   ],
+   "triangles": 488,
+   "materials": 1,
+   "bytes": 34440,
+   "textured": false,
+   "origin": "base centre (y=0, x/z bbox centre)"
+  }
+ ]
+}

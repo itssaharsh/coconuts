@@ -1,0 +1,93 @@
+{
+  "foley": {
+    "coconuts": [
+      "foley/coconuts-1.mp3",
+      "foley/coconuts-2.mp3",
+      "foley/coconuts-3.mp3"
+    ],
+    "door-knock": [
+      "foley/door-knock-1.mp3",
+      "foley/door-knock-2.mp3",
+      "foley/door-knock-3.mp3"
+    ],
+    "door-slam": [
+      "foley/door-slam-1.mp3",
+      "foley/door-slam-2.mp3"
+    ],
+    "bell": [
+      "foley/bell-1.mp3",
+      "foley/bell-2.mp3"
+    ],
+    "thunder": [
+      "foley/thunder-1.mp3",
+      "foley/thunder-2.mp3"
+    ],
+    "thunder-crack": [
+      "foley/thunder-crack-1.mp3"
+    ],
+    "whistle-fall": [
+      "foley/whistle-fall-1.mp3",
+      "foley/whistle-fall-2.mp3"
+    ],
+    "whistle-rise": [
+      "foley/whistle-rise-1.mp3"
+    ],
+    "glass": [
+      "foley/glass-1.mp3",
+      "foley/glass-2.mp3",
+      "foley/glass-3.mp3"
+    ]
+  },
+  "stage": {
+    "curtain": [
+      "stage/curtain.mp3"
+    ],
+    "creak": [
+      "stage/creak.mp3"
+    ],
+    "whinny": [
+      "stage/whinny.mp3"
+    ],
+    "clang": [
+      "stage/clang-1.mp3",
+      "stage/clang-2.mp3",
+      "stage/clang-3.mp3"
+    ],
+    "applause": [
+      "stage/applause.mp3"
+    ],
+    "clap": [
+      "stage/clap.mp3"
+    ],
+    "boing": [
+      "stage/boing.mp3"
+    ],
+    "step": [
+      "stage/step-1.mp3",
+      "stage/step-2.mp3"
+    ],
+    "thud": [
+      "stage/thud.mp3"
+    ]
+  },
+  "music": [
+    {
+      "file": "music/sensation-rag.mp3",
+      "title": "Sensation Rag (1908)",
+      "composer": "Scott Joplin",
+      "seconds": 79
+    },
+    {
+      "file": "music/peacherine-rag.mp3",
+      "title": "Peacherine Rag (1901)",
+      "composer": "Scott Joplin",
+      "seconds": 84
+    },
+    {
+      "file": "music/weeping-willow-rag.mp3",
+      "title": "Weeping Willow Rag (1903)",
+      "composer": "Scott Joplin",
+      "seconds": 86
+    }
+  ]
+}

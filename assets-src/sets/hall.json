@@ -1,0 +1,487 @@
+{
+ "id": "hall",
+ "title": "Throne room",
+ "kind": "interior",
+ "sky": "dark",
+ "kits": {
+  "dg": "kaykit/Dungeon-Remastered/addons/kaykit_dungeon_remastered/Assets/gltf",
+  "hx": "kaykit/Medieval-Hexagon-Pack/addons/kaykit_medieval_hexagon_pack/Assets/gltf",
+  "hw": "kaykit/Halloween-Bits/addons/kaykit_halloween_bits/Assets/gltf"
+ },
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "pieces": [
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -6,
+    0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -6,
+    0,
+    2
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -2,
+    0,
+    -2
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -2,
+    0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    2,
+    0,
+    -2
+   ],
+   "rotY": 180,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    2,
+    0,
+    2
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    6,
+    0,
+    -2
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    6,
+    0,
+    2
+   ],
+   "rotY": 180,
+   "scale": 1
+  },
+  {
+   "src": "dg:wall_doorway",
+   "pos": [
+    -5.6,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "dynamic_children": {
+    "wall_doorway_door": "door"
+   }
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    -1.6,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    2.4,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    6.4,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    -9.6,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    -6.5,
+    0,
+    -2
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    6.5,
+    0,
+    -2
+   ],
+   "rotY": -90,
+   "scale": 1
+  },
+  {
+   "src": "dg:pillar_decorated",
+   "pos": [
+    -4.6,
+    0,
+    -3.0
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:pillar_decorated",
+   "pos": [
+    4.6,
+    0,
+    -3.0
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:banner_shield_red",
+   "pos": [
+    0.0,
+    0.6,
+    -4.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:banner_patternA_red",
+   "pos": [
+    -2.2,
+    0.6,
+    -4.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:banner_patternA_red",
+   "pos": [
+    2.2,
+    0.6,
+    -4.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:chair",
+   "pos": [
+    0.0,
+    0.55,
+    -3.0
+   ],
+   "rotY": 0,
+   "scale": 1.9
+  },
+  {
+   "src": "dg:torch_lit",
+   "pos": [
+    -2.9,
+    1.2,
+    -3.2
+   ],
+   "rotY": 0,
+   "scale": 1.6
+  },
+  {
+   "src": "dg:torch_lit",
+   "pos": [
+    2.9,
+    1.2,
+    -3.2
+   ],
+   "rotY": 0,
+   "scale": 1.6
+  },
+  {
+   "src": "dg:torch_mounted",
+   "pos": [
+    -3.3,
+    2.4,
+    -3.95
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:torch_mounted",
+   "pos": [
+    3.3,
+    2.4,
+    -3.95
+   ],
+   "rotY": 0,
+   "scale": 1
+  }
+ ],
+ "prims": [
+  {
+   "type": "box",
+   "name": "dais1",
+   "min": [
+    -2.6,
+    0,
+    -4
+   ],
+   "max": [
+    2.6,
+    0.3,
+    -1.9
+   ],
+   "like": "dg:wall",
+   "uv": [
+    0.672,
+    0.14
+   ]
+  },
+  {
+   "type": "box",
+   "name": "dais2",
+   "min": [
+    -2.0,
+    0.3,
+    -4
+   ],
+   "max": [
+    2.0,
+    0.55,
+    -2.4
+   ],
+   "like": "dg:wall",
+   "uv": [
+    0.672,
+    0.14
+   ]
+  },
+  {
+   "type": "box",
+   "name": "carpet",
+   "min": [
+    -0.8,
+    0.0,
+    -1.9
+   ],
+   "max": [
+    0.8,
+    0.09,
+    2.9
+   ],
+   "like": "dg:wall",
+   "uv": [
+    0.469,
+    0.6
+   ]
+  },
+  {
+   "type": "box",
+   "name": "carpet_d",
+   "min": [
+    -0.8,
+    0.3,
+    -2.4
+   ],
+   "max": [
+    0.8,
+    0.33,
+    -1.85
+   ],
+   "like": "dg:wall",
+   "uv": [
+    0.469,
+    0.6
+   ]
+  }
+ ],
+ "marks": {
+  "throne": [
+   0,
+   -1.2
+  ],
+  "dais_left": [
+   -3.4,
+   -2.6
+  ],
+  "dais_right": [
+   3.4,
+   -2.6
+  ],
+  "door": [
+   -5.6,
+   -2.6
+  ],
+  "centre": [
+   0,
+   1.2
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [
+  {
+   "name": "brazier_l",
+   "kind": "torch",
+   "pos": [
+    -2.9,
+    2.6,
+    -3.2
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "brazier_r",
+   "kind": "torch",
+   "pos": [
+    2.9,
+    2.6,
+    -3.2
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "torch_l",
+   "kind": "torch",
+   "pos": [
+    -3.3,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "torch_r",
+   "kind": "torch",
+   "pos": [
+    3.3,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  }
+ ],
+ "dynamic": {
+  "door": {
+   "axis": [
+    0,
+    1,
+    0
+   ],
+   "closed": 0,
+   "open": -1.75,
+   "note": "hinge on the -x edge of the leaf; negative angle swings the free edge towards the audience (+z), positive swings it away behind the wall"
+  }
+ },
+ "meta": {}
+}

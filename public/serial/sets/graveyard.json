@@ -1,0 +1,128 @@
+{
+ "id": "graveyard",
+ "title": "Graveyard",
+ "glb": "sets/graveyard.glb",
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "kind": "exterior",
+ "sky": "night",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "floorY": 0,
+ "marks": {
+  "grave_a": [
+   -3.4,
+   -1.6
+  ],
+  "grave_b": [
+   0.4,
+   -2.2
+  ],
+  "grave_c": [
+   3.6,
+   -1.4
+  ],
+  "centre": [
+   0,
+   1.2
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "tree": [
+   -5.3,
+   -3.0
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [
+  {
+   "name": "lantern",
+   "kind": "torch",
+   "pos": [
+    -4.2,
+    3.0,
+    -2.5
+   ],
+   "color": "#ffb050",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "jack",
+   "kind": "candle",
+   "pos": [
+    1.9,
+    1.1,
+    -0.4
+   ],
+   "color": "#ff9030",
+   "intensity": 0.6,
+   "distance": 7
+  }
+ ],
+ "torches": [
+  [
+   -4.2,
+   3.0,
+   -2.5
+  ]
+ ],
+ "dynamic": {},
+ "bounds": {
+  "min": [
+   -10.1,
+   -0.5,
+   -12.3
+  ],
+  "max": [
+   8.2,
+   8.0,
+   4.0
+  ]
+ },
+ "stats": {
+  "triangles": 9435,
+  "materials": 1,
+  "materialNames": [
+   "HalloweenBits"
+  ],
+  "drawCalls": 1,
+  "staticMeshes": 1,
+  "dynamicNodes": 0
+ },
+ "bytes": 533908,
+ "meta": {
+  "note": "grave plots at the three grave_* marks are kept clear (flat dirt)"
+ }
+}

@@ -1,0 +1,318 @@
+{
+ "id": "gate",
+ "title": "Castle gate at night",
+ "kind": "exterior",
+ "sky": "night",
+ "kits": {
+  "dg": "kaykit/Dungeon-Remastered/addons/kaykit_dungeon_remastered/Assets/gltf",
+  "hx": "kaykit/Medieval-Hexagon-Pack/addons/kaykit_medieval_hexagon_pack/Assets/gltf",
+  "hw": "kaykit/Halloween-Bits/addons/kaykit_halloween_bits/Assets/gltf"
+ },
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "pieces": [
+  {
+   "src": "dg:floor_tile_large_rocks",
+   "pos": [
+    -6,
+    0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -6,
+    0,
+    2
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -2,
+    0,
+    -2
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    -2,
+    0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    2,
+    0,
+    -2
+   ],
+   "rotY": 180,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    2,
+    0,
+    2
+   ],
+   "rotY": 270,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large",
+   "pos": [
+    6,
+    0,
+    -2
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "dg:floor_tile_large_rocks",
+   "pos": [
+    6,
+    0,
+    2
+   ],
+   "rotY": 180,
+   "scale": 1
+  },
+  {
+   "src": "dg:wall_archedwindow_gated",
+   "pos": [
+    -5.5,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:wall_doorway",
+   "pos": [
+    -1.5,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ],
+   "dynamic_children": {
+    "wall_doorway_door": "door"
+   }
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    2.5,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:wall",
+   "pos": [
+    6.5,
+    0,
+    -4.5
+   ],
+   "rotY": 0,
+   "scale": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "src": "dg:torch_mounted",
+   "pos": [
+    -3.45,
+    2.4,
+    -3.95
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:torch_mounted",
+   "pos": [
+    0.45,
+    2.4,
+    -3.95
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hx:buildings/red/building_tower_A_red",
+   "pos": [
+    4.8,
+    0,
+    -5.3
+   ],
+   "rotY": 0,
+   "scale": 3.2
+  },
+  {
+   "src": "dg:barrel_large",
+   "pos": [
+    5.6,
+    0,
+    -2.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "dg:crates_stacked",
+   "pos": [
+    3.0,
+    0,
+    -2.5
+   ],
+   "rotY": 12,
+   "scale": 0.9
+  },
+  {
+   "src": "dg:crates_stacked",
+   "pos": [
+    6.1,
+    0,
+    -0.9
+   ],
+   "rotY": -20,
+   "scale": 0.55
+  },
+  {
+   "src": "hx:decoration/nature/tree_single_B",
+   "pos": [
+    -6.0,
+    0,
+    -2.9
+   ],
+   "rotY": 0,
+   "scale": 3.4
+  },
+  {
+   "src": "dg:crates_stacked",
+   "pos": [
+    -3.9,
+    0,
+    -3.0
+   ],
+   "rotY": 20,
+   "scale": 0.7
+  }
+ ],
+ "prims": [],
+ "marks": {
+  "door": [
+   -1.5,
+   -2.6
+  ],
+  "centre": [
+   0,
+   0.8
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "guard": [
+   4.2,
+   -1.4
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [
+  {
+   "name": "torch_l",
+   "kind": "torch",
+   "pos": [
+    -3.45,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "torch_r",
+   "kind": "torch",
+   "pos": [
+    0.45,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  }
+ ],
+ "dynamic": {
+  "door": {
+   "axis": [
+    0,
+    1,
+    0
+   ],
+   "closed": 0,
+   "open": -1.75,
+   "note": "hinge on the -x edge of the leaf; negative angle swings the free edge towards the audience (+z), positive swings it away behind the wall"
+  }
+ },
+ "meta": {
+  "note": "tower reaches ~7 units on the right third; guard sits at the guard mark between barrel and crates"
+ }
+}

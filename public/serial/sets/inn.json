@@ -1,0 +1,179 @@
+{
+ "id": "inn",
+ "title": "Tavern",
+ "glb": "sets/inn.glb",
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "kind": "interior",
+ "sky": "dark",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "floorY": 0,
+ "marks": {
+  "bar": [
+   4.0,
+   0.5
+  ],
+  "behind_bar": [
+   4.0,
+   -3.0
+  ],
+  "table_l": [
+   -2.3,
+   0.4
+  ],
+  "table_r": [
+   0.1,
+   -0.6
+  ],
+  "door": [
+   -4.0,
+   -2.6
+  ],
+  "centre": [
+   0,
+   1.2
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [
+  {
+   "name": "torch",
+   "kind": "torch",
+   "pos": [
+    -6.0,
+    3.05,
+    -3.5
+   ],
+   "color": "#ffa040",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "bar_lamp",
+   "kind": "candle",
+   "pos": [
+    4.6,
+    2.2,
+    -1.1
+   ],
+   "color": "#ffc070",
+   "intensity": 0.9,
+   "distance": 9
+  },
+  {
+   "name": "table_candle",
+   "kind": "candle",
+   "pos": [
+    -2.3,
+    1.9,
+    -0.9
+   ],
+   "color": "#ffc070",
+   "intensity": 0.5,
+   "distance": 6
+  },
+  {
+   "name": "hearth",
+   "kind": "fire",
+   "pos": [
+    -5.2,
+    1.2,
+    -1.2
+   ],
+   "color": "#ff8a30",
+   "intensity": 0.7,
+   "distance": 8
+  }
+ ],
+ "torches": [
+  [
+   -6.0,
+   3.05,
+   -3.5
+  ]
+ ],
+ "dynamic": {
+  "door": {
+   "src": "dg:wall_doorway",
+   "axis": [
+    0,
+    1,
+    0
+   ],
+   "closed": 0,
+   "open": -1.75,
+   "note": "hinge on the -x edge of the leaf; negative angle swings the free edge towards the audience (+z), positive swings it away behind the wall",
+   "node": "door",
+   "pivot": [
+    -4.8201,
+    0.0,
+    -4.5
+   ],
+   "baseQuaternion": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "triangles": 620
+  }
+ },
+ "bounds": {
+  "min": [
+   -10.0,
+   -0.1,
+   -5.0
+  ],
+  "max": [
+   10.0,
+   4.527,
+   4.0
+  ]
+ },
+ "stats": {
+  "triangles": 18013,
+  "materials": 1,
+  "materialNames": [
+   "texture"
+  ],
+  "drawCalls": 2,
+  "staticMeshes": 1,
+  "dynamicNodes": 1
+ },
+ "bytes": 1172208,
+ "meta": {}
+}

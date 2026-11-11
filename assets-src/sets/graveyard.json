@@ -1,0 +1,454 @@
+{
+ "id": "graveyard",
+ "title": "Graveyard",
+ "kind": "exterior",
+ "sky": "night",
+ "kits": {
+  "dg": "kaykit/Dungeon-Remastered/addons/kaykit_dungeon_remastered/Assets/gltf",
+  "hx": "kaykit/Medieval-Hexagon-Pack/addons/kaykit_medieval_hexagon_pack/Assets/gltf",
+  "hw": "kaykit/Halloween-Bits/addons/kaykit_halloween_bits/Assets/gltf"
+ },
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "pieces": [
+  {
+   "src": "hw:floor_dirt",
+   "pos": [
+    -6,
+    0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:floor_dirt",
+   "pos": [
+    -6,
+    0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:floor_dirt",
+   "pos": [
+    -2,
+    0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:floor_dirt",
+   "pos": [
+    -2,
+    0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:floor_dirt",
+   "pos": [
+    2,
+    0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:floor_dirt",
+   "pos": [
+    2,
+    0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:floor_dirt",
+   "pos": [
+    6,
+    0,
+    -2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:floor_dirt",
+   "pos": [
+    6,
+    0,
+    2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:path_A",
+   "pos": [
+    0.0,
+    0,
+    2.6
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "hw:path_A",
+   "pos": [
+    0.0,
+    0,
+    0.8
+   ],
+   "rotY": 90,
+   "scale": 1
+  },
+  {
+   "src": "hw:path_B",
+   "pos": [
+    0.0,
+    0,
+    -1.0
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:path_B",
+   "pos": [
+    0.0,
+    0,
+    -2.8
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:arch_gate",
+   "pos": [
+    0,
+    0,
+    -4.1
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:fence",
+   "pos": [
+    -4.1,
+    0,
+    -4.1
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:fence",
+   "pos": [
+    -8.1,
+    0,
+    -4.1
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:fence",
+   "pos": [
+    4.1,
+    0,
+    -4.1
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:fence_pillar",
+   "pos": [
+    2.3,
+    0,
+    -4.1
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:fence_pillar",
+   "pos": [
+    -2.3,
+    0,
+    -4.1
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:crypt",
+   "pos": [
+    5.2,
+    0,
+    -8.3
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:tree_dead_large",
+   "pos": [
+    -5.3,
+    0,
+    -3.0
+   ],
+   "rotY": 20,
+   "scale": 1
+  },
+  {
+   "src": "hw:tree_dead_small",
+   "pos": [
+    -1.5,
+    0,
+    -6.0
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:gravestone",
+   "pos": [
+    -1.4,
+    0,
+    -3.3
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:grave_A",
+   "pos": [
+    2.4,
+    0,
+    -3.2
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:gravemarker_B",
+   "pos": [
+    -3.4,
+    0,
+    -2.9
+   ],
+   "rotY": 10,
+   "scale": 1
+  },
+  {
+   "src": "hw:gravemarker_A",
+   "pos": [
+    0.4,
+    0,
+    -3.4
+   ],
+   "rotY": -8,
+   "scale": 1
+  },
+  {
+   "src": "hw:gravemarker_B",
+   "pos": [
+    3.6,
+    0,
+    -2.6
+   ],
+   "rotY": -15,
+   "scale": 1
+  },
+  {
+   "src": "hw:grave_B",
+   "pos": [
+    -5.5,
+    0,
+    -0.9
+   ],
+   "rotY": 8,
+   "scale": 1
+  },
+  {
+   "src": "hw:gravestone",
+   "pos": [
+    -1.5,
+    0,
+    -0.9
+   ],
+   "rotY": -6,
+   "scale": 1
+  },
+  {
+   "src": "hw:gravemarker_A",
+   "pos": [
+    2.1,
+    0,
+    -0.6
+   ],
+   "rotY": 12,
+   "scale": 1
+  },
+  {
+   "src": "hw:grave_B",
+   "pos": [
+    5.6,
+    0,
+    -0.8
+   ],
+   "rotY": -8,
+   "scale": 1
+  },
+  {
+   "src": "hw:post_lantern",
+   "pos": [
+    -4.2,
+    0,
+    -3.7
+   ],
+   "rotY": 0,
+   "scale": 1
+  },
+  {
+   "src": "hw:pumpkin_orange_jackolantern",
+   "pos": [
+    1.9,
+    0,
+    -0.4
+   ],
+   "rotY": 200,
+   "scale": 0.8
+  },
+  {
+   "src": "hw:pumpkin_orange",
+   "pos": [
+    2.9,
+    0,
+    0.2
+   ],
+   "rotY": 30,
+   "scale": 0.6
+  },
+  {
+   "src": "hw:skull",
+   "pos": [
+    -2.5,
+    0,
+    -0.5
+   ],
+   "rotY": 40,
+   "scale": 0.5
+  },
+  {
+   "src": "hw:bone_A",
+   "pos": [
+    4.4,
+    0,
+    -0.7
+   ],
+   "rotY": 20,
+   "scale": 1
+  }
+ ],
+ "prims": [],
+ "marks": {
+  "grave_a": [
+   -3.4,
+   -1.6
+  ],
+  "grave_b": [
+   0.4,
+   -2.2
+  ],
+  "grave_c": [
+   3.6,
+   -1.4
+  ],
+  "centre": [
+   0,
+   1.2
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "tree": [
+   -5.3,
+   -3.0
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [
+  {
+   "name": "lantern",
+   "kind": "torch",
+   "pos": [
+    -4.2,
+    3.0,
+    -2.5
+   ],
+   "color": "#ffb050",
+   "intensity": 1.0,
+   "distance": 12
+  },
+  {
+   "name": "jack",
+   "kind": "candle",
+   "pos": [
+    1.9,
+    1.1,
+    -0.4
+   ],
+   "color": "#ff9030",
+   "intensity": 0.6,
+   "distance": 7
+  }
+ ],
+ "dynamic": {},
+ "meta": {
+  "note": "grave plots at the three grave_* marks are kept clear (flat dirt)"
+ }
+}

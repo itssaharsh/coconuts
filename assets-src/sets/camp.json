@@ -1,0 +1,355 @@
+{
+ "id": "camp",
+ "title": "Forest camp",
+ "kind": "exterior",
+ "sky": "night",
+ "kits": {
+  "dg": "kaykit/Dungeon-Remastered/addons/kaykit_dungeon_remastered/Assets/gltf",
+  "hx": "kaykit/Medieval-Hexagon-Pack/addons/kaykit_medieval_hexagon_pack/Assets/gltf",
+  "hw": "kaykit/Halloween-Bits/addons/kaykit_halloween_bits/Assets/gltf"
+ },
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "pieces": [
+  {
+   "src": "hx:decoration/nature/trees_A_medium",
+   "pos": [
+    -6.2,
+    0,
+    -4.6
+   ],
+   "rotY": 0,
+   "scale": 5.2
+  },
+  {
+   "src": "hx:decoration/nature/trees_B_small",
+   "pos": [
+    -1.6,
+    0,
+    -5.0
+   ],
+   "rotY": 40,
+   "scale": 5.5
+  },
+  {
+   "src": "hx:decoration/nature/trees_A_medium",
+   "pos": [
+    2.2,
+    0,
+    -5.2
+   ],
+   "rotY": 90,
+   "scale": 5.2
+  },
+  {
+   "src": "hx:decoration/nature/trees_B_small",
+   "pos": [
+    6.0,
+    0,
+    -4.8
+   ],
+   "rotY": 10,
+   "scale": 5.5
+  },
+  {
+   "src": "hx:decoration/nature/tree_single_B",
+   "pos": [
+    -4.0,
+    0,
+    -3.2
+   ],
+   "rotY": 0,
+   "scale": 4.2
+  },
+  {
+   "src": "hx:decoration/nature/tree_single_A",
+   "pos": [
+    0.2,
+    0,
+    -3.6
+   ],
+   "rotY": 0,
+   "scale": 4.4
+  },
+  {
+   "src": "hx:decoration/nature/tree_single_B",
+   "pos": [
+    5.4,
+    0,
+    -3.2
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "src": "hx:decoration/nature/tree_single_A",
+   "pos": [
+    -6.6,
+    0,
+    -1.2
+   ],
+   "rotY": 0,
+   "scale": 4.2
+  },
+  {
+   "src": "hx:decoration/nature/trees_A_small",
+   "pos": [
+    6.4,
+    0,
+    -1.0
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "src": "hx:decoration/props/tent",
+   "pos": [
+    4.2,
+    0,
+    -2.4
+   ],
+   "rotY": 160,
+   "scale": 5.2
+  },
+  {
+   "src": "hx:decoration/props/wheelbarrow",
+   "pos": [
+    1.8,
+    0,
+    -2.5
+   ],
+   "rotY": 60,
+   "scale": 3.6
+  },
+  {
+   "src": "hx:decoration/props/sack",
+   "pos": [
+    2.9,
+    0,
+    -2.9
+   ],
+   "rotY": 0,
+   "scale": 3.4
+  },
+  {
+   "src": "hx:decoration/props/crate_A_big",
+   "pos": [
+    -4.2,
+    0,
+    -2.1
+   ],
+   "rotY": 25,
+   "scale": 3.6
+  },
+  {
+   "src": "hx:decoration/props/barrel",
+   "pos": [
+    -2.9,
+    0,
+    -3.3
+   ],
+   "rotY": 0,
+   "scale": 4.0
+  },
+  {
+   "src": "hx:decoration/props/resource_lumber",
+   "pos": [
+    -1.6,
+    0,
+    -0.8
+   ],
+   "rotY": 0,
+   "scale": 1.4
+  },
+  {
+   "src": "hx:decoration/nature/rock_single_C",
+   "pos": [
+    -2.7,
+    0,
+    -0.2
+   ],
+   "rotY": 20,
+   "scale": 4
+  },
+  {
+   "src": "hx:decoration/nature/rock_single_D",
+   "pos": [
+    -0.5,
+    0,
+    -0.1
+   ],
+   "rotY": 80,
+   "scale": 4
+  },
+  {
+   "src": "hx:decoration/nature/rock_single_E",
+   "pos": [
+    -1.9,
+    0,
+    -1.7
+   ],
+   "rotY": 40,
+   "scale": 3.2
+  },
+  {
+   "src": "hx:decoration/nature/rock_single_A",
+   "pos": [
+    -0.7,
+    0,
+    -1.4
+   ],
+   "rotY": 10,
+   "scale": 4
+  },
+  {
+   "src": "hx:decoration/props/resource_lumber",
+   "pos": [
+    -3.7,
+    0,
+    0.0
+   ],
+   "rotY": 70,
+   "scale": 1.1
+  },
+  {
+   "src": "hx:decoration/props/crate_A_big",
+   "pos": [
+    0.5,
+    0,
+    -0.9
+   ],
+   "rotY": 20,
+   "scale": 3.6
+  },
+  {
+   "src": "hx:decoration/nature/rock_single_C",
+   "pos": [
+    -7.2,
+    0,
+    1.2
+   ],
+   "rotY": 0,
+   "scale": 5
+  },
+  {
+   "src": "hx:decoration/nature/rock_single_E",
+   "pos": [
+    7.0,
+    0,
+    0.9
+   ],
+   "rotY": 80,
+   "scale": 5
+  }
+ ],
+ "prims": [
+  {
+   "type": "box",
+   "name": "grass",
+   "min": [
+    -8.5,
+    -0.5,
+    -6
+   ],
+   "max": [
+    8.5,
+    0,
+    4
+   ],
+   "like": "hx:buildings/neutral/wall_straight",
+   "uv": [
+    0.079,
+    0.576
+   ]
+  },
+  {
+   "type": "box",
+   "name": "clearing",
+   "min": [
+    -5.2,
+    -0.5,
+    -3.4
+   ],
+   "max": [
+    2.6,
+    0.04,
+    3.4
+   ],
+   "like": "hx:buildings/neutral/wall_straight",
+   "uv": [
+    0.43,
+    0.6
+   ]
+  }
+ ],
+ "marks": {
+  "fire": [
+   -1.6,
+   0.5
+  ],
+  "log": [
+   -3.7,
+   0.0
+  ],
+  "cart": [
+   1.8,
+   -2.5
+  ],
+  "centre": [
+   1.2,
+   1
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [
+  {
+   "name": "campfire",
+   "kind": "fire",
+   "pos": [
+    -1.6,
+    1.0,
+    -0.8
+   ],
+   "color": "#ff8a30",
+   "intensity": 1.6,
+   "distance": 14
+  }
+ ],
+ "dynamic": {},
+ "meta": {}
+}

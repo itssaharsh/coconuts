@@ -1,0 +1,212 @@
+// Chapter one, written by hand: the reels every player sees first. Each moment that matters waits for a sound.
+import type { Beat, CastEntry, Reel } from './schema';
+
+const KNIGHT: Pick<CastEntry, 'id' | 'char' | 'items'> = { id: 'knight', char: 'knight', items: ['sword_1handed', 'shield_round'] };
+
+/** What the sleeping thief does with each sound: the first time the player's choice writes the story. */
+const WAKES: Extract<Beat, { k: 'open' }>['branches'] = {
+  bell: {
+    title: 'A bell! “Supper?”',
+    flag: 'thief_hungry',
+    beats: [
+      { k: 'do', who: 'thief', verb: 'getup' },
+      { k: 'emote', who: 'thief', emote: 'heart' },
+      { k: 'move', who: 'thief', to: 'table', face: 'upstage' },
+      { k: 'do', who: 'thief', verb: 'pickup' },
+    ],
+  },
+  thunder: {
+    title: 'Thunder! He hides.',
+    flag: 'thief_scared',
+    beats: [
+      { k: 'fx', fx: 'lightning' },
+      { k: 'do', who: 'thief', verb: 'getup' },
+      { k: 'do', who: 'thief', verb: 'flinch' },
+      { k: 'move', who: 'thief', to: 'table', gait: 'run' },
+      { k: 'do', who: 'thief', verb: 'sitfloor' },
+      { k: 'emote', who: 'thief', emote: 'sweat' },
+      { k: 'do', who: 'thief', verb: 'getup' },
+    ],
+  },
+  glass: {
+    title: 'Glass! “Burglars!”',
+    flag: 'thief_alert',
+    beats: [
+      { k: 'do', who: 'thief', verb: 'getup' },
+      { k: 'emote', who: 'thief', emote: 'angry' },
+      { k: 'do', who: 'thief', verb: 'guard', face: 'window', secs: 1.4 },
+    ],
+  },
+  door: {
+    title: 'A knock. “Come in!”',
+    flag: 'thief_polite',
+    beats: [
+      { k: 'do', who: 'thief', verb: 'getup' },
+      { k: 'move', who: 'thief', to: 'door_side', face: 'door' },
+      { k: 'door', open: true },
+      { k: 'emote', who: 'thief', emote: '?' },
+      { k: 'door', open: false },
+    ],
+  },
+  coconuts: {
+    title: 'Hooves! “The Duke!”',
+    flag: 'thief_fooled',
+    beats: [
+      { k: 'do', who: 'thief', verb: 'getup' },
+      { k: 'do', who: 'thief', verb: 'cheer', face: 'audience' },
+      { k: 'emote', who: 'thief', emote: 'sweat' },
+    ],
+  },
+  whistle: {
+    title: 'A tune. He dances.',
+    flag: 'thief_merry',
+    beats: [
+      { k: 'do', who: 'thief', verb: 'getup' },
+      { k: 'emote', who: 'thief', emote: 'note' },
+      { k: 'do', who: 'thief', verb: 'cheer', face: 'audience' },
+      { k: 'do', who: 'thief', verb: 'jump' },
+    ],
+  },
+};
+
+export const REEL_1: Reel = {
+  id: 'c1r1',
+  title: 'The Midnight Knock',
+  set: 'gate',
+  tint: 'blue',
+  cast: [KNIGHT, { id: 'butler', char: 'skeleton_minion' }, { id: 'guard', char: 'barbarian', at: 'guard', pose: 'sitfloor', zzz: true }],
+  beats: [
+    { k: 'title', text: 'A knight. A door.', secs: 2 },
+    { k: 'enter', who: 'knight', from: 'left', to: 'door_side', face: 'door' },
+    {
+      k: 'cue',
+      prop: 'door',
+      label: 'Knock for him',
+      who: 'knight',
+      times: 3,
+      each: [{ k: 'do', who: 'knight', verb: 'punch', face: 'door', secs: 0.42 }],
+      hit: [
+        { k: 'door', open: true },
+        { k: 'wait', secs: 0.4 },
+        { k: 'enter', who: 'butler', from: 'door', to: 'door', face: 'knight' },
+        { k: 'par', beats: [{ k: 'emote', who: 'butler', emote: '!' }, { k: 'do', who: 'butler', verb: 'cheer', face: 'knight' }] },
+      ],
+      miss: [
+        { k: 'title', text: 'Nobody knocked.', sub: 'The butler opens anyway. He was bored.', secs: 2.4 },
+        { k: 'door', open: true },
+        { k: 'enter', who: 'butler', from: 'door', to: 'door', face: 'knight' },
+      ],
+    },
+    { k: 'title', text: '“The crown is stolen!”', sub: '“The thief rode north, sir.”', secs: 2.8 },
+    { k: 'par', beats: [{ k: 'do', who: 'knight', verb: 'jump', face: 'audience' }, { k: 'emote', who: 'knight', emote: '!' }] },
+    { k: 'exit', who: 'knight', to: 'right', gait: 'run' },
+
+    { k: 'scene', set: 'road', tint: 'blue', cast: [{ ...KNIGHT, mounted: true, at: 'centre' }] },
+    { k: 'title', text: 'His horse runs on your hooves.', secs: 2.4 },
+    {
+      k: 'ride',
+      who: 'knight',
+      label: 'Clop the coconuts',
+      need: 18,
+      secs: 16,
+      hit: [{ k: 'wait', secs: 0.5 }],
+      miss: [{ k: 'title', text: 'The horse walked.', sub: 'It took all night.', secs: 2.4 }],
+    },
+
+    {
+      k: 'scene',
+      set: 'vault',
+      tint: 'amber',
+      cast: [{ id: 'thief', char: 'rogue_hooded', at: 'chest', pose: 'sleep', zzz: true, item: 'dagger' }, KNIGHT],
+    },
+    { k: 'title', text: 'The robbers’ den.', sub: 'The thief sleeps on his loot.', secs: 2.6 },
+    { k: 'enter', who: 'knight', from: 'right', to: 'right', face: 'thief' },
+    {
+      k: 'open',
+      prompt: 'What wakes him?',
+      branches: WAKES,
+      miss: [
+        { k: 'title', text: 'He wakes by himself.', sub: '(Nobody made a sound.)', secs: 2.2 },
+        { k: 'do', who: 'thief', verb: 'getup' },
+      ],
+    },
+    { k: 'par', beats: [{ k: 'do', who: 'thief', verb: 'flinch', face: 'knight' }, { k: 'emote', who: 'thief', emote: '!' }] },
+    { k: 'title', text: '“The crown, villain!”', secs: 1.9 },
+    { k: 'par', beats: [{ k: 'move', who: 'thief', to: 'door_side', gait: 'run', face: 'door' }, { k: 'door', open: true }] },
+    {
+      k: 'cue',
+      prop: 'door',
+      label: 'Slam it shut!',
+      who: 'thief',
+      hold: 10,
+      hit: [
+        { k: 'door', open: false },
+        { k: 'fx', fx: 'shake' },
+        { k: 'do', who: 'thief', verb: 'stagger' },
+      ],
+      miss: [
+        { k: 'title', text: 'The door sticks.', secs: 1.6 },
+        { k: 'door', open: false },
+        { k: 'do', who: 'thief', verb: 'stagger' },
+      ],
+    },
+    { k: 'par', beats: [{ k: 'move', who: 'thief', to: 'centre', gait: 'run', face: 'knight' }, { k: 'move', who: 'knight', to: 'right', face: 'thief' }] },
+    { k: 'move', who: 'knight', to: 'thief' },
+    { k: 'title', text: 'Steel rings like a bell.', secs: 1.9 },
+    {
+      k: 'cue',
+      prop: 'bell',
+      label: 'Ring: he strikes!',
+      who: 'knight',
+      hold: 9,
+      hit: [{ k: 'par', beats: [{ k: 'do', who: 'knight', verb: 'chop', face: 'thief' }, { k: 'do', who: 'thief', verb: 'block', face: 'knight' }] }],
+    },
+    {
+      k: 'cue',
+      prop: 'bell',
+      label: 'Ring: he parries!',
+      who: 'knight',
+      hold: 9,
+      hit: [{ k: 'par', beats: [{ k: 'do', who: 'thief', verb: 'stab', face: 'knight' }, { k: 'do', who: 'knight', verb: 'block', face: 'thief' }] }],
+    },
+    {
+      k: 'cue',
+      prop: 'bell',
+      label: 'Ring: the last blow!',
+      who: 'knight',
+      hold: 9,
+      hit: [
+        { k: 'par', beats: [{ k: 'do', who: 'knight', verb: 'slash', face: 'thief' }, { k: 'do', who: 'thief', verb: 'stagger', face: 'knight' }] },
+        { k: 'item', who: 'thief', item: 'dagger', hold: false },
+        { k: 'emote', who: 'thief', emote: 'sweat' },
+      ],
+    },
+    { k: 'title', text: 'One way out.', secs: 1.6 },
+    { k: 'move', who: 'thief', to: 'window', gait: 'run', face: 'window' },
+    {
+      k: 'cue',
+      prop: 'glass',
+      label: 'Smash! He jumps!',
+      who: 'thief',
+      hold: 10,
+      hit: [
+        { k: 'do', who: 'thief', verb: 'jump', secs: 0.45 },
+        { k: 'exit', who: 'thief', to: 'window', gait: 'run' },
+      ],
+    },
+    { k: 'move', who: 'knight', to: 'window', gait: 'run', face: 'window' },
+    { k: 'emote', who: 'knight', emote: 'angry' },
+    {
+      k: 'cue',
+      prop: 'whistle',
+      label: 'Whistle for his horse',
+      who: 'knight',
+      hold: 10,
+      hit: [{ k: 'emote', who: 'knight', emote: 'note' }, { k: 'do', who: 'knight', verb: 'cheer', face: 'audience' }],
+    },
+    { k: 'fx', fx: 'lightning' },
+  ],
+  cliffhanger: 'The thief has the faster horse.',
+};
+
+export const CHAPTER_1: Reel[] = [REEL_1];
