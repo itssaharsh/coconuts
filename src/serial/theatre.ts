@@ -160,6 +160,7 @@ export class Theatre {
   private time = 0;
   private frameLoaded = false;
   private size = 1;
+  private cueScale = 1;
   private tint: TintName = 'amber';
   /** How fast the road slides past, 0..1 of a full gallop. */
   scroll = 0;
@@ -260,6 +261,14 @@ export class Theatre {
   setSize(s: number): void {
     this.size = s;
     this.group.scale.setScalar(s);
+    // at wall size the cards keep a readable size instead of growing with the stage: an intertitle covers the middle
+    // of the opening, and the cue card stands on the stage's front edge instead of hanging below it
+    const wall = s > 1.6;
+    this.titleMesh.scale.setScalar(wall ? 0.6 : 1);
+    this.titleMesh.position.y = wall ? STAGE_H * 0.43 : STAGE_H / 2;
+    this.cueScale = wall ? 1.25 / s : 1;
+    this.cueMesh.position.set(0, wall ? 0.034 : -0.05, wall ? 0.02 : 0.12);
+    this.cueMesh.rotation.x = wall ? -0.1 : -0.25;
   }
 
   get scale(): number {
@@ -586,7 +595,7 @@ export class Theatre {
     this.cueShow = ease(this.cueShow, this.wantCue, 8);
     (this.cueMesh.material as MeshBasicMaterial).opacity = this.cueShow;
     this.cueMesh.visible = this.cueShow > 0.01;
-    this.cueMesh.scale.setScalar(1 + 0.04 * Math.sin(this.time * 6) * this.cueShow); // it breathes while it waits
+    this.cueMesh.scale.setScalar(this.cueScale * (1 + 0.04 * Math.sin(this.time * 6) * this.cueShow)); // it breathes while it waits
     // doors and lids
     for (const d of this.dynamics.values()) {
       if (Math.abs(d.cur - d.want) < 1e-3) continue;
