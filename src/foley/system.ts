@@ -4,7 +4,7 @@ import { Hovered, PokeInteractable, Pressed, RayInteractable, VisibilityState, c
 import { BackSide, Mesh, MeshBasicMaterial, Object3D, Quaternion, SphereGeometry, Vector3 } from 'three';
 import { Bubble } from './bubble';
 import { CueTracker, type Cue } from './cues';
-import { automationRun, serialMode } from './env';
+import { automationRun, captureMode, serialMode } from './env';
 import { frameSerial } from '../landing/framing';
 import { Lane } from './lane';
 import { modelStats } from './models';
@@ -84,6 +84,10 @@ export class FoleySystem extends createSystem({
   hovered: { required: [RayInteractable, Hovered] },
 }) {
   private serialOn = serialMode();
+  /** A capture run: a fixed step of show time for every drawn frame, and a log of every sound for the soundtrack. */
+  private capture = captureMode();
+  private showClock = 0;
+  private frameNo = 0;
   private stage = new Stage(this.serialOn);
   private serial: Serial | null = null;
   /** What the stage is waiting for, so its prop can glow on the table. */
@@ -259,6 +263,10 @@ export class FoleySystem extends createSystem({
         lastVis = v;
       }),
     );
+    if (this.capture) {
+      sound.setSoundTrace((type, key, gain) => console.log('SND', this.showClock.toFixed(3), type, key, gain.toFixed(2)));
+      console.log('CAPTURE on: one drawn frame is 1/30 s of the show');
+    }
     console.log('STAGE ready');
     hooks.onReady(this.api);
   }
@@ -858,6 +866,11 @@ export class FoleySystem extends createSystem({
   }
 
   update(dt: number, time: number): void {
+    if (this.capture) {
+      dt = 1 / 30;
+      this.showClock += dt;
+      if (this.frameNo++ % 30 === 0) console.log('FRAME', this.frameNo - 1, this.showClock.toFixed(3));
+    }
     if (this.stage.dressed && !this.perfLogged) {
       this.perfLogged = true;
       const r = this.world.renderer.info.render;

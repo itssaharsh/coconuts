@@ -441,6 +441,7 @@ const pendingStage = new Set<StageSound>();
 
 /** One stage sound from the theatre's position ('stage' source). Unknown or missing sounds are ignored. */
 export function playStage(name: StageSound, gain = 1): void {
+  trace?.('stage', name, gain);
   if (!ctx) return;
   const buf = stageTake(name);
   if (!buf) {
@@ -499,6 +500,7 @@ function beginMusic(): void {
 export function setMusic(on: boolean): void {
   if (on === musicWanted) return;
   musicWanted = on;
+  trace?.('music', on ? 'on' : 'off', MUSIC_GAIN);
   if (!ctx) return; // ensureAudio starts it
   if (on) return musicStart();
   const run = musicRun;
@@ -513,7 +515,17 @@ export function setMusic(on: boolean): void {
 }
 
 /** Play a recorded or one-shot hit now (or at an absolute context time). */
+/**
+ * A capture run has no ears either, but its film needs a soundtrack: every sound that would play is reported here
+ * (which bank, how loud), and the capture tool lays the same recordings under the picture afterwards.
+ */
+let trace: ((type: 'hit' | 'stage' | 'music', key: string, gain: number) => void) | null = null;
+export function setSoundTrace(fn: typeof trace): void {
+  trace = fn;
+}
+
 export function playHit(hit: HitEvent, at?: number): void {
+  trace?.('hit', HIT_BANKS[hit.kind][0], 0.8 * (0.6 + 0.4 * Math.max(0, Math.min(1, hit.v))));
   if (playSampledHit(hit, at)) return;
   switch (hit.kind) {
     case 'clop':
@@ -562,6 +574,7 @@ export async function playVoice(data: ArrayBuffer): Promise<void> {
 
 /** A soft click when a take is about to start, so the room feels alive before the first hit. */
 export function clapperSnap(at?: number): void {
+  trace?.('stage', 'clap', 0.8);
   if (!ctx) return;
   const clap = stageBank.get('clap')?.length ? takeFor(stageBank, 'clap') : null;
   if (clap) return playBuffer(clap, pannerFor('director'), 0.8, 1, at);

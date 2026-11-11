@@ -35,3 +35,19 @@ export function serialMode(): boolean {
     return !q.has('films');
   }
 }
+
+/**
+ * `?capture` makes every drawn frame a thirtieth of a second of the show, however long the frame took: the slow
+ * emulator then yields a smooth film once its frames are played back at 30 a second. `?nocapture` turns it off.
+ */
+export function captureMode(): boolean {
+  if (typeof location === 'undefined') return false;
+  const q = new URLSearchParams(location.search);
+  try {
+    if (q.has('nocapture')) localStorage.removeItem('coconuts.capture');
+    else if (q.has('capture')) localStorage.setItem('coconuts.capture', '1');
+    return localStorage.getItem('coconuts.capture') === '1';
+  } catch {
+    return q.has('capture');
+  }
+}
