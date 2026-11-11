@@ -147,6 +147,10 @@ export class FoleySystem extends createSystem({
           this.wantedPulse = 0;
         },
         onStage: (cue) => sound.playStage(cue),
+        onNote: (note) => {
+          this.director.say(note, 'the Director', 10);
+          console.log('DIRECTOR note', note);
+        },
       });
       this.serial.theatre.setSize(THEATRE_SIZE);
       this.stage.theatreMount.add(this.serial.theatre.group);
@@ -255,10 +259,10 @@ export class FoleySystem extends createSystem({
       this.slate.hide();
       sound.setMusic(true); // the house pianist plays from the first reel on
     }
-    else if (s === 'between') {
+    else if (s === 'pitch') {
       const st = serial.last;
-      this.slate.say(st ? `${st.hits} of ${st.asked} sounds landed` : 'End of the reel', 'Pinch the clapper for the next reel', 0);
-    }
+      this.slate.say(st ? `${st.hits} of ${st.asked} sounds landed` : 'End of the reel', 'Make a sound to choose what happens next', 0);
+    } else if (s === 'writing') this.slate.say('The Director is writing…', 'The next reel rolls by itself', 0);
   }
 
   /** The clapper in the Serial: roll the reel that is ready (or the next one); during a reel, pause and resume. */
@@ -359,7 +363,7 @@ export class FoleySystem extends createSystem({
         const paused = this.serial.togglePause();
         this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
         console.log(paused ? 'REEL pause' : 'REEL resume');
-      } else if (id === 'tile-redo' && (this.serial.state === 'playing' || this.serial.state === 'between')) {
+      } else if (id === 'tile-redo' && (this.serial.state === 'playing' || this.serial.state === 'pitch')) {
         console.log('REEL redo');
         void this.serial.restart();
       }

@@ -437,3 +437,47 @@ export function hillsTexture(): CanvasTexture {
   }
   return texture(c);
 }
+
+/** The card between reels: a question and the ways on, each tagged with the prop that chooses it. */
+export function choiceCard(prompt: string, options: { prop: PropId; text: string }[], footer = ''): CanvasTexture {
+  return keep(`choice:${prompt}|${options.map((o) => `${o.prop}=${o.text}`).join('|')}|${footer}`, 3, () => {
+    const c = document.createElement('canvas');
+    c.width = 1280;
+    c.height = 720;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#0d0b09';
+    g.fillRect(0, 0, c.width, c.height);
+    g.strokeStyle = '#e9dfc9';
+    g.lineWidth = 5;
+    g.strokeRect(34, 34, c.width - 68, c.height - 68);
+    g.fillStyle = '#f4ecd8';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    const ps = fit(g, prompt.toUpperCase(), c.width - 200, 78, TITLE_FONT);
+    g.font = `400 ${ps}px ${TITLE_FONT}`;
+    g.fillText(prompt.toUpperCase(), c.width / 2, 132);
+    const rowH = 128;
+    const top = 224;
+    options.slice(0, 3).forEach((o, i) => {
+      const y = top + i * (rowH + 14);
+      g.strokeStyle = '#8d8472';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.roundRect(150, y, c.width - 300, rowH, 26);
+      g.stroke();
+      drawGlyph(g, o.prop, 236, y + rowH / 2, 84, '#F2C14E');
+      g.fillStyle = '#f4ecd8';
+      g.textAlign = 'left';
+      const size = fit(g, o.text, c.width - 300 - 190, 52, BODY_FONT, '600');
+      g.font = `600 ${size}px ${BODY_FONT}`;
+      g.fillText(o.text, 330, y + rowH / 2 + 2);
+    });
+    if (footer) {
+      g.fillStyle = '#c9bda0';
+      g.textAlign = 'center';
+      g.font = `500 34px ${BODY_FONT}`;
+      g.fillText(footer, c.width / 2, c.height - 74);
+    }
+    return texture(c);
+  });
+}

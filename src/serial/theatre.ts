@@ -21,7 +21,7 @@ import {
   Vector3,
 } from 'three';
 import type { PropId } from '../foley/types';
-import { backdropTexture, cueCard, curtainTexture, emoteCard, glowTexture, soundWordFor, titleCard, valanceTexture, wordCard } from './cards';
+import { backdropTexture, choiceCard, cueCard, curtainTexture, emoteCard, glowTexture, soundWordFor, titleCard, valanceTexture, wordCard } from './cards';
 import { type Actor, loadGLB } from './cast';
 import { film, filmify, MAX_LAMPS, setTint, type TintName } from './film';
 import { GALLOP_SPEED, Road, type RoadTheme } from './road';
@@ -460,6 +460,25 @@ export class Theatre {
         this.wantTitle = 0;
       },
     };
+  }
+
+  /** A card that stays up until `hideCard`: the choice between reels, or a line while the Director writes. */
+  showChoice(prompt: string, options: { prop: PropId; text: string }[], footer = ''): void {
+    const m = this.titleMesh.material as MeshBasicMaterial;
+    m.map = choiceCard(prompt, options, footer);
+    m.needsUpdate = true;
+    this.wantTitle = 1;
+  }
+
+  showCard(text: string, sub = ''): void {
+    const m = this.titleMesh.material as MeshBasicMaterial;
+    m.map = titleCard(text, sub);
+    m.needsUpdate = true;
+    this.wantTitle = 1;
+  }
+
+  hideCard(): void {
+    this.wantTitle = 0;
   }
 
   showCue(prop: PropId | null, label: string, pips = ''): void {

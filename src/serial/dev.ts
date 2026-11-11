@@ -16,6 +16,7 @@ import {
 } from 'three';
 import type { PropId } from '../foley/types';
 import { film } from './film';
+import { WRITTEN } from './pieces';
 import { Serial } from './serial';
 
 const q = new URLSearchParams(location.search);
@@ -98,7 +99,10 @@ const api = {
 };
 (window as unknown as { __serial: typeof api }).__serial = api;
 
-void serial.init().then(() => {
+void serial.init().then(async () => {
+  // ?written=thunder puts that prop's written reel on the stage instead of reel one
+  const written = q.get('written') as PropId | null;
+  if (written && WRITTEN[written]) await serial.preview(WRITTEN[written]);
   api.ready = true;
   document.title = 'stage ready';
   if (q.has('roll')) void serial.roll();
