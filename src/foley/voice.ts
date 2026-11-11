@@ -2,6 +2,8 @@
 // Everything here is optional. The microphone is asked for on the page, before the headset view, and only if the
 // player wants it; when it is missing, refused or silent the game carries on with its pitch cards.
 
+import { functionsBase } from './env';
+
 let stream: MediaStream | null = null;
 let recorder: MediaRecorder | null = null;
 let chunks: Blob[] = [];
@@ -131,7 +133,7 @@ export function stopListening(): Promise<Blob | null> {
 
 function base(): string {
   try {
-    return (import.meta.env?.VITE_DIRECTOR_BASE as string | undefined) || import.meta.env?.BASE_URL || '/';
+    return functionsBase();
   } catch {
     return '/';
   }

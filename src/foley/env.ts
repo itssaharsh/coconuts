@@ -51,3 +51,20 @@ export function captureMode(): boolean {
     return q.has('capture');
   }
 }
+
+/**
+ * Where the site's functions live: this site, or the address in VITE_DIRECTOR_BASE for a dev build (the dev servers
+ * have no functions). A loopback address only counts while the page itself is served from this machine.
+ */
+export function functionsBase(): string {
+  try {
+    const here = import.meta.env?.BASE_URL || '/';
+    const set = import.meta.env?.VITE_DIRECTOR_BASE as string | undefined;
+    if (!set) return here;
+    const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(set);
+    const pageLocal = typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    return local && !pageLocal ? here : set;
+  } catch {
+    return '/';
+  }
+}

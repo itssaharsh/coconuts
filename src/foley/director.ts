@@ -2,6 +2,7 @@
 import { CueTracker, type Cue } from './cues';
 import { ensureAudio, playVoice } from './sound';
 import type { PropId, Take } from './types';
+import { functionsBase } from './env';
 
 /** The rule-based review: always available, never needs the network. */
 export function directorLine(tracker: CueTracker): string {
@@ -83,7 +84,7 @@ const defaultTimeout = (fallback: number): number => {
 const defaultBase = (): string => {
   try {
     // VITE_DIRECTOR_BASE points a dev build at a deployed Director (the dev server has no functions)
-    return (import.meta.env?.VITE_DIRECTOR_BASE as string | undefined) || import.meta.env?.BASE_URL || '/';
+    return functionsBase();
   } catch {
     return '/';
   }

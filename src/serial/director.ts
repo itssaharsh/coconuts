@@ -2,6 +2,7 @@
 // a slow model, an answer that does not check) the answer is null and the Serial plays a written reel instead.
 import { PROP_IDS, type PropId } from '../foley/types';
 import { checkPlan, type Pitch, type ReelPlan } from './pieces';
+import { functionsBase } from '../foley/env';
 
 /** What one finished reel was, for the Director to build on. */
 export interface StoryLine {
@@ -28,7 +29,7 @@ export interface ReelAnswer {
 function base(): string {
   try {
     // VITE_DIRECTOR_BASE points a dev build at a deployment (the dev servers have no functions)
-    return (import.meta.env?.VITE_DIRECTOR_BASE as string | undefined) || import.meta.env?.BASE_URL || '/';
+    return functionsBase();
   } catch {
     return '/';
   }
