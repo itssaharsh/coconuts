@@ -6,7 +6,7 @@ within reach. You make the sound effects with your hands, in time with the pictu
 with the film and send the link to a friend.
 
 Live: https://coconuts-foley.vercel.app (open it in the Quest browser; any browser shows a sample take).
-Video: (coming; under three minutes).
+Video: a 2:51 cut is ready for upload (the public link goes here).
 
 ![The stage in the emulator: the proscenium with One Week playing, the cue lane, and the table of props](docs/media/stage.png)
 
