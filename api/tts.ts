@@ -12,11 +12,18 @@ const ATTEMPTS: [model: string, voice: string][] = [
 ];
 const BUDGET_MS = 9000;
 
+// any origin may ask (a dev build of the game, pointed at this deployment, is one); the rate limit is per IP
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, OPTIONS' };
+
 const fail = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), {
     status,
-    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...CORS },
   });
+
+export async function OPTIONS(): Promise<Response> {
+  return new Response(null, { status: 204, headers: CORS });
+}
 
 async function speakOnce(key: string, model: string, voice: string, text: string, timeoutMs: number): Promise<ArrayBuffer> {
   const ctl = new AbortController();
@@ -64,7 +71,7 @@ export async function GET(request: Request): Promise<Response> {
         const wav = await speakOnce(key, model, name, text, left);
         return new Response(wav, {
           status: 200,
-          headers: { 'content-type': 'audio/wav', 'cache-control': 'public, max-age=31536000, immutable' },
+          headers: { 'content-type': 'audio/wav', 'cache-control': 'public, max-age=31536000, immutable', ...CORS },
         });
       } catch {
         // the next voice or model

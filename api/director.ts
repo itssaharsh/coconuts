@@ -6,11 +6,18 @@ import { allow, clientIp } from './_lib/ratelimit.js';
 
 const MAX_BODY = 8 * 1024;
 
+// any origin may ask (a dev build of the game, pointed at this deployment, is one); the rate limit is per IP
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
+
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...CORS },
   });
+
+export async function OPTIONS(): Promise<Response> {
+  return new Response(null, { status: 204, headers: CORS });
+}
 
 /** Read at most `max` bytes of the body; null when it is longer. */
 async function readBody(request: Request, max: number): Promise<string | null> {

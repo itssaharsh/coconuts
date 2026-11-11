@@ -72,7 +72,8 @@ export function directorPayload(clip: { id: string; title: string; year: number 
 
 const defaultBase = (): string => {
   try {
-    return import.meta.env?.BASE_URL ?? '/';
+    // VITE_DIRECTOR_BASE points a dev build at a deployed Director (the dev server has no functions)
+    return (import.meta.env?.VITE_DIRECTOR_BASE as string | undefined) || import.meta.env?.BASE_URL || '/';
   } catch {
     return '/';
   }
