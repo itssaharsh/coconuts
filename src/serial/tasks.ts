@@ -43,6 +43,7 @@ export function sequence(makers: (() => Task)[]): Task {
     },
     cancel() {
       current?.cancel?.();
+      current = null;
       i = makers.length;
     },
   };
