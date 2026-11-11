@@ -5,6 +5,7 @@ import { BackSide, Mesh, MeshBasicMaterial, Object3D, Quaternion, SphereGeometry
 import { Bubble } from './bubble';
 import { CueTracker, type Cue } from './cues';
 import { serialMode } from './env';
+import { frameSerial } from '../landing/framing';
 import { Lane } from './lane';
 import { modelStats } from './models';
 import { Recorder, encodeTake } from './recorder';
@@ -166,6 +167,24 @@ export class FoleySystem extends createSystem({
       this.house.frustumCulled = false;
       this.stage.root.add(this.house);
       void this.serial.init().catch((e) => console.warn('SERIAL init failed', e instanceof Error ? e.message : e));
+      // without a headset the page is still playable: six keys are the six props, the space bar is the clapper
+      const keys: Record<string, PropId> = { c: 'coconuts', d: 'door', b: 'bell', t: 'thunder', w: 'whistle', g: 'glass' };
+      const onKey = (e: KeyboardEvent) => {
+        if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+        const tag = (e.target as HTMLElement | null)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        const prop = keys[e.key.toLowerCase()];
+        if (prop) {
+          void sound.ensureAudio();
+          this.hit({ t: 0, prop, kind: ONE_SHOT[prop], v: 1 });
+        } else if (e.key === ' ' || e.key === 'Enter') {
+          if ((e.target as HTMLElement | null)?.tagName === 'BUTTON') return; // a focused button keeps its own key
+          e.preventDefault();
+          void this.rollSerial();
+        }
+      };
+      window.addEventListener('keydown', onKey);
+      this.cleanupFuncs.push(() => window.removeEventListener('keydown', onKey));
     } else {
       this.lane.group.position.set(0, -(SCREEN_H / 2) - 0.105, 0.03); // just under the frame's footlights
       this.lane.group.rotation.x = -0.28;
@@ -174,7 +193,9 @@ export class FoleySystem extends createSystem({
       this.director.group.position.set(-0.5, 0.05, 0.02); // inside the glasses' view with room for its width
       this.stage.screen.group.add(this.director.group);
     }
-    this.slate.group.position.set(0.0, TABLE_H + 0.02, -0.14);
+    // the slate sits at the table's far edge; in the Serial it stands over the clapper it talks about, clear of the props
+    if (this.serialOn) this.slate.group.position.set(-0.27, TABLE_H + 0.15, 0.09);
+    else this.slate.group.position.set(0.0, TABLE_H + 0.02, -0.14);
     this.stage.table.add(this.slate.group);
 
     this.rootEntity = this.world.createTransformEntity(this.stage.root, { persistent: true });
@@ -706,6 +727,10 @@ export class FoleySystem extends createSystem({
   private frameBrowserCamera(): void {
     const cam = this.world.camera;
     const wide = window.innerWidth > 900;
+    if (this.serialOn) {
+      frameSerial(cam, wide);
+      return;
+    }
     if (wide) {
       cam.position.set(0.42, 1.62, 1.45);
       cam.lookAt(-0.62, 1.0, -0.95);

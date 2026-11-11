@@ -1,6 +1,6 @@
 // The reel format: what the Director (authored or model) may ask the stage to do. Pure data and checks, no rendering,
 // so the same file validates reels in the browser, in tests and in the reel function.
-import type { PropId } from '../foley/types';
+import type { PropId } from '../foley/types.js';
 
 export const VERBS = [
   'idle', 'walk', 'run', 'jump', 'flinch', 'stagger', 'fall', 'faint', 'getup', 'block', 'chop', 'slash', 'stab', 'punch',

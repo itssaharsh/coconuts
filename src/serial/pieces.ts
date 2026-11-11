@@ -2,8 +2,9 @@
 // write beats; it writes a plan: which sets, who is in them, which pieces in which order, and the words on the cards.
 // Every piece is staged here once, by hand, and waits for exactly one kind of sound, so any plan that passes
 // `checkPlan` plays, reads on the stage and gives the player something to do.
-import type { PropId } from '../foley/types';
-import { type Beat, type CastEntry, CHARACTERS, type CharacterId, type Reel, type Side, type Tint, TINT_NAMES } from './schema';
+// (.js on the relative imports: /api/reel runs this file as plain ESM on Node, which needs the extension; Vite and tsc map it to the .ts)
+import type { PropId } from '../foley/types.js';
+import { type Beat, type CastEntry, CHARACTERS, type CharacterId, type Reel, type Side, type Tint, TINT_NAMES } from './schema.js';
 
 export const SET_IDS = ['gate', 'vault', 'graveyard', 'inn', 'hall', 'camp', 'road', 'road-forest', 'road-village'] as const;
 export type SetId = (typeof SET_IDS)[number];
