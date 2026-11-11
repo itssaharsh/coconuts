@@ -47,7 +47,7 @@ export const FACINGS = ['audience', 'upstage', 'left', 'right'];
  * door and the window; duel_a / duel_b face each other across the middle; front_* and aside_* are the clear places
  * downstage and in the front corners.
  */
-export const DERIVED_MARKS = ['door_side', 'window_side', 'duel_a', 'duel_b', 'front_left', 'front_right', 'aside_left', 'aside_right', 'lair'];
+export const DERIVED_MARKS = ['door_side', 'window_side', 'duel_a', 'duel_b', 'front_left', 'front_right', 'aside_left', 'aside_right', 'lair', 'footlights', 'footlights_side'];
 
 /** A place on the stage: a named mark of the set, or the wings. */
 export type Mark = string;
@@ -69,6 +69,10 @@ export type Beat =
   /** A hinged part of the set: the door unless `part` names another (chest_lid). A door opens away from the audience unless `toward`. */
   | { k: 'door'; open: boolean; part?: string; toward?: boolean }
   | { k: 'fx'; fx: Fx }
+  /** The actor steps out of the picture: a leap down onto the player's desk and a run to its edge (into the wings where there is no desk). */
+  | { k: 'leap'; who: string }
+  /** An actor out on the desk goes over its edge and is gone. */
+  | { k: 'drop'; who: string }
   | { k: 'tint'; tint: Tint }
   /** Beats that play together (two actors moving at once). */
   | { k: 'par'; beats: Beat[] }
@@ -210,6 +214,10 @@ export function validateReel(reel: Reel, sets: Record<string, SetInfo>): string[
           break;
         case 'fx':
           if (!(FX as readonly string[]).includes(b.fx)) errs.push(`${at}: fx ${b.fx} unknown`);
+          break;
+        case 'leap':
+        case 'drop':
+          who(b.who, at);
           break;
         case 'tint':
           if (!(TINT_NAMES as readonly string[]).includes(b.tint)) errs.push(`${at}: tint ${b.tint} unknown`);

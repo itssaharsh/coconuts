@@ -76,6 +76,16 @@ class FakeTheatre {
   lightning(): void {
     this.lightnings++;
   }
+  readonly left: string[] = [];
+  leaveStage(a: FakeActor): Task {
+    this.left.push(`leap:${a.id}`);
+    a.onStage = false;
+    return wait(0.5);
+  }
+  dropOff(a: FakeActor): Task {
+    this.left.push(`drop:${a.id}`);
+    return wait(0.5);
+  }
   readonly bursts: string[] = [];
   burst(kind: string): void {
     this.bursts.push(kind);
@@ -651,5 +661,31 @@ describe('what the stage throws up', () => {
   it('the rain beats start and stop the storm', async () => {
     const rig = await boot([{ k: 'fx', fx: 'rain' }, { k: 'fx', fx: 'rainstop' }, door()]);
     expect(rig.theatre.storms).toEqual([true, false]);
+  });
+});
+
+describe('out of the picture', () => {
+  it('a leap hands the actor to the theatre, and a drop takes it off the desk', async () => {
+    const rig = await boot([{ k: 'leap', who: 'hero' }, door(), { k: 'drop', who: 'hero' }, door()]);
+    expect(rig.theatre.left).toEqual(['leap:hero']);
+    expect(actor(rig, 'hero').onStage).toBe(false);
+    play(rig, 'door');
+    await until(rig, () => rig.theatre.left.length === 2);
+    expect(rig.theatre.left).toEqual(['leap:hero', 'drop:hero']);
+  });
+
+  it('an actor who has left is not asked to react to stray sounds', async () => {
+    const rig = await boot([{ k: 'leap', who: 'hero' }, door({ hold: 30 })]);
+    const before = actor(rig, 'hero').calls.length;
+    play(rig, 'bell'); // a wrong prop: whoever is on the stage reacts
+    await tick(rig);
+    expect(actor(rig, 'hero').calls.length).toBe(before);
+  });
+
+  it('reel one ends with the thief out on the desk and then over its edge', () => {
+    const flat = JSON.stringify(REEL_1.beats);
+    expect(flat.indexOf('"k":"leap","who":"thief"')).toBeGreaterThan(0);
+    expect(flat.indexOf('"k":"drop","who":"thief"')).toBeGreaterThan(flat.indexOf('"k":"leap","who":"thief"'));
+    expect(REEL_1.cliffhanger).toMatch(/your room/);
   });
 });

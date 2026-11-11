@@ -67,7 +67,7 @@ uniform float uFlash;
 varying vec3 vStagePos;
 varying vec3 vStageN;`;
 
-const fragBody = (actor: boolean) => `#include <opaque_fragment>
+const fragBody = (actor: boolean, free = false) => `#include <opaque_fragment>
 vec3 filmN = normalize(vStageN);
 vec3 filmLit = mix(uGround, uSky, 0.5 + 0.5 * filmN.y) + uKeyCol * max(dot(filmN, uKeyDir), 0.0);
 vec3 filmLamp = vec3(0.0);
@@ -78,7 +78,7 @@ for (int i = 0; i < ${MAX_LAMPS}; i++) {
 }
 // the light falls away toward the wings, and lightning whitens everything
 filmLit *= 1.0 - 0.3 * smoothstep(3.5, 7.0, abs(vStagePos.x));
-filmLit += vec3(uFlash * 1.6);
+filmLit += vec3(uFlash * 1.6);${free ? '\n// out of the picture there are no lamps: the figure keeps enough light to be read in a dimmed room\nfilmLit = max(filmLit * 1.15, vec3(0.62));' : ''}
 vec3 filmA = gl_FragColor.rgb${actor ? ' * 1.18' : ''};
 vec3 filmC = filmA * filmLit;
 float filmL = dot(filmC, vec3(0.30, 0.59, 0.11));
@@ -87,11 +87,14 @@ vec3 filmW = filmA * filmLamp;
 float filmWL = dot(filmW, vec3(0.30, 0.59, 0.11));
 gl_FragColor.rgb = mix(vec3(filmL) * 1.08 * uFilmTint, filmC, uFilmColour) + mix(vec3(filmWL) * vec3(1.0, 0.74, 0.42), filmW, max(uFilmColour, 0.55));`;
 
-const converted = { set: new WeakMap<Material, MeshBasicMaterial>(), actor: new WeakMap<Material, MeshBasicMaterial>() };
+const converted = { set: new WeakMap<Material, MeshBasicMaterial>(), actor: new WeakMap<Material, MeshBasicMaterial>(), free: new WeakMap<Material, MeshBasicMaterial>() };
 
-/** The stage material for a kit material. Actors read `actorColour` and are lit a little more kindly. */
-export function filmMaterial(src: Material, actor = false): MeshBasicMaterial {
-  const cache = actor ? converted.actor : converted.set;
+/**
+ * The stage material for a kit material. Actors read `actorColour` and are lit a little more kindly.
+ * `free` is an actor who has left the picture: the same film, without the wings and the footlights that would cut it off.
+ */
+export function filmMaterial(src: Material, actor = false, free = false): MeshBasicMaterial {
+  const cache = free ? converted.free : actor ? converted.actor : converted.set;
   const done = cache.get(src);
   if (done) return done;
   const s = src as MeshStandardMaterial;
@@ -106,6 +109,7 @@ export function filmMaterial(src: Material, actor = false): MeshBasicMaterial {
     toneMapped: false,
   });
   m.name = src.name;
+  m.userData.filmSrc = src;
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, {
       uFilmColour: actor ? film.actorColour : film.colour,
@@ -124,10 +128,10 @@ export function filmMaterial(src: Material, actor = false): MeshBasicMaterial {
     shader.vertexShader = shader.vertexShader.replace('#include <common>', VERT_HEAD).replace('#include <project_vertex>', VERT_BODY);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', FRAG_HEAD)
-      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (abs(vStagePos.x) > uStageClip || vStagePos.z > uStageFront) discard;')
-      .replace('#include <opaque_fragment>', fragBody(actor));
+      .replace('#include <clipping_planes_fragment>', free ? '#include <clipping_planes_fragment>' : '#include <clipping_planes_fragment>\nif (abs(vStagePos.x) > uStageClip || vStagePos.z > uStageFront) discard;')
+      .replace('#include <opaque_fragment>', fragBody(actor || free, free));
   };
-  m.customProgramCacheKey = () => (actor ? 'film-actor' : 'film-set');
+  m.customProgramCacheKey = () => (free ? 'film-free' : actor ? 'film-actor' : 'film-set');
   cache.set(src, m);
   return m;
 }
@@ -140,6 +144,19 @@ export function filmify(root: Object3D, opts: { actor?: boolean } = {}): void {
     mesh.castShadow = false;
     mesh.receiveShadow = false;
     const one = (mat: Material) => filmMaterial(mat, !!opts.actor);
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(one) : one(mesh.material);
+  });
+}
+
+/** Let an actor's meshes out of the picture (or back into it): they swap to the material with no wings. */
+export function filmFree(root: Object3D, free: boolean): void {
+  root.traverse((o) => {
+    const mesh = o as Mesh;
+    if (!mesh.isMesh) return;
+    const one = (mat: Material): Material => {
+      const src = mat.userData.filmSrc as Material | undefined;
+      return src ? filmMaterial(src, true, free) : mat;
+    };
     mesh.material = Array.isArray(mesh.material) ? mesh.material.map(one) : one(mesh.material);
   });
 }

@@ -193,32 +193,41 @@ export const REEL_1: Reel = {
         { k: 'emote', who: 'thief', emote: 'sweat' },
       ],
     },
+    // the film breaks out: the thief leaves the picture, by the footlights, onto the player's own desk
     { k: 'title', text: 'One way out.', secs: 1.6 },
-    { k: 'move', who: 'thief', to: 'window', gait: 'run', face: 'window' },
+    { k: 'move', who: 'thief', to: 'footlights', gait: 'run', face: 'audience' },
+    { k: 'emote', who: 'thief', emote: '!' },
     {
       k: 'cue',
       prop: 'glass',
       label: 'Smash! He jumps!',
       who: 'thief',
       hold: 10,
-      hit: [
-        { k: 'do', who: 'thief', verb: 'jump', secs: 0.45 },
-        { k: 'exit', who: 'thief', to: 'window', gait: 'run' },
+      // the picture breaks, the theatre is a toy on the desk again, and he is out of it
+      hit: [{ k: 'fx', fx: 'shrink' }, { k: 'wait', secs: 0.5 }],
+      miss: [{ k: 'title', text: 'He kicks it out himself.', secs: 1.6 }, { k: 'fx', fx: 'shrink' }, { k: 'wait', secs: 0.5 }],
+    },
+    {
+      k: 'par',
+      beats: [
+        { k: 'leap', who: 'thief' },
+        { k: 'title', text: 'He has left the picture!', secs: 2.6 },
+        { k: 'move', who: 'knight', to: 'footlights_side', gait: 'run', face: 'audience' },
       ],
     },
-    { k: 'move', who: 'knight', to: 'window_side', gait: 'run', face: 'window' },
     { k: 'emote', who: 'knight', emote: 'angry' },
     {
       k: 'cue',
       prop: 'whistle',
-      label: 'Whistle for his horse',
+      label: 'Whistle him off the edge',
       who: 'knight',
-      hold: 10,
-      hit: [{ k: 'emote', who: 'knight', emote: 'note' }, { k: 'do', who: 'knight', verb: 'cheer', face: 'audience' }],
+      hold: 12,
+      hit: [{ k: 'drop', who: 'thief' }, { k: 'do', who: 'knight', verb: 'cheer', face: 'audience' }],
+      miss: [{ k: 'title', text: 'He climbs down by himself.', secs: 1.8 }, { k: 'drop', who: 'thief' }],
     },
     { k: 'fx', fx: 'lightning' },
   ],
-  cliffhanger: 'The thief has the faster horse.',
+  cliffhanger: 'The thief is loose in your room.',
 };
 
 export const CHAPTER_1: Reel[] = [REEL_1];

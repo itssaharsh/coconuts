@@ -359,6 +359,14 @@ export class ReelPlayer {
           else if (b.fx === 'rain') this.theatre.storm(true);
           else if (b.fx === 'rainstop') this.theatre.storm(false);
         });
+      case 'leap': {
+        const a = this.actors.get(b.who);
+        return a ? this.theatre.leaveStage(a) : done;
+      }
+      case 'drop': {
+        const a = this.actors.get(b.who);
+        return a ? this.theatre.dropOff(a) : done;
+      }
       case 'tint':
         return call(() => this.theatre.setTint(b.tint));
       case 'par':
@@ -506,7 +514,8 @@ export class ReelPlayer {
     const a = b.who ? this.actors.get(b.who) : undefined;
     if (!a) return;
     const ry = a.root.rotation.y;
-    this.theatre.burst('shards', a.root.position.x + Math.sin(ry) * 1.8, 0.9, a.root.position.z + Math.cos(ry) * 1.8);
+    // (never past the footlights: what breaks, breaks inside the picture)
+    this.theatre.burst('shards', a.root.position.x + Math.sin(ry) * 1.8, 1.3, Math.min(3.9, a.root.position.z + Math.cos(ry) * 1.8));
   }
 
   /** The rider goes as fast as the hooves come: no clops, no horse. `secs` is how much silence the ride forgives. */

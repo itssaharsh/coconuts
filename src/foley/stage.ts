@@ -57,6 +57,8 @@ export class Stage {
   dressed = false;
   /** Where the toy theatre stands (the Serial); its origin is the centre of the opening's bottom edge. */
   readonly theatreMount = new Group();
+  /** Lies on the table top: where a character who leaves the picture lands and runs (metres; z toward the player). */
+  readonly desk = new Group();
   private ahead: number;
   private below: number;
   /** 0 = the toy on the desk, 1 = wall size; eased, fast enough to hide inside a lightning flash. */
@@ -72,6 +74,9 @@ export class Stage {
     this.root.add(this.theatreMount);
     this.table = buildTable();
     this.root.add(this.table);
+    this.desk.name = 'desk-top';
+    this.desk.position.set(0, TABLE_H, 0);
+    this.table.add(this.desk);
     for (const spec of PROPS) {
       const g = buildProp(spec.id);
       nameHitBoxes(g);

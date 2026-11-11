@@ -26,6 +26,24 @@ export const PROPS: PropSpec[] = [
   { id: 'glass', name: 'Bag of glass', sound: 'crash', x: 0.3, z: -0.15 },
 ];
 
+/**
+ * The way across the table for a character who has left the picture: it lands at the back edge, runs through the gap
+ * between the door and the thunder sheet, then between the coconuts and the bell, and stops at the front edge.
+ * Metres on the table top (x to the player's right, z toward the player). `unit` is what one stage unit measures out
+ * here: 0.55 of its size in the desk-size theatre (1.1 m / 12), because a figure that comes nearer must be smaller
+ * to look the same.
+ */
+export const DESK_ROUTE: { unit: number; path: [number, number][]; off: [number, number] } = {
+  unit: (1.1 / 12) * 0.55,
+  path: [
+    [-0.035, -0.165],
+    [-0.032, -0.085],
+    [-0.018, 0.02],
+    [-0.018, 0.165],
+  ],
+  off: [-0.018, 0.275],
+};
+
 export type HitKind = 'clop' | 'knock' | 'slam' | 'ding' | 'rumble' | 'whistle' | 'crash';
 
 /** One recorded event of a take. `t` is seconds into the clip. */

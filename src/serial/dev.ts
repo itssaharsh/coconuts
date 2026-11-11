@@ -7,6 +7,7 @@ import {
   BoxGeometry,
   Color,
   DirectionalLight,
+  Group,
   Mesh,
   MeshStandardMaterial,
   PerspectiveCamera,
@@ -15,7 +16,7 @@ import {
   Timer,
   WebGLRenderer,
 } from 'three';
-import type { PropId } from '../foley/types';
+import { DESK_ROUTE, type PropId } from '../foley/types';
 import { film } from './film';
 import type { StageFx } from './fx';
 import { WRITTEN } from './pieces';
@@ -62,6 +63,11 @@ function sizeStep(dt: number): void {
 const table = new Mesh(new BoxGeometry(0.7, 0.015, 0.4), new MeshStandardMaterial({ color: 0xead9b9, roughness: 0.75 }));
 table.position.set(0, -0.3875, -0.48);
 scene.add(table);
+// its top is the desk a character can jump down onto (?nodesk plays without one)
+const deskTop = new Group();
+deskTop.position.set(0, -0.38, -0.48);
+scene.add(deskTop);
+if (!q.has('nodesk')) serial.theatre.setDesk(deskTop, DESK_ROUTE);
 
 let waiting = '';
 const hud = document.getElementById('hud')!;

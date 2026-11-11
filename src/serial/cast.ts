@@ -16,7 +16,7 @@ import {
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { glowTexture } from './cards';
-import { filmify } from './film';
+import { filmify, filmFree } from './film';
 import { type BeastId, isBeast, type PerformerId, type Verb } from './schema';
 import { type Task } from './tasks';
 
@@ -154,6 +154,7 @@ export class Actor {
   private held = false;
   private items = new Map<string, Object3D>();
   private shadow: Mesh;
+  private free = false;
   onStage = false;
 
   private build: Build;
@@ -325,6 +326,13 @@ export class Actor {
     this.items.delete(item);
   }
 
+  /** Out of the picture (onto the player's desk) or back in: outside, nothing cuts the figure off at the wings. */
+  setFree(on: boolean): void {
+    if (this.free === on) return;
+    this.free = on;
+    filmFree(this.root, on);
+  }
+
   /** Where an emote should float: just above the head, in stage space (a rider sits higher than a walker). */
   head(out = new Vector3()): Vector3 {
     if (this.root.parent && this.root.parent.name === 'seat') {
@@ -348,7 +356,7 @@ export class Actor {
     this.root.rotation.y = this.heading;
     this.mixer.update(dt);
     // no shadow in the saddle, and none past the wings where the stage's own materials are cut off
-    this.shadow.visible = this.root.parent?.name !== 'seat' && Math.abs(this.root.position.x) < 6.4;
+    this.shadow.visible = this.root.parent?.name !== 'seat' && (this.free || Math.abs(this.root.position.x) < 6.4);
   }
 }
 

@@ -24,11 +24,12 @@ import {
 import type { PropId } from '../foley/types';
 import { backdropTexture, choiceCard, cueCard, curtainTexture, emoteCard, glowTexture, soundWordFor, titleCard, valanceTexture, wordCard } from './cards';
 import { type Actor, loadGLB } from './cast';
+import { Desk, type DeskRoute } from './desk';
 import { film, filmify, MAX_LAMPS, setTint, type TintName } from './film';
 import { StageFx } from './fx';
 import { GALLOP_SPEED, Road, type RoadTheme } from './road';
 import type { Emote, SetInfo, StageCue } from './schema';
-import { type Task } from './tasks';
+import { call, sequence, type Task } from './tasks';
 
 export const STAGE_W = 1.0; // the opening, metres (before the group's scale)
 export const STAGE_H = 0.5625;
@@ -79,6 +80,9 @@ const COMMON_MARKS: Record<string, [number, number]> = {
   aside_right: [5.2, 2.4],
   // where something large comes to rest: the middle of the back of the stage
   lair: [1.4, -1.5],
+  // at the very front, where an actor can look the audience in the eye (and step out of the picture)
+  footlights: [-0.5, 3.35],
+  footlights_side: [1.3, 3.2],
 };
 
 /** Where a set's own marks put an actor behind its furniture, the stage knows better. */
@@ -495,13 +499,65 @@ export class Theatre {
   }
 
   addActor(a: Actor): void {
+    this.home(a);
     this.stage.add(a.root);
     a.onStage = true;
   }
 
   removeActor(a: Actor): void {
-    this.stage.remove(a.root);
+    a.root.removeFromParent();
+    this.home(a);
     a.onStage = false;
+  }
+
+  /** An actor who was out on the desk is itself again: the stage's size, upright, inside the wings. */
+  private home(a: Actor): void {
+    a.setFree(false);
+    a.root.scale.setScalar(1);
+    a.root.rotation.x = 0;
+  }
+
+  // ---- the desk: where the film can spill out of its frame
+
+  private desk: Desk | null = null;
+
+  /** The player's desk: a group lying on the table top (metres) and a way between the props. Null takes it away. */
+  setDesk(host: Object3D | null, route?: DeskRoute): void {
+    this.desk?.dispose();
+    this.desk = host && route ? new Desk(host, route) : null;
+  }
+
+  get hasDesk(): boolean {
+    return !!this.desk;
+  }
+
+  /** The actor leaves the picture: a leap down onto the desk and a run to its edge. With no desk, off into the wings. */
+  leaveStage(a: Actor): Task {
+    const desk = this.desk;
+    if (!desk) {
+      const [x, z] = this.mark('wings_left');
+      return sequence([() => a.goTo(x, z, 'run'), () => call(() => this.removeActor(a))]);
+    }
+    return sequence([
+      // the theatre must be the toy on the desk again before anyone can step out of it
+      () => ({ update: () => !this.bigNow && this.size < 1.6 }),
+      () => call(() => (a.onStage = false)),
+      () => desk.arrive(a, () => this.onSound?.('thud')),
+    ]);
+  }
+
+  /** An actor on the desk goes over its edge and is gone. */
+  dropOff(a: Actor): Task {
+    const desk = this.desk;
+    if (!desk || !desk.holds(a)) return call(() => this.removeActor(a));
+    return sequence([
+      () => desk.leave(a),
+      () =>
+        call(() => {
+          this.removeActor(a);
+          this.onSound?.('thud');
+        }),
+    ]);
   }
 
   // ---- things that take time

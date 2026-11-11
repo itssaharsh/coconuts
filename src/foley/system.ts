@@ -17,7 +17,7 @@ import { SCREEN_H } from './screen';
 import { TABLE_H } from './toys';
 import { PatGate, ShakeMeter, SlideTracker, StrikeDetector, isDrop } from './triggers';
 import type { HitEvent, PropId, Take } from './types';
-import { PROP_IDS } from './types';
+import { DESK_ROUTE, PROP_IDS } from './types';
 import { Serial, type SerialState } from '../serial/serial';
 import type { Waiting } from '../serial/player';
 
@@ -178,6 +178,7 @@ export class FoleySystem extends createSystem({
       });
       this.serial.theatre.setSize(THEATRE_SMALL);
       this.stage.theatreMount.add(this.serial.theatre.group);
+      this.serial.theatre.setDesk(this.stage.desk, DESK_ROUTE); // the film can spill onto the player's own desk
       // drawn first and behind everything, so it darkens only what is not ours: the room
       this.house = new Mesh(
         new SphereGeometry(7, 24, 14),
