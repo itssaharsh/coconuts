@@ -104,6 +104,18 @@ describe('PatGate: a pat is deliberate, a resting hand is not', () => {
     expect(g.deliberate()).toBe(true);
   });
 
+  it('arrival speed tells a rap from a slam', () => {
+    const rap = new PatGate();
+    let t = feedFor(rap, 0, 0.5, () => [0, 0.9, -0.4]);
+    feedFor(rap, t, 0.15, (dt) => [0, 0.9, -0.4 - 0.5 * dt]); // half a metre a second
+    expect(rap.arrival()).toBeGreaterThan(0.35);
+    expect(rap.arrival()).toBeLessThan(0.7);
+    const slam = new PatGate();
+    t = feedFor(slam, 0, 0.5, () => [0, 0.9, -0.4]);
+    feedFor(slam, t, 0.12, (dt) => [0, 0.9, -0.4 - 1.8 * dt]);
+    expect(slam.arrival()).toBeGreaterThan(1.1);
+  });
+
   it('a hand that has just appeared has no history and does not count', () => {
     const g = new PatGate();
     g.feed(0, 0, 0, 0);

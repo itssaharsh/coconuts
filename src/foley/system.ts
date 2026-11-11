@@ -1,7 +1,7 @@
 // FoleySystem: places the stage, loads the clip, turns pinches, pokes and hand motion on props into hits,
 // records the take, replays it against the film, and runs the tiles and the Director's bubbles.
-import { Hovered, PokeInteractable, Pressed, RayInteractable, VisibilityState, createSystem, type Entity } from '@iwsdk/core';
-import { BackSide, Mesh, MeshBasicMaterial, Object3D, Quaternion, SphereGeometry, Vector3 } from 'three';
+import { Hovered, Pressed, RayInteractable, VisibilityState, createSystem, type Entity } from '@iwsdk/core';
+import { BackSide, Box3, Matrix4, Mesh, MeshBasicMaterial, Object3D, Quaternion, SphereGeometry, Vector3 } from 'three';
 import { Bubble } from './bubble';
 import { CueTracker, type Cue } from './cues';
 import { automationRun, captureMode, serialMode } from './env';
@@ -22,6 +22,9 @@ import { Serial, type SerialState } from '../serial/serial';
 import type { Waiting } from '../serial/player';
 
 const tmpP = new Vector3();
+const tmpM = new Matrix4();
+const tmpM2 = new Matrix4();
+const tmpBox = new Box3();
 const tmpQ = new Quaternion();
 const tmpF = new Vector3();
 const tmpU = new Vector3();
@@ -70,12 +73,14 @@ const ONE_SHOT: Record<PropId, HitEvent['kind']> = {
 };
 
 const GRABBABLE: PropId[] = ['coconuts', 'thunder', 'whistle', 'glass'];
-const POKEABLE: PropId[] = ['door', 'bell'];
 const SLAM_HOLD_MS = 350;
 /** A pinch that starts this close to a prop picks it up; a pinch from further away fires its one-shot. */
 const NEAR_GRAB_M = 0.11;
-/** A fingertip this close to a piece is touching it: its press is a pat, not a pinch from afar. */
-const TOUCH_M = 0.13;
+/** A fingertip this near a piece's own shape touches it; it has let go once it is this far clear again. */
+const TOUCH_IN = 0.012;
+const TOUCH_OUT = 0.035;
+/** A knock that arrives faster than this is a slam (m/s). */
+const SLAM_SPEED = 1.1;
 
 type Hand = 'left' | 'right';
 const HANDS: Hand[] = ['right', 'left'];
@@ -110,7 +115,10 @@ export class FoleySystem extends createSystem({
   private fxDropped = false;
   /** Each hand's fingertip, watched so a resting or drifting hand does not count as a pat. */
   private pats: Record<Hand, PatGate> = { left: new PatGate(), right: new PatGate() };
-  private ignoredPress = new Set<string>();
+  /** What each fingertip rests on, and whether that touch counted (a resting hand's does not). */
+  private touching: Record<Hand, { id: string; live: boolean } | null> = { left: null, right: null };
+  private touchBounds = new Map<string, Box3>();
+  private boundsFor = '';
   private redoArmedUntil = 0;
   private musicOn = false;
   private lastPerfLog = -100;
@@ -232,14 +240,11 @@ export class FoleySystem extends createSystem({
         if (hit) {
           this.hitBoxes.set(id, hit);
           const h = this.world.createTransformEntity(hit, { parent: e, persistent: true });
-          h.addComponent(RayInteractable);
-          h.addComponent(PokeInteractable); // a pat with an open hand sounds the prop too
+          h.addComponent(RayInteractable); // (an open hand's pat is read from the fingertip itself: see trackTouches)
           this.entityPiece.set(h, piece.id);
         }
       } else {
         e.addComponent(RayInteractable);
-        // in the Serial everything on the table answers a touch: the clapper and the tiles too
-        if (POKEABLE.includes(id) || this.serialOn) e.addComponent(PokeInteractable);
       }
     }
     this.stage.screen.onEnded = () => this.endTake();
@@ -495,33 +500,7 @@ export class FoleySystem extends createSystem({
     }
   }
 
-  /**
-   * A press with no pinch behind it is a fingertip on the piece. It counts when the finger came there on purpose;
-   * a hand resting over the table, or drifting, does not sound props or press tiles.
-   */
-  private restingTouch(id: string): boolean {
-    if (automationRun()) return false; // the emulator's hands are sampled a few times a second: no motion to judge
-    if (this.world.visibilityState.value === VisibilityState.NonImmersive) return false; // a mouse click
-    for (const hand of HANDS) {
-      const s = this.input.xr.getSelectState(hand);
-      if (s.active || s.start) return false; // a pinch (from afar, or beside the piece) is always meant
-    }
-    const piece = this.stage.pieces.get(id);
-    if (!piece) return false;
-    const box = this.hitBoxes.get(id as PropId);
-    const at = box ? box.getWorldPosition(tmpU) : piece.root.getWorldPosition(tmpU);
-    for (const hand of HANDS) {
-      if (this.pinchPoint(hand, tmpP).distanceTo(at) < TOUCH_M) return !this.pats[hand].deliberate();
-    }
-    return false; // no fingertip near: a gaze pinch or another far pointer
-  }
-
-  private onPressStart(id: string, entity: Entity): void {
-    if (this.restingTouch(id)) {
-      this.ignoredPress.add(id);
-      console.log('TOUCH ignored (a resting hand)', id);
-      return;
-    }
+  private onPressStart(id: string, entity?: Entity, touch = false): void {
     if (id === 'clapper') {
       console.log('PICK clapper', this.serial ? this.serial.state : this.mode);
       if (this.serial) {
@@ -552,7 +531,7 @@ export class FoleySystem extends createSystem({
     }
     const prop = id as PropId;
     void sound.ensureAudio();
-    if (GRABBABLE.includes(prop)) {
+    if (GRABBABLE.includes(prop) && !touch) {
       if (this.held.has(prop)) return; // the pinch already picked it up this frame
       // a pinch from a hand right beside the prop is a grab, not a far pinch (an open hand's touch is a pat: it sounds)
       for (const hand of HANDS) {
@@ -564,7 +543,7 @@ export class FoleySystem extends createSystem({
         }
       }
     }
-    if (prop === 'door') return; // the door fires on release: a short press knocks, a held press slams
+    if (prop === 'door') return; // a pinched door fires on release: a short press knocks, a held press slams (a touched one: see touchStart)
     this.hit({ t: this.stage.screen.currentTime, prop, kind: ONE_SHOT[prop], v: 1, hand: 'right' });
   }
 
@@ -694,7 +673,6 @@ export class FoleySystem extends createSystem({
   }
 
   private onPressEnd(id: string, heldMs: number): void {
-    if (this.ignoredPress.delete(id)) return;
     if (id === 'megaphone') {
       void this.megaphoneUp();
       return;
@@ -727,23 +705,114 @@ export class FoleySystem extends createSystem({
     hooks.onHit(hit, this.api);
   }
 
+  /** The piece's own shape (what can be seen of it), as a box in its own space: what a fingertip touches. */
+  private shapeOf(id: string): Box3 | null {
+    // the models arrive after the primitives: measure again once they are in
+    const key = this.stage.dressed ? 'dressed' : 'plain';
+    if (this.boundsFor !== key) {
+      this.boundsFor = key;
+      this.touchBounds.clear();
+    }
+    let box = this.touchBounds.get(id);
+    if (box) return box;
+    const piece = this.stage.pieces.get(id);
+    if (!piece) return null;
+    box = new Box3();
+    piece.root.updateWorldMatrix(true, true);
+    tmpM.copy(piece.root.matrixWorld).invert();
+    piece.root.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh || !m.visible || m.name.startsWith('hit') || m.name === 'lamp' || m.name === 'blob') return;
+      const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+      if (mat && mat.visible === false) return;
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+      if (!m.geometry.boundingBox) return;
+      tmpBox.copy(m.geometry.boundingBox).applyMatrix4(tmpM2.multiplyMatrices(tmpM, m.matrixWorld));
+      box!.union(tmpBox);
+    });
+    if (box.isEmpty()) return null;
+    this.touchBounds.set(id, box);
+    if (automationRun()) console.log('SHAPE', id, box.min.toArray().map((v) => v.toFixed(3)).join(','), box.max.toArray().map((v) => v.toFixed(3)).join(','));
+    return box;
+  }
+
+  /**
+   * An open hand's pat: the fingertip on a piece's own shape. (The SDK's touch pointer measures to the nearest
+   * surface of anything in the piece, hit boxes included, so a finger passing through a box fires on the way in
+   * and again on the way out; here a touch begins once, when the fingertip reaches the thing itself, and ends
+   * when it is clearly off it.) A hand that only rests or drifts there does not count.
+   */
+  private trackTouches(inXR: boolean): void {
+    for (const hand of HANDS) {
+      const cur = this.touching[hand];
+      this.pinchPoint(hand, tmpP);
+      const tracked = inXR && tmpP.y >= 0.25;
+      const s = this.input.xr.getSelectState(hand);
+      const pinching = s.active || s.start;
+      let on: string | null = null;
+      if (tracked) {
+        let best = Infinity;
+        for (const piece of this.stage.pieces.values()) {
+          if (this.held.has(piece.id)) continue;
+          const box = this.shapeOf(piece.id);
+          if (!box) continue;
+          const d = box.distanceToPoint(piece.root.worldToLocal(tmpU.copy(tmpP)));
+          const mine = cur?.id === piece.id;
+          if (d <= (mine ? TOUCH_OUT : TOUCH_IN) && (mine ? -1 : d) < best) {
+            best = mine ? -1 : d; // what is already touched stays touched until the finger is clear of it
+            on = piece.id;
+          }
+        }
+      }
+      if (on === (cur?.id ?? null)) continue;
+      if (cur?.live) this.touchEnd(cur.id);
+      if (!on) {
+        this.touching[hand] = null;
+        continue;
+      }
+      // a pinching hand is picking something up or pressing from afar; a hand that only rests or drifts is not patting
+      const live = !pinching && (automationRun() || this.pats[hand].deliberate());
+      this.touching[hand] = { id: on, live };
+      if (live) this.touchStart(on, hand);
+      else if (!pinching) console.log('TOUCH ignored (a resting hand)', on);
+    }
+  }
+
+  private touchStart(id: string, hand: Hand): void {
+    if (id === 'door') {
+      // a touched door answers at once: a rap knocks, a hard hit slams
+      void sound.ensureAudio();
+      const slam = this.pats[hand].arrival() > SLAM_SPEED;
+      this.stage.swingDoor(slam ? 1 : 0.35);
+      this.hit({ t: this.stage.screen.currentTime, prop: 'door', kind: slam ? 'slam' : 'knock', v: slam ? 1 : 0.8, hand });
+      return;
+    }
+    this.onPressStart(id, undefined, true);
+  }
+
+  private touchEnd(id: string): void {
+    if (id === 'megaphone') void this.megaphoneUp();
+  }
+
   /** Presses are tracked per frame so the door can tell a tap from a hold. */
   private trackPressed(): void {
     const now = this.pressNext;
     now.clear();
+    // a press is timed on the show's clock (in a capture run a second of the show takes many real ones)
+    const t = this.capture ? this.showClock * 1000 : performance.now();
     for (const e of this.queries.pressed.entities) {
       const id = this.entityPiece.get(e);
       if (!id) continue;
       now.add(id);
       if (!this.lastPressed.has(id)) {
-        this.pressStarted.set(id, performance.now());
+        this.pressStarted.set(id, t);
         this.onPressStart(id, e);
       }
     }
     for (const id of this.lastPressed) {
       if (now.has(id)) continue;
-      const started = this.pressStarted.get(id) ?? performance.now();
-      this.onPressEnd(id, performance.now() - started);
+      const started = this.pressStarted.get(id) ?? t;
+      this.onPressEnd(id, t - started);
     }
     this.pressNext = this.lastPressed;
     this.lastPressed = now;
@@ -1003,6 +1072,7 @@ export class FoleySystem extends createSystem({
     this.lastHovered = now;
     this.trackPinches();
     this.trackPressed();
+    this.trackTouches(inXR);
     this.trackHeld(time, dt);
     this.easeHome(dt);
     if (this.mode === 'replay' && this.replayer) this.replayer.tick(this.stage.screen.currentTime);

@@ -146,16 +146,16 @@ export class PatGate {
     if (this.count < this.size) this.count++;
   }
 
-  /** True when the fingertip that was last fed came where it is on purpose. */
-  deliberate(): boolean {
-    if (this.count < 3) return false; // a hand that has only just appeared here did not reach for anything
+  /** How far the fingertip has come in the window, and how fast it was moving just now (m, m/s). */
+  private measure(): { far: number; fast: number } {
+    let far = 0;
+    let fast = 0;
+    if (this.count < 3) return { far, fast }; // a hand that has only just appeared here did not reach for anything
     const last = (this.head - 1 + this.size) % this.size;
     const now = this.t[last];
     const x = this.p[last * 3];
     const y = this.p[last * 3 + 1];
     const z = this.p[last * 3 + 2];
-    let far = 0;
-    let fast = 0;
     for (let n = 1; n < this.count; n++) {
       const i = (last - n + this.size) % this.size;
       const age = now - this.t[i];
@@ -165,6 +165,17 @@ export class PatGate {
       // speed over a short stretch (long enough that jitter does not pass for motion)
       if (age >= 0.04 && age <= 0.12 && d / age > fast) fast = d / age;
     }
-    return far >= this.travel || fast >= this.speed;
+    return { far, fast };
+  }
+
+  /** True when the fingertip that was last fed came where it is on purpose. */
+  deliberate(): boolean {
+    const m = this.measure();
+    return m.far >= this.travel || m.fast >= this.speed;
+  }
+
+  /** How fast the fingertip was moving as it arrived, m/s (a hard knock is a slam). */
+  arrival(): number {
+    return this.measure().fast;
   }
 }

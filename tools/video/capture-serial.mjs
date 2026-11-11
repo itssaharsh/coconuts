@@ -87,17 +87,55 @@ function slowdown(t0) {
 
 let cache = null;
 let slow = 8;
-/** A pat with an open hand, in the show's slow time: reach to the prop, touch, come back to rest. */
-async function pat(prop, times = 1) {
+/** Seconds of the show that one second of an emulator hand animation takes (measured before the take). */
+let animRate = 0.3;
+const REST = { x: 0.36, y: 0.98, z: -0.2 };
+
+function centreOf(name) {
   cache ??= targets();
-  const name = targetName(prop);
-  if (!cache.find((x) => (x.name ?? x.id ?? '') === name)) throw new Error(`target ${name} not found`);
-  const steps = [];
-  for (let i = 0; i < times; i++) steps.push({ label: `pat-${prop}`, target: name, approach: { distance: 0.07 }, press: { depth: 0.014, hold: 0.07 * slow, retract: 0.06 }, duration: (i === 0 ? 0.45 : 0.22) * slow });
-  steps.push({ label: 'rest', position: { x: 0.36, y: 0.98, z: -0.2 }, anchor: 'grasp', duration: 0.4 * slow });
-  const r = iw(['xr', 'run-sequence'], { device: 'hand-right', steps }, 400000);
-  const res = r?.data?.result ?? r;
-  if (res?.completed === false) log('hand sequence stopped:', res.reason);
+  const t = cache.find((x) => (x.name ?? x.id ?? '') === name);
+  if (!t) throw new Error(`target ${name} not found; have: ${cache.map((x) => x.name ?? x.id).join(', ')}`);
+  const c0 = t.center ?? t.box?.center ?? t.worldPosition ?? t.position;
+  const c = Array.isArray(c0) ? { x: c0[0], y: c0[1], z: c0[2] } : c0;
+  const size = t.size ?? t.box?.size ?? { x: 0.1, y: 0.1, z: 0.1 };
+  return { ...c, bottom: c.y - size.y / 2 };
+}
+
+/** Move the right hand's fingertip to a point over `showSecs` of the show (the emulator animates in its own time). */
+function reach(position, showSecs, easing = 'minimum-jerk') {
+  iw(['xr', 'animate-to'], { device: 'hand-right', position, duration: Math.max(0.05, showSecs / animRate), easing, anchor: 'index-tip', orientation: 'auto' }, 400000);
+}
+
+/** How fast the emulator's animations run against the show's clock: time one, and compare with the slow-down. */
+function calibrate() {
+  const t0 = Date.now();
+  reach({ x: REST.x, y: REST.y + 0.002, z: REST.z }, 0.0001, 'linear'); // (the cost of a call by itself)
+  const overhead = (Date.now() - t0) / 1000;
+  const D = 2;
+  const t1 = Date.now();
+  iw(['xr', 'animate-to'], { device: 'hand-right', position: { x: REST.x, y: REST.y + 0.05, z: REST.z }, duration: D, easing: 'linear', anchor: 'index-tip', orientation: 'auto' }, 400000);
+  const real = Math.max(0.2, (Date.now() - t1) / 1000 - overhead);
+  animRate = Math.max(0.05, Math.min(2, real / slow / D));
+  reach(REST, 0.2);
+  log('hand animations: one emulator second is', animRate.toFixed(2), 'show seconds (call overhead', overhead.toFixed(1), 's)');
+}
+
+/** A pat with an open hand, in the show's slow time: reach over the prop, tap it `times`, come back to rest. */
+async function pat(prop, times = 1) {
+  // the fingertip goes to the thing itself (a touch is the finger on its shape, not in its hit box): upright
+  // pieces are rapped on their face, low ones patted from above
+  const c = centreOf(targetName(prop));
+  const upright = prop === 'door' || prop === 'thunder';
+  const over = upright ? { x: c.x, y: c.bottom + 0.07, z: c.z + 0.11 } : { x: c.x, y: c.bottom + 0.125, z: c.z + 0.01 };
+  const down = upright ? { x: c.x, y: c.bottom + 0.07, z: c.z + 0.028 } : { x: c.x, y: c.bottom + 0.028, z: c.z + 0.01 };
+  reach(over, 0.4);
+  for (let i = 0; i < times; i++) {
+    reach(down, 0.09, 'linear');
+    await sleep(Math.max(900, 0.08 * slow * 1000)); // long enough to be drawn in a frame or two
+    reach(over, 0.11, 'linear');
+    if (i < times - 1) await sleep(0.05 * slow * 1000);
+  }
+  reach(REST, 0.45);
 }
 
 async function main() {
@@ -131,6 +169,7 @@ async function main() {
   cache = targets();
   slow = slowdown(boot);
   log('slow time: one show second takes', slow.toFixed(1), 'real seconds');
+  calibrate();
 
   const rec = spawn(process.execPath, ['tools/xr/record-cdp.mjs'], {
     env: { ...process.env, REC_DIR: out, REC_SECONDS: String(maxSeconds), REC_FPS: '240', REC_W: String(W), REC_H: String(H) },
