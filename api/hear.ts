@@ -8,7 +8,7 @@ const DEADLINE_MS = 8500;
 const TYPES = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/wav', 'audio/mpeg', 'application/octet-stream'];
 const API = 'https://api.assemblyai.com/v2';
 
-const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...CORS } });
 
@@ -95,4 +95,9 @@ export async function handleHear(request: Request, deps: HearDeps = {}): Promise
 
 export async function POST(request: Request): Promise<Response> {
   return handleHear(request);
+}
+
+/** Whether hearing is switched on here: the page shows its voice control only when it is. */
+export async function GET(): Promise<Response> {
+  return json({ ok: !!process.env.ASSEMBLYAI_API_KEY?.trim() });
 }

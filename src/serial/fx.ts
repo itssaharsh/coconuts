@@ -390,8 +390,8 @@ class Batch {
   }
 
   /** Upload what moved; a draw with nothing alive is not drawn at all. */
-  flush(): void {
-    this.points.visible = this.any;
+  flush(force = false): void {
+    this.points.visible = this.any || force;
     if (this.any) for (const a of this.attrs) a.needsUpdate = true;
     this.any = false;
   }
@@ -540,6 +540,8 @@ export class StageFx {
   private fogNow = 0;
   private fogWant = 0;
   private emitters: Emitter[] = [];
+  private warmFrames = 0;
+  private readonly all: Kind[];
   private readonly look: Look = { r: 0, g: 0, b: 0, a: 0, dx: 0, dy: 0, dz: 0, width: 0, soft: 0, taper: 0, lit: 0 };
 
   constructor(
@@ -582,6 +584,7 @@ export class StageFx {
     this.snowK = kind(this.soft, CAPS.snow, true);
     this.dustK = kind(this.soft, CAPS.dust, false);
     this.confettiK = kind(this.soft, CAPS.confetti, false);
+    this.all = [this.sparkK, this.shardK, this.emberK, this.moteK, this.snowK, this.dustK, this.confettiK];
 
     // rain: one quad per drop, every drop's place and pace fixed now
     const rg = new InstancedBufferGeometry();
@@ -718,6 +721,11 @@ export class StageFx {
     }
   }
 
+  /** Draw all four draws for a few frames with nothing in them, so their shaders are built before a reel needs them. */
+  warm(frames = 3): void {
+    this.warmFrames = frames;
+  }
+
   /** Everything off at once (a scene change). */
   clear(): void {
     for (const k of this.kinds()) k.pool.clear();
@@ -773,9 +781,18 @@ export class StageFx {
       for (e.acc += dt * 12; e.acc >= 1; e.acc--) {
         const { pool } = this.emberK;
         const i = pool.spawn(1.3 + r() * 1.3);
-        pool.p.set([e.x + (r() - 0.5) * 0.5, e.y + r() * 0.15, e.z + (r() - 0.5) * 0.35], i * 3);
-        pool.v.set([(r() - 0.5) * 0.4, 0.8 + r() * 0.7, (r() - 0.5) * 0.2], i * 3);
-        pool.s.set([r() * 6.28, 9 + r() * 14, 0.7 + r() * 0.6, 0], i * 4);
+        const o = i * 3;
+        pool.p[o] = e.x + (r() - 0.5) * 0.5;
+        pool.p[o + 1] = e.y + r() * 0.15;
+        pool.p[o + 2] = e.z + (r() - 0.5) * 0.35;
+        pool.v[o] = (r() - 0.5) * 0.4;
+        pool.v[o + 1] = 0.8 + r() * 0.7;
+        pool.v[o + 2] = (r() - 0.5) * 0.2;
+        const q = i * 4;
+        pool.s[q] = r() * 6.28;
+        pool.s[q + 1] = 9 + r() * 14;
+        pool.s[q + 2] = 0.7 + r() * 0.6;
+        pool.s[q + 3] = 0;
       }
     }
     if (this.snowNow <= 0 && this.snowWant === 0) this.snowK.pool.clear();
@@ -786,14 +803,8 @@ export class StageFx {
     this.write();
   }
 
-  private *kinds(): Generator<Kind> {
-    yield this.sparkK;
-    yield this.shardK;
-    yield this.emberK;
-    yield this.moteK;
-    yield this.snowK;
-    yield this.dustK;
-    yield this.confettiK;
+  private kinds(): Kind[] {
+    return this.all;
   }
 
   private flake(y: number): void {
@@ -1055,14 +1066,16 @@ export class StageFx {
       l.lit = 0.8;
       put(this.confettiK, i);
     });
-    this.glow.flush();
-    this.soft.flush();
+    const warm = this.warmFrames > 0;
+    if (warm) this.warmFrames--;
+    this.glow.flush(warm);
+    this.soft.flush(warm);
 
     this.rainU.time.value = t;
     this.rainU.amount.value = this.rainNow;
-    this.rainMesh.visible = this.rainNow > 0;
+    this.rainMesh.visible = this.rainNow > 0 || warm;
     this.fogU.time.value = t;
     this.fogU.amount.value = this.fogNow;
-    this.fogMesh.visible = this.fogNow > 0.002;
+    this.fogMesh.visible = this.fogNow > 0.002 || warm;
   }
 }

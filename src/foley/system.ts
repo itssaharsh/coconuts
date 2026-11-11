@@ -15,7 +15,7 @@ import * as voice from './voice';
 import { Stage, THEATRE_SMALL } from './stage';
 import { SCREEN_H } from './screen';
 import { TABLE_H } from './toys';
-import { ShakeMeter, SlideTracker, StrikeDetector, isDrop } from './triggers';
+import { PatGate, ShakeMeter, SlideTracker, StrikeDetector, isDrop } from './triggers';
 import type { HitEvent, PropId, Take } from './types';
 import { PROP_IDS } from './types';
 import { Serial, type SerialState } from '../serial/serial';
@@ -73,7 +73,9 @@ const GRABBABLE: PropId[] = ['coconuts', 'thunder', 'whistle', 'glass'];
 const POKEABLE: PropId[] = ['door', 'bell'];
 const SLAM_HOLD_MS = 350;
 /** A pinch that starts this close to a prop picks it up; a pinch from further away fires its one-shot. */
-const NEAR_GRAB_M = 0.18;
+const NEAR_GRAB_M = 0.11;
+/** A fingertip this close to a piece is touching it: its press is a pat, not a pinch from afar. */
+const TOUCH_M = 0.13;
 
 type Hand = 'left' | 'right';
 const HANDS: Hand[] = ['right', 'left'];
@@ -100,8 +102,17 @@ export class FoleySystem extends createSystem({
   private placedEye = new Vector3();
   private movedFor = 0;
   /** A slow headset at wall size: the stage goes back to the desk and stays there. */
-  private frameAvg = 0.014;
+  private frameAvg = 1 / 72;
   private slowFor = 0;
+  /** Seconds the theatre has been at wall size: its first moments compile and upload, which is not the headset being slow. */
+  private bigFor = 0;
+  private bigLockedAt = -1e9;
+  private fxDropped = false;
+  /** Each hand's fingertip, watched so a resting or drifting hand does not count as a pat. */
+  private pats: Record<Hand, PatGate> = { left: new PatGate(), right: new PatGate() };
+  private ignoredPress = new Set<string>();
+  private redoArmedUntil = 0;
+  private musicOn = false;
   private lastPerfLog = -100;
   private rootEntity!: Entity;
   private entityPiece = new Map<Entity, string>();
@@ -162,15 +173,11 @@ export class FoleySystem extends createSystem({
           this.stage.setTileLabel('size', big ? 'Stage small' : 'Stage big');
           console.log('STAGE size', big ? 'wall' : 'desk');
         },
-        onNote: (note) => {
-          this.director.say(note, 'the Director', 10);
-          console.log('DIRECTOR note', note);
-        },
+        onNote: (note) => console.log('DIRECTOR note', note), // the theatre shows it on a card before the reel
+
       });
       this.serial.theatre.setSize(THEATRE_SMALL);
       this.stage.theatreMount.add(this.serial.theatre.group);
-      this.director.group.position.set(-0.7, 0.36, 0.04);
-      this.stage.theatreMount.add(this.director.group);
       // drawn first and behind everything, so it darkens only what is not ours: the room
       this.house = new Mesh(
         new SphereGeometry(7, 24, 14),
@@ -194,7 +201,7 @@ export class FoleySystem extends createSystem({
         } else if (e.key === ' ' || e.key === 'Enter') {
           if ((e.target as HTMLElement | null)?.tagName === 'BUTTON') return; // a focused button keeps its own key
           e.preventDefault();
-          void this.rollSerial();
+          void this.rollSerial(true);
         }
       };
       window.addEventListener('keydown', onKey);
@@ -260,6 +267,17 @@ export class FoleySystem extends createSystem({
           this.waitLogged = false;
         }
         if (v !== VisibilityState.NonImmersive && lastVis === VisibilityState.NonImmersive) this.onSessionStart();
+        // the system menu came up or the headset left the face: the sound holds too, and the frame-rate watch starts afresh
+        const away = v === VisibilityState.VisibleBlurred || v === VisibilityState.Hidden;
+        const wasAway = lastVis === VisibilityState.VisibleBlurred || lastVis === VisibilityState.Hidden;
+        if (away !== wasAway) {
+          this.slowFor = 0;
+          this.frameAvg = 1 / 72;
+          if (away) {
+            sound.stopHeld();
+            sound.setMusic(false);
+          } else if (this.musicOn) sound.setMusic(true);
+        }
         lastVis = v;
       }),
     );
@@ -291,6 +309,10 @@ export class FoleySystem extends createSystem({
       // not every runtime supports it
     }
     this.world.renderer.xr.getReferenceSpace()?.addEventListener('reset', () => this.reposition());
+    // a session begun from the browser's own button has had no gesture on the page: the first pinch is one
+    session.addEventListener('selectstart', () => {
+      if (sound.audioContext()?.state !== 'running') void sound.ensureAudio();
+    });
   }
 
   /** The slate at the table's edge says what the clapper will do next. */
@@ -298,7 +320,7 @@ export class FoleySystem extends createSystem({
     const serial = this.serial;
     if (!serial) return;
     // with a microphone allowed, the pitch card says a pitch can be spoken
-    serial.pitchFooter = voice.voiceReady() || voice.voiceWanted() ? 'Make its sound, or hold the megaphone and say your own' : 'Make its sound to choose';
+    serial.pitchFooter = voice.voiceWanted() ? 'Make its sound, or hold the megaphone and say your own' : 'Make its sound to choose';
     if (s === 'ready') {
       this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, 'Tap the clapper to roll', 0);
       // the marquee before the first reel: what this is and the one thing to do
@@ -309,6 +331,7 @@ export class FoleySystem extends createSystem({
     }
     else if (s === 'playing') {
       this.slate.hide();
+      this.musicOn = true;
       sound.setMusic(true); // the house pianist plays from the first reel on
     }
     else if (s === 'pitch') {
@@ -317,21 +340,31 @@ export class FoleySystem extends createSystem({
     } else if (s === 'writing') this.slate.say('The Director is writing…', 'The next reel rolls by itself', 0);
   }
 
-  /** The clapper in the Serial: roll the reel that is ready (or the next one); during a reel, pause and resume. */
-  private async rollSerial(): Promise<void> {
+  /**
+   * The clapper in the Serial rolls the reel that is ready. During a reel it does nothing in the headset (a hand
+   * brushing it must not stop the show: the pause tile is for that); on the page the space bar pauses and resumes.
+   */
+  private async rollSerial(fromKey = false): Promise<void> {
     const serial = this.serial;
     if (!serial) return;
+    if (serial.state === 'playing') {
+      if (fromKey) this.pauseSerial();
+      return;
+    }
     await sound.ensureAudio();
     sound.clapperSnap();
     this.stage.snapClapper();
-    if (serial.state === 'playing') {
-      const paused = serial.togglePause();
-      this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
-      sound.setMusic(!paused);
-      console.log(paused ? 'REEL pause' : 'REEL resume');
-      return;
-    }
     await serial.roll();
+  }
+
+  private pauseSerial(): void {
+    const serial = this.serial;
+    if (!serial || serial.state !== 'playing') return;
+    const paused = serial.togglePause();
+    this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
+    this.musicOn = !paused;
+    sound.setMusic(!paused);
+    console.log(paused ? 'REEL pause' : 'REEL resume');
   }
 
   private async loadClip(id: string, url: string, cues: Cue[] = [], posterUrl?: string): Promise<void> {
@@ -412,16 +445,26 @@ export class FoleySystem extends createSystem({
   private onTile(id: string): void {
     if (this.serial && id !== 'tile-volume') {
       if (id === 'tile-size') this.serial.theatre.grow(!this.serial.theatre.isBig);
-      else if (id === 'tile-pause' && this.serial.state === 'playing') {
-        const paused = this.serial.togglePause();
-        this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
-        console.log(paused ? 'REEL pause' : 'REEL resume');
-      } else if (id === 'tile-redo' && this.serial.state === 'ready' && this.serial.resuming) {
-        console.log('SERIAL start over');
-        void this.serial.startOver();
-      } else if (id === 'tile-redo' && (this.serial.state === 'playing' || this.serial.state === 'pitch')) {
-        console.log('REEL redo');
-        void this.serial.restart();
+      else if (id === 'tile-pause') this.pauseSerial();
+      else if (id === 'tile-redo') {
+        const over = this.serial.state === 'ready' && this.serial.resuming;
+        const again = this.serial.state === 'playing' || this.serial.state === 'pitch';
+        if (!over && !again) return;
+        // starting again throws the reel away: a tile brushed by a sleeve must not do that, so it asks twice
+        if (performance.now() > this.redoArmedUntil) {
+          this.redoArmedUntil = performance.now() + 4000;
+          this.slate.say(over ? 'Start the serial again?' : 'Start this reel again?', 'Tap Redo once more', 4);
+          return;
+        }
+        this.redoArmedUntil = 0;
+        this.slate.hide();
+        if (over) {
+          console.log('SERIAL start over');
+          void this.serial.startOver();
+        } else {
+          console.log('REEL redo');
+          void this.serial.restart();
+        }
       }
       return;
     }
@@ -451,7 +494,33 @@ export class FoleySystem extends createSystem({
     }
   }
 
+  /**
+   * A press with no pinch behind it is a fingertip on the piece. It counts when the finger came there on purpose;
+   * a hand resting over the table, or drifting, does not sound props or press tiles.
+   */
+  private restingTouch(id: string): boolean {
+    if (automationRun()) return false; // the emulator's hands are sampled a few times a second: no motion to judge
+    if (this.world.visibilityState.value === VisibilityState.NonImmersive) return false; // a mouse click
+    for (const hand of HANDS) {
+      const s = this.input.xr.getSelectState(hand);
+      if (s.active || s.start) return false; // a pinch (from afar, or beside the piece) is always meant
+    }
+    const piece = this.stage.pieces.get(id);
+    if (!piece) return false;
+    const box = this.hitBoxes.get(id as PropId);
+    const at = box ? box.getWorldPosition(tmpU) : piece.root.getWorldPosition(tmpU);
+    for (const hand of HANDS) {
+      if (this.pinchPoint(hand, tmpP).distanceTo(at) < TOUCH_M) return !this.pats[hand].deliberate();
+    }
+    return false; // no fingertip near: a gaze pinch or another far pointer
+  }
+
   private onPressStart(id: string, entity: Entity): void {
+    if (this.restingTouch(id)) {
+      this.ignoredPress.add(id);
+      console.log('TOUCH ignored (a resting hand)', id);
+      return;
+    }
     if (id === 'clapper') {
       console.log('PICK clapper', this.serial ? this.serial.state : this.mode);
       if (this.serial) {
@@ -525,6 +594,7 @@ export class FoleySystem extends createSystem({
     for (const hand of HANDS) {
       const s = this.input.xr.getSelectState(hand);
       if (s.start && this.pinchHeld[hand] === null) {
+        // only a pinch right beside a prop picks it up (the props stand a hand's width apart)
         const prop = this.nearestGrabbable(hand);
         if (prop) {
           void sound.ensureAudio();
@@ -592,15 +662,17 @@ export class FoleySystem extends createSystem({
       this.slate.say('The megaphone is for between reels', 'Hold it then, and say what happens next', 4);
       return;
     }
-    if (!voice.voiceReady()) {
-      // no prompt has been answered yet (or it was refused): ask now, and let the player hold again
-      void voice.enableVoice().then((ok) => serial.pitchNote(ok ? 'Hold the megaphone and say what happens next' : 'No microphone. Make a sound to choose.'));
+    if (!voice.voiceWanted()) {
+      // never allowed on the page: ask now, but not for long (inside the headset view the browser may be unable to ask)
+      void voice.enableVoice(4000).then((ok) => serial.pitchNote(ok ? 'Hold the megaphone and say what happens next' : 'Allow the microphone on the page first. Or make a sound to choose.'));
       return;
     }
-    if (voice.startListening(6000, () => void this.megaphoneUp())) {
-      serial.pitchNote('Listening… say what happens next, then let go');
-      console.log('VOICE listening');
-    }
+    void voice.startListening(6000, () => void this.megaphoneUp()).then((ok) => {
+      if (ok) {
+        serial.pitchNote('Listening… say what happens next, then let go');
+        console.log('VOICE listening');
+      } else if (serial.state === 'pitch') serial.pitchNote('No microphone just now. Make a sound to choose.');
+    });
   }
 
   private async megaphoneUp(): Promise<void> {
@@ -621,6 +693,7 @@ export class FoleySystem extends createSystem({
   }
 
   private onPressEnd(id: string, heldMs: number): void {
+    if (this.ignoredPress.delete(id)) return;
     if (id === 'megaphone') {
       void this.megaphoneUp();
       return;
@@ -770,6 +843,7 @@ export class FoleySystem extends createSystem({
       this.stage.placeFrom(tmpP, tmpF);
       this.frameBrowserCamera();
       this.placed = true;
+      this.serial?.theatre.warm();
       console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'browser');
       return;
     }
@@ -791,6 +865,7 @@ export class FoleySystem extends createSystem({
     this.placedEye.copy(tmpP);
     this.movedFor = 0;
     this.placed = true;
+    this.serial?.theatre.warm(); // the headset's programs are its own (stereo): build them now, behind the curtain
     console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'yaw', +this.stage.root.rotation.y.toFixed(2), 'xr');
   }
 
@@ -816,16 +891,34 @@ export class FoleySystem extends createSystem({
       this.reposition();
       this.placeTimer = 1; // the pose is already tracked: no need to wait for it to settle again
     }
-    if (this.serial && !automationRun()) {
-      this.frameAvg += (Math.min(dt, 0.1) - this.frameAvg) * 0.04;
-      const slow = this.stage.theatreBig && this.frameAvg > 0.024; // under about 42 frames a second
+    // only while the player is really looking: under the system menu the headset draws the page a few times a second
+    if (this.serial && !automationRun() && this.world.visibilityState.value === VisibilityState.Visible) {
+      const t = this.serial.theatre;
+      const big = this.stage.theatreBig;
+      if (!big) this.frameAvg = 1 / 72;
+      else this.frameAvg += (Math.min(dt, 0.1) - this.frameAvg) * 0.04;
+      this.bigFor = big ? this.bigFor + dt : 0;
+      const slow = big && this.bigFor > 3 && this.frameAvg > 0.024; // under about 42 frames a second, past the first moments
       this.slowFor = slow ? this.slowFor + dt : 0;
-      if (this.slowFor > 4) {
+      if (this.slowFor > 3) {
         this.slowFor = 0;
-        this.serial.theatre.allowBig = false;
-        this.serial.theatre.grow(false);
-        console.log('STAGE kept at desk size: the frame rate fell at wall size', (1 / this.frameAvg).toFixed(0));
+        this.frameAvg = 1 / 72;
+        if (t.fx && !this.fxDropped) {
+          // the weather goes first: rain and mist cost more than they are worth on a headset that struggles
+          this.fxDropped = true;
+          t.fx.dispose();
+          t.fx = null;
+          this.bigFor = 0;
+          console.log('STAGE effects off: the frame rate fell at wall size');
+        } else {
+          t.allowBig = false;
+          this.bigLockedAt = performance.now();
+          t.grow(false);
+          console.log('STAGE kept at desk size: the frame rate fell at wall size');
+        }
       }
+      // not for ever: a minute on, the next thunder may try the wall again
+      if (!t.allowBig && performance.now() - this.bigLockedAt > 60000) t.allowBig = true;
     }
   }
 
@@ -872,7 +965,7 @@ export class FoleySystem extends createSystem({
       dt = 1 / 30;
       this.showClock += dt;
       if (this.frameNo++ % 30 === 0) console.log('FRAME', this.frameNo - 1, this.showClock.toFixed(3));
-    }
+    } else dt = Math.min(dt, 0.1); // a headset put down and picked up again comes back as one enormous step: the show does not jump
     if (this.stage.dressed && !this.perfLogged) {
       this.perfLogged = true;
       const r = this.world.renderer.info.render;
@@ -880,8 +973,19 @@ export class FoleySystem extends createSystem({
       console.log('PERF calls', r.calls, 'triangles', r.triangles, 'models', `${s.loaded}/${s.loaded + s.failed}`);
     }
     if (!this.placed) this.placeStage(dt);
-    const inXR = this.world.visibilityState.value !== VisibilityState.NonImmersive;
+    // nothing is shown before it stands where the player sits (or it would lie round their feet for a moment)
+    this.stage.root.visible = this.placed;
+    const vis = this.world.visibilityState.value;
+    const inXR = vis !== VisibilityState.NonImmersive;
+    const away = vis === VisibilityState.VisibleBlurred || vis === VisibilityState.Hidden;
     if (inXR && this.placed) this.watchSeat(dt);
+    if (inXR) {
+      for (const hand of HANDS) {
+        this.pinchPoint(hand, tmpP);
+        if (tmpP.y < 0.25) this.pats[hand].reset(); // not tracked (its space sits at the origin)
+        else this.pats[hand].feed(time, tmpP.x, tmpP.y, tmpP.z);
+      }
+    }
     if (!inXR && window.innerWidth !== this.lastW) {
       this.lastW = window.innerWidth;
       this.frameBrowserCamera();
@@ -902,13 +1006,12 @@ export class FoleySystem extends createSystem({
     this.easeHome(dt);
     if (this.mode === 'replay' && this.replayer) this.replayer.tick(this.stage.screen.currentTime);
     if (this.serial) {
-      this.serial.update(dt);
-      // the theatre's size follows its mount (desk or wall), and the Director's tag keeps beside its pillar
+      // under the system menu, or with the headset off the face, the reel holds its breath
+      if (!away) this.serial.update(dt);
+      // the theatre's size follows its mount (desk or wall)
       const size = this.stage.theatreSize;
       if (Math.abs(size - this.serial.theatre.scale) > 1e-4) {
         this.serial.theatre.setSize(size);
-        const k = size / THEATRE_SMALL;
-        this.director.group.position.set(-0.7 * k, 0.36 * k, 0.04);
       }
       if (this.house) {
         // down with the curtain's rise, up again between reels; lightning on the stage lights the room for an instant
@@ -936,7 +1039,7 @@ export class FoleySystem extends createSystem({
           this.wantedPulse = 0.85;
           const props = this.wanted.prop ? [this.wanted.prop] : (this.wanted.options ?? PROP_IDS);
           for (const p of props) this.stage.flash(p, 0.85);
-          if (this.serial.state === 'pitch' && voice.voiceReady()) this.stage.flash('megaphone', 0.85);
+          if (this.serial.state === 'pitch' && voice.voiceWanted()) this.stage.flash('megaphone', 0.85);
         }
       }
     } else this.lane.update(this.stage.screen.currentTime);

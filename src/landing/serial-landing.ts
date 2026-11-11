@@ -4,7 +4,7 @@
 // player can pitch the next reel by voice through the megaphone between reels.
 import './serial.css';
 import { ensureAudio } from '../foley/sound';
-import { enableVoice, voiceSupported } from '../foley/voice';
+import { enableVoice, hearingOn, voiceSupported } from '../foley/voice';
 import { followSerial } from './framing';
 import type { EngineBridge } from './landing';
 
@@ -47,14 +47,20 @@ export function mountSerialLanding(engine: EngineBridge): void {
   enter.addEventListener('click', () => {
     void ensureAudio(); // the click is the gesture that lets the audio graph start
     engine.launchXR();
+    // a session that never starts (a refused prompt, a headset that is busy) says so instead of leaving a dead button
+    setTimeout(() => {
+      if (xrOk && !document.body.classList.contains('in-xr')) note.textContent = 'The headset view did not open. Allow it if the browser asks, then press Enter again.';
+    }, 6000);
   });
+  let xrOk = false;
   const say = (before: string, after: string) => {
     const where = document.createElement('code');
     where.textContent = `${location.host}${location.pathname}`;
     note.replaceChildren(before, where, after);
   };
   void engine.xrSupported().then((ok) => {
-    if (ok && params.get('state') !== 'noxr') return;
+    xrOk = ok && params.get('state') !== 'noxr';
+    if (xrOk) return;
     enter.textContent = 'Open on your Quest';
     enter.addEventListener('click', () => {
       void navigator.clipboard?.writeText(location.origin + location.pathname);
@@ -69,6 +75,7 @@ export function mountSerialLanding(engine: EngineBridge): void {
   const voiceLabel = byId<HTMLSpanElement>('s-voice-label');
   if (voice && voiceBtn && voiceLabel) {
     if (!voiceSupported()) voice.hidden = true;
+    else void hearingOn().then((ok) => (voice.hidden = !ok));
     voiceBtn.addEventListener('click', () => {
       if (voiceBtn.dataset.on === 'true' || voiceBtn.getAttribute('aria-busy') === 'true') return;
       voiceBtn.setAttribute('aria-busy', 'true');

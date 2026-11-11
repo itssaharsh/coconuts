@@ -141,6 +141,7 @@ export class Stage {
     await Promise.all(jobs);
     const s = modelStats();
     this.dressed = true;
+    this.parts.clear(); // the models brought their own moving parts
     console.log('MODELS', s.loaded, 'in', s.failed, 'failed;', saved, 'draw calls folded away');
   }
 
@@ -177,6 +178,16 @@ export class Stage {
     this.root.position.copy(eye).addScaledVector(fwd, this.ahead);
     this.root.position.y = eye.y - this.below;
     this.root.rotation.set(0, Math.atan2(fwd.x, fwd.z) + Math.PI, 0);
+  }
+
+  private parts = new Map<string, Object3D | undefined>();
+  /** A named part of a piece (the door's leaf, a lamp), looked up once: this runs for every piece every frame. */
+  private part(id: string, name: string): Object3D | undefined {
+    const key = `${id}/${name}`;
+    if (this.parts.has(key)) return this.parts.get(key);
+    const o = this.pieces.get(id)?.root.getObjectByName(name);
+    this.parts.set(key, o);
+    return o;
   }
 
   setTheatreBig(big: boolean): void {
@@ -244,7 +255,7 @@ export class Stage {
 
   update(dt: number): void {
     if (this.bigness !== this.wantBig) {
-      const step = dt * 5; // a fifth of a second: the change happens under the flash, not as a zoom
+      const step = dt * 3.3; // a third of a second, under the flash: quick enough to be a burst, not so quick that it lunges
       this.bigness = this.wantBig > this.bigness ? Math.min(1, this.bigness + step) : Math.max(0, this.bigness - step);
       const b = this.bigness * this.bigness * (3 - 2 * this.bigness);
       this.theatreMount.position.set(
@@ -255,7 +266,7 @@ export class Stage {
     }
     const k = Math.min(1, dt * 14);
     for (const p of this.pieces.values()) {
-      const lamp = p.root.getObjectByName('lamp') as Mesh | undefined;
+      const lamp = this.part(p.id, 'lamp') as Mesh | undefined;
       if (lamp) {
         const m = lamp.material as MeshBasicMaterial;
         const target = Math.max(p.pulse, p.selected ? 1 : p.hovered ? 0.55 : 0);
@@ -268,23 +279,23 @@ export class Stage {
       p.root.scale.z = p.root.scale.y = p.root.scale.x;
     }
     // the door leaf swings and settles; the clapper's bar snaps shut
-    const leaf = this.pieces.get('door')?.root.getObjectByName('Leaf');
+    const leaf = this.part('door', 'Leaf');
     if (leaf) {
       leaf.rotation.y = -this.doorSwing * 1.1;
       this.doorSwing = Math.max(0, this.doorSwing - dt * 4);
     }
-    const clap = this.pieces.get('clapper')?.root.getObjectByName('Clap');
+    const clap = this.part('clapper', 'Clap');
     if (clap) {
       clap.rotation.z = this.clapSnap * 0.45;
       this.clapSnap = Math.max(0, this.clapSnap - dt * 5);
     }
-    const button = this.pieces.get('bell')?.root.getObjectByName('Button');
+    const button = this.part('bell', 'Button');
     if (button) {
       const home = (button.userData.homeY ??= button.position.y) as number;
       button.position.y = home - 0.003 * this.bellPress;
       this.bellPress = Math.max(0, this.bellPress - dt * 6);
     }
-    const sheet = this.pieces.get('thunder')?.root.getObjectByName('Sheet');
+    const sheet = this.part('thunder', 'Sheet');
     if (sheet) {
       this.thunderPhase += dt * 40 * (0.3 + this.thunderLevel);
       sheet.rotation.x = Math.sin(this.thunderPhase) * 0.12 * this.thunderLevel;

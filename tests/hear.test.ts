@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanSpeech, handleHear, transcribe } from '../api/hear';
+import { GET, cleanSpeech, handleHear, transcribe } from '../api/hear';
 
 const audio = () => new Uint8Array(4000).fill(7);
 const post = (body: Uint8Array, type = 'audio/webm', ip = '10.0.0.1') =>
@@ -66,5 +66,22 @@ describe('POST /api/hear', () => {
     expect((await handleHear(post(audio(), 'audio/webm', '10.0.0.5'), { key: '' })).status).toBe(503);
     const api = fakeApi({ status: 'error' });
     expect((await handleHear(post(audio(), 'audio/webm', '10.0.0.6'), { key: 'k', fetch: api.f, ...instant })).status).toBe(502);
+  });
+});
+
+describe('GET /api/hear', () => {
+  it('says whether hearing is switched on, without calling anyone', async () => {
+    const before = process.env.ASSEMBLYAI_API_KEY;
+    try {
+      delete process.env.ASSEMBLYAI_API_KEY;
+      expect(await (await GET()).json()).toEqual({ ok: false });
+      process.env.ASSEMBLYAI_API_KEY = 'k';
+      const res = await GET();
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+    } finally {
+      if (before === undefined) delete process.env.ASSEMBLYAI_API_KEY;
+      else process.env.ASSEMBLYAI_API_KEY = before;
+    }
   });
 });

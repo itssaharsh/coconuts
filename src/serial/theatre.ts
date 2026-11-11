@@ -206,6 +206,7 @@ export class Theatre {
   /** The stage's weather and debris: rain, mist, embers, sparks, dust. Null when switched off. */
   fx: StageFx | null = null;
   private raining = false;
+  private warmFrames = 0;
 
   constructor(private base: string) {
     this.group.name = 'theatre';
@@ -629,6 +630,15 @@ export class Theatre {
     this.flash = 1;
   }
 
+  /**
+   * Draw everything that otherwise first appears in the middle of a reel (the weather, the flash, the iris) for a
+   * few frames, unseen, so its shaders are built now. Call when the stage has been placed for a new view.
+   */
+  warm(): void {
+    this.warmFrames = 3;
+    this.fx?.warm(3);
+  }
+
   /** A storm breaks over the scene (or passes). Rain falls only under the sky; a room keeps it outside. */
   storm(on: boolean): void {
     this.raining = on;
@@ -742,11 +752,19 @@ export class Theatre {
     }
     // lightning and quake
     if (this.flash > 0) {
-      this.flash = Math.max(0, this.flash - dt * 3.2);
-      const f = this.flash * (0.6 + 0.4 * Math.sin(this.time * 70));
+      // one flash that dies away: no flicker (kinder to the eyes, and safe for people who must avoid flashing light)
+      this.flash = Math.max(0, this.flash - dt * 2.6);
+      const f = this.flash * this.flash;
       (this.flashMesh.material as MeshBasicMaterial).opacity = f * 0.55;
       this.flashMesh.visible = f > 0.01;
       film.flash.value = f;
+    }
+    // a first drawing of the flash and the iris, unseen, builds their shaders before a reel needs them
+    if (this.warmFrames > 0) {
+      this.warmFrames--;
+      this.irisMesh.visible = true;
+      this.flashMesh.visible = true;
+      if (this.warmFrames === 0 && this.flash <= 0) this.flashMesh.visible = false;
     }
     if (this.shake > 0) {
       this.shake = Math.max(0, this.shake - dt * 2.4);

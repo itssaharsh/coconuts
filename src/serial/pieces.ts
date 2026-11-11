@@ -399,6 +399,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             // the player's first thunderclap brings the rain down
             each: [{ k: 'fx', fx: 'lightning' }, { k: 'fx', fx: 'rain' }, { k: 'par', beats: up.map((x): Beat => ({ k: 'do', who: x, verb: 'flinch' })) }],
             hit: [
+              { k: 'fx', fx: 'rain' },
               { k: 'fx', fx: 'grow' },
               { k: 'fx', fx: 'shake' },
               ...(risers.length

@@ -50,7 +50,9 @@ export async function ensureAudio(): Promise<AudioContext | null> {
       limiter.connect(recDest);
       console.log('AUDIO ready', ctx.sampleRate);
     }
-    if (ctx.state !== 'running') await ctx.resume();
+    // resume() can stay pending until the browser has seen a gesture (a session begun from the browser's own
+    // "Enter AR" button has none on the page): the show never waits for it more than a moment
+    if (ctx.state !== 'running') await Promise.race([ctx.resume().catch(() => undefined), new Promise((r) => setTimeout(r, 250))]);
     startBank();
     if (musicWanted) musicStart();
   } catch (err) {
@@ -101,8 +103,19 @@ export function placeSource(id: SourceId, pos: Vec3Like): void {
   p.positionZ.setTargetAtTime(pos.z, t, 0.03);
 }
 
+const heardAt = { px: 1e9, py: 0, pz: 0, fx: 0, fy: 0, fz: 0 };
 export function placeListener(pos: Vec3Like, forward: Vec3Like, up: Vec3Like): void {
   if (!ctx) return;
+  // only when the head has moved a centimetre or turned a degree: each call queues nine automation events
+  const moved = Math.abs(pos.x - heardAt.px) + Math.abs(pos.y - heardAt.py) + Math.abs(pos.z - heardAt.pz);
+  const turned = Math.abs(forward.x - heardAt.fx) + Math.abs(forward.y - heardAt.fy) + Math.abs(forward.z - heardAt.fz);
+  if (moved < 0.01 && turned < 0.02) return;
+  heardAt.px = pos.x;
+  heardAt.py = pos.y;
+  heardAt.pz = pos.z;
+  heardAt.fx = forward.x;
+  heardAt.fy = forward.y;
+  heardAt.fz = forward.z;
   const l = ctx.listener;
   const t = ctx.currentTime;
   if (l.positionX) {
@@ -378,6 +391,8 @@ function startBank(): void {
       }),
     );
     console.log('SOUND samples', n, 'of', jobs.length);
+    // the stage's own sounds too: the first curtain, whinny or clang must not arrive late
+    for (const name of Object.keys(m.stage ?? {})) stageTake(name as StageSound);
   })();
 }
 

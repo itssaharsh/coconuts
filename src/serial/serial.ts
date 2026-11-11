@@ -193,7 +193,7 @@ export class Serial {
     this.index = Math.max(0, Math.min(this.reels.length - 1, i));
     this.setState('loading');
     this.theatre.hideCard();
-    if (this.index === 0) this.theatre.grow(false); // reel one always starts as the toy on the desk
+    this.theatre.grow(false); // every reel starts as the toy on the desk, so its thunder can burst it open again
     try {
       await this.player.load(this.reel);
       const errs = validateReel(this.reel, { ...this.catalogue, [this.theatre.set.id]: this.theatre.set });
@@ -283,7 +283,20 @@ export class Serial {
     this.usedProps.push(prop);
     this.reels.push(reel);
     await this.prepare(this.reels.length - 1);
+    const note = answer && reel.title === answer.plan.title ? answer.note : '';
+    if (note && (this.state as SerialState) === 'ready') {
+      // the Director's line to the player, on the stage's own card (where it can be read), before the reel rolls;
+      // the clapper rolls it at once for anyone who will not wait
+      this.theatre.showCard('From the Director', note);
+      await this.pause(4);
+    }
     await this.roll();
+  }
+
+  private pauses: { left: number; done: () => void }[] = [];
+  /** A wait in the show's own time (no timers: a stepped or captured show waits just as long). */
+  private pause(secs: number): Promise<void> {
+    return new Promise((done) => this.pauses.push({ left: secs, done }));
   }
 
   /** Put a plan's reel on the stage, ready for the clapper (the dev page and tests look at single reels this way). */
@@ -331,5 +344,12 @@ export class Serial {
   update(dt: number): void {
     this.player.update(dt);
     this.theatre.update(dt);
+    for (let i = this.pauses.length - 1; i >= 0; i--) {
+      const p = this.pauses[i];
+      if ((p.left -= dt) <= 0) {
+        this.pauses.splice(i, 1);
+        p.done();
+      }
+    }
   }
 }

@@ -108,3 +108,63 @@ export class SlideTracker {
 export function isDrop(heightAboveTable: number, downwardSpeed: number): boolean {
   return heightAboveTable > 0.06 || downwardSpeed > 0.6;
 }
+
+/**
+ * Tells a deliberate pat from a hand that only rests or drifts over the table. Hand tracking jitters by a few
+ * millimetres and a tired hand sinks slowly: either can carry a fingertip into a prop. A pat is different: the
+ * finger came from somewhere (it travelled) or it is moving fast right now (a drum roll with small lifts).
+ * Feed it the fingertip's position every frame.
+ */
+export class PatGate {
+  private readonly p: Float32Array;
+  private readonly t: Float64Array;
+  private head = 0;
+  private count = 0;
+
+  constructor(
+    public travel = 0.03, // m the fingertip must have come in the last `window` seconds
+    public window = 0.7,
+    public speed = 0.2, // m/s that counts as a pat whatever the travel
+    private size = 64,
+  ) {
+    this.p = new Float32Array(size * 3);
+    this.t = new Float64Array(size);
+  }
+
+  reset(): void {
+    this.head = 0;
+    this.count = 0;
+  }
+
+  feed(t: number, x: number, y: number, z: number): void {
+    const i = this.head;
+    this.p[i * 3] = x;
+    this.p[i * 3 + 1] = y;
+    this.p[i * 3 + 2] = z;
+    this.t[i] = t;
+    this.head = (i + 1) % this.size;
+    if (this.count < this.size) this.count++;
+  }
+
+  /** True when the fingertip that was last fed came where it is on purpose. */
+  deliberate(): boolean {
+    if (this.count < 3) return false; // a hand that has only just appeared here did not reach for anything
+    const last = (this.head - 1 + this.size) % this.size;
+    const now = this.t[last];
+    const x = this.p[last * 3];
+    const y = this.p[last * 3 + 1];
+    const z = this.p[last * 3 + 2];
+    let far = 0;
+    let fast = 0;
+    for (let n = 1; n < this.count; n++) {
+      const i = (last - n + this.size) % this.size;
+      const age = now - this.t[i];
+      if (age > this.window) break;
+      const d = Math.hypot(x - this.p[i * 3], y - this.p[i * 3 + 1], z - this.p[i * 3 + 2]);
+      if (d > far) far = d;
+      // speed over a short stretch (long enough that jitter does not pass for motion)
+      if (age >= 0.04 && age <= 0.12 && d / age > fast) fast = d / age;
+    }
+    return far >= this.travel || fast >= this.speed;
+  }
+}
