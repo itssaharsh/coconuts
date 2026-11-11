@@ -17,7 +17,7 @@ import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { glowTexture } from './cards';
 import { filmify } from './film';
-import type { CharacterId, Verb } from './schema';
+import { type BeastId, isBeast, type PerformerId, type Verb } from './schema';
 import { type Task } from './tasks';
 
 const loader = new GLTFLoader();
@@ -31,8 +31,11 @@ export function loadGLB(url: string): Promise<GLTF> {
   return p;
 }
 
+type ClipSpec = { clip: string; loop?: boolean; hold?: boolean; then?: string; alt?: string };
+type ClipTable = Record<Verb, ClipSpec>;
+
 /** verb -> clip(s). `then` plays after a one-shot; `hold` stays on the last frame (a fallen actor stays down). */
-const CLIPS: Record<Verb, { clip: string; loop?: boolean; hold?: boolean; then?: string; alt?: string }> = {
+const CLIPS: ClipTable = {
   idle: { clip: 'Idle', loop: true },
   walk: { clip: 'Walking_A', loop: true },
   run: { clip: 'Running_A', loop: true },
@@ -68,6 +71,59 @@ const CLIPS: Record<Verb, { clip: string; loop?: boolean; hold?: boolean; then?:
 
 const LEFT_HAND_ITEMS = new Set(['shield_round', 'spellbook', 'skeleton_shield_small']);
 
+/** A beast has a few clips; every verb a reel may use lands on the nearest of them, so beats written for people play. */
+const beast = (clip: string, extra: Partial<ClipSpec> = {}): ClipSpec => ({ clip, alt: 'Idle', ...extra });
+const BEAST_CLIPS: ClipTable = {
+  idle: beast('Idle', { loop: true }),
+  walk: beast('Walk', { loop: true }),
+  run: beast('Gallop', { loop: true, alt: 'Walk' }),
+  jump: beast('Gallop_Jump'),
+  flinch: beast('Idle_HitReact_Left'),
+  stagger: beast('Idle_HitReact_Right'),
+  fall: beast('Death', { hold: true }),
+  faint: beast('Death', { hold: true }),
+  getup: beast('Idle'),
+  block: beast('Idle_HitReact_Left'),
+  chop: beast('Attack'),
+  slash: beast('Attack'),
+  stab: beast('Attack'),
+  punch: beast('Attack'),
+  kick: beast('Attack'),
+  pickup: beast('Eating'),
+  throw: beast('Attack'),
+  drink: beast('Eating'),
+  knock: beast('Attack'),
+  cheer: beast('Idle_2'),
+  sit: beast('Idle', { loop: true, hold: true }),
+  stand: beast('Idle'),
+  sitfloor: beast('Idle_Headlow', { loop: true, hold: true }),
+  sleep: beast('Idle_Headlow', { loop: true, hold: true }),
+  cast: beast('Attack'),
+  zap: beast('Attack'),
+  dodge: beast('Idle_HitReact_Right'),
+  guard: beast('Idle', { loop: true }),
+  awaken: beast('Idle'),
+  collapse: beast('Death', { hold: true }),
+  rise: beast('Idle'),
+};
+
+/** How each kind of performer moves and how much room it takes: speeds in kit units a second, head height for emotes. */
+interface Build {
+  table: ClipTable;
+  walk: number;
+  run: number;
+  head: number;
+  blob: [number, number];
+}
+const HUMAN: Build = { table: CLIPS, walk: 3.4, run: 7.5, head: 3.1, blob: [1.25, 1.25] };
+const BEAST_BUILD: Record<BeastId, Build> = {
+  wolf: { table: BEAST_CLIPS, walk: 3.0, run: 9, head: 2.3, blob: [1.0, 2.0] },
+  spider: { table: BEAST_CLIPS, walk: 2.2, run: 4, head: 4.4, blob: [3.0, 3.0] },
+  rat: { table: BEAST_CLIPS, walk: 3.0, run: 7, head: 1.0, blob: [0.35, 0.6] },
+  stag: { table: BEAST_CLIPS, walk: 3.0, run: 9, head: 3.6, blob: [1.1, 2.2] },
+  bull: { table: BEAST_CLIPS, walk: 2.6, run: 8, head: 3.2, blob: [1.3, 2.3] },
+};
+
 // The stage has no shadow maps: every actor stands on a soft dark disc instead.
 let blobGeo: CircleGeometry | null = null;
 let blobMat: MeshBasicMaterial | null = null;
@@ -82,8 +138,6 @@ function blob(rx: number, rz: number): Mesh {
   return m;
 }
 
-const WALK_SPEED = 3.4; // kit units per second
-const RUN_SPEED = 7.5;
 const TURN_RATE = 9; // radians per second toward the heading
 const tmp = new Vector3();
 
@@ -100,16 +154,19 @@ export class Actor {
   private shadow: Mesh;
   onStage = false;
 
+  private build: Build;
+
   constructor(
     readonly id: string,
-    readonly char: CharacterId,
+    readonly char: PerformerId,
     body: Object3D,
     private clips: Map<string, AnimationClip>,
   ) {
+    this.build = isBeast(char) ? BEAST_BUILD[char] : HUMAN;
     this.root.name = `actor-${id}`;
     this.root.add(body);
     filmify(body, { actor: true });
-    this.shadow = blob(1.25, 1.25);
+    this.shadow = blob(...this.build.blob);
     this.root.add(this.shadow);
     this.mixer = new AnimationMixer(body);
     this.play('idle', 0);
@@ -127,7 +184,7 @@ export class Actor {
 
   /** Start a verb's clip; returns how long the one-shot lasts (0 for loops). */
   play(verb: Verb, fade = 0.16): number {
-    const spec = CLIPS[verb];
+    const spec = this.build.table[verb];
     // getting up depends on how the actor is down: from a chair, from sitting on the floor, from lying
     const from = this.current?.getClip().name ?? '';
     const rise = verb === 'getup' || verb === 'stand' ? (from.startsWith('Sit_Chair') ? 'Sit_Chair_StandUp' : from.startsWith('Sit_Floor') ? 'Sit_Floor_StandUp' : null) : null;
@@ -148,7 +205,7 @@ export class Actor {
 
   /** The follow-up clip of a verb that settles into a pose (sit down, then sit). */
   private settle(verb: Verb): void {
-    const spec = CLIPS[verb];
+    const spec = this.build.table[verb];
     if (!spec.then) return;
     const a = this.action(spec.then);
     if (!a || !this.current) return;
@@ -173,7 +230,7 @@ export class Actor {
 
   /** A verb's settled pose at once: asleep, seated, on guard. */
   poseVerb(verb: Verb): void {
-    const spec = CLIPS[verb];
+    const spec = this.build.table[verb];
     this.pose(spec.then ?? spec.clip);
     this.held = !!spec.hold;
   }
@@ -197,7 +254,7 @@ export class Actor {
   /** Walk or run to a spot; the task ends on arrival. */
   goTo(x: number, z: number, gait: 'walk' | 'run' = 'walk'): Task {
     let started = false;
-    const speed = gait === 'run' ? RUN_SPEED : WALK_SPEED;
+    const speed = gait === 'run' ? this.build.run : this.build.walk;
     return {
       update: (dt) => {
         if (!started) {
@@ -233,7 +290,7 @@ export class Actor {
         }
         left -= dt;
         if (left > 0) return false;
-        const spec = CLIPS[verb];
+        const spec = this.build.table[verb];
         if (spec.then && !settled) {
           settled = true;
           this.settle(verb);
@@ -273,7 +330,7 @@ export class Actor {
       if (stage) stage.worldToLocal(out);
       return out.setY(out.y + 2.4);
     }
-    return out.copy(this.root.position).setY(3.1);
+    return out.copy(this.root.position).setY(this.build.head);
   }
 
   get isDown(): boolean {
@@ -309,16 +366,26 @@ export class Troupe {
     return this.ready;
   }
 
-  async spawn(id: string, char: CharacterId): Promise<Actor> {
+  private file(char: PerformerId): string {
+    return `${this.base}${isBeast(char) ? 'beasts' : 'chars'}/${char}.glb`;
+  }
+
+  async spawn(id: string, char: PerformerId): Promise<Actor> {
     await this.load();
-    const gltf = await loadGLB(`${this.base}chars/${char}.glb`);
+    const gltf = await loadGLB(this.file(char));
+    if (isBeast(char)) {
+      // a beast brings its own rig and clips; "Armature|Gallop" and the like are known by their last name
+      const own = new Map<string, AnimationClip>();
+      for (const c of gltf.animations) own.set(c.name.split('|').pop() ?? c.name, c);
+      return new Actor(id, char, cloneSkinned(gltf.scene), own);
+    }
     for (const c of gltf.animations) if (!this.clips.has(c.name)) this.clips.set(c.name, c);
     return new Actor(id, char, cloneSkinned(gltf.scene), this.clips);
   }
 
   /** Fetch character files ahead of the curtain so the first entrance does not hitch. */
-  preload(chars: CharacterId[]): Promise<unknown> {
-    return Promise.all([this.load(), ...chars.map((c) => loadGLB(`${this.base}chars/${c}.glb`).catch(() => null))]);
+  preload(chars: PerformerId[]): Promise<unknown> {
+    return Promise.all([this.load(), ...chars.map((c) => loadGLB(this.file(c)).catch(() => null))]);
   }
 }
 

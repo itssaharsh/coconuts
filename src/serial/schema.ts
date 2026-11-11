@@ -21,6 +21,12 @@ export const CHARACTERS = [
 ] as const;
 export type CharacterId = (typeof CHARACTERS)[number];
 
+/** Animals and monsters: each has its own rig and a handful of clips, and takes the same beats as a character. */
+export const BEASTS = ['wolf', 'spider', 'rat', 'stag', 'bull'] as const;
+export type BeastId = (typeof BEASTS)[number];
+export type PerformerId = CharacterId | BeastId;
+export const isBeast = (c: string): c is BeastId => (BEASTS as readonly string[]).includes(c);
+
 /** Sounds the stage makes by itself (the player's props make the rest). */
 export type StageCue = 'curtain' | 'creak' | 'whinny' | 'clang' | 'applause' | 'boing' | 'thud' | 'step';
 
@@ -96,7 +102,7 @@ export type Beat =
 export interface CastEntry {
   /** The name beats use ("hero", "butler"). */
   id: string;
-  char: CharacterId;
+  char: PerformerId;
   /** Where the actor stands when the curtain opens; omit to keep them in the wings. */
   at?: Mark;
   /** A kit item in the hand (sword_1handed, staff, mug ...); `items` when both hands are full (sword and shield). */
@@ -141,7 +147,7 @@ export function validateReel(reel: Reel, sets: Record<string, SetInfo>): string[
     cast = new Map();
     for (const c of list) {
       if (cast.has(c.id)) errs.push(`${at}: cast id ${c.id} twice`);
-      if (!(CHARACTERS as readonly string[]).includes(c.char)) errs.push(`${at}: character ${c.char} unknown`);
+      if (!(CHARACTERS as readonly string[]).includes(c.char) && !isBeast(c.char)) errs.push(`${at}: character ${c.char} unknown`);
       if (c.at && set && !set.marks[c.at]) errs.push(`${at}: mark ${c.at} is not in set ${set.id}`);
       for (const item of c.items ?? (c.item ? [c.item] : [])) if (!ITEMS.includes(item)) errs.push(`${at}: item ${item} unknown`);
       cast.set(c.id, c);
