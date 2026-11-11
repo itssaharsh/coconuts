@@ -27,8 +27,8 @@ export type PiecePlan =
   | { piece: 'card'; line: string; sub?: string }
   /** Someone walks on. */
   | { piece: 'arrive'; who: string; from?: Side; line?: string }
-  /** The ride: only on a road set; the horse runs on the player's coconuts. */
-  | { piece: 'ride'; who: string; line?: string; clops?: number }
+  /** The ride: only on a road set; the horse runs on the player's coconuts. With `wolves`, a pack runs after it and gains whenever the hooves slow. */
+  | { piece: 'ride'; who: string; line?: string; clops?: number; wolves?: boolean }
   /** `who` knocks (the player knocks for them) and `opener` answers the door. Needs a door. */
   | { piece: 'knock'; who: string; opener: string; line?: string }
   /** `sleeper` is asleep when the curtain opens; any sound wakes them, each in its own way. */
@@ -125,6 +125,7 @@ export function checkPlan(plan: unknown): string[] {
           who(pc.who, w);
           line(pc.line, 8, `${at} ${w} line`, true);
           if (pc.clops !== undefined && !(pc.clops >= 6 && pc.clops <= 16)) errs.push(`${at} ${w}: six to sixteen clops`);
+          if (pc.wolves !== undefined && typeof pc.wolves !== 'boolean') errs.push(`${at} ${w}: wolves is true or false`);
           break;
         case 'knock':
           if (!set.door) errs.push(`${at} ${w}: this set has no door`);
@@ -222,6 +223,8 @@ export function assemble(plan: ReelPlan, id: string): Reel {
     if (lead.piece === 'ride') {
       Object.assign(entry(lead.who), { mounted: true, at: 'centre' });
       at.set(lead.who, 'centre');
+      // the pack waits in the wings until the ride begins
+      if (lead.wolves) cast.push({ id: 'wolf_a', char: 'wolf' }, { id: 'wolf_b', char: 'wolf' });
     }
     if (lead.piece === 'wake' && info.sleep) {
       Object.assign(entry(lead.sleeper), { at: info.sleep[0], pose: info.sleep[1], zzz: true });
@@ -284,9 +287,10 @@ export function assemble(plan: ReelPlan, id: string): Reel {
           scene.push({
             k: 'ride',
             who: pc.who,
-            label: 'Clop the coconuts',
+            label: pc.wolves ? 'Clop! Outrun them!' : 'Clop the coconuts',
             need: pc.clops ?? 10,
             secs: 22,
+            ...(pc.wolves ? { pursuers: ['wolf_a', 'wolf_b'] } : {}),
             hit: [{ k: 'wait', secs: 0.5 }],
             miss: [{ k: 'title', text: 'The horse walked.', sub: 'It took all night.', secs: 2.2 }],
           });
@@ -472,7 +476,7 @@ export const WRITTEN: Record<PropId, ReelPlan> = {
   coconuts: {
     title: 'The Chase',
     scenes: [
-      { set: 'road-forest', cast: [KNIGHT], pieces: [{ piece: 'ride', who: 'knight', line: 'After him!', clops: 12 }] },
+      { set: 'road-forest', cast: [KNIGHT], pieces: [{ piece: 'ride', who: 'knight', line: 'Wolves on the north road!', clops: 14, wolves: true }] },
       {
         set: 'camp',
         cast: [KNIGHT, THIEF, { id: 'brute', char: 'barbarian' }],

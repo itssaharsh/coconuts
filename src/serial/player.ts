@@ -465,16 +465,48 @@ export class ReelPlayer {
     const recent: number[] = []; // ages of the last clops, seconds
     let moving = false;
     let inner: Task | null = null;
+    // the pack: beasts that run after the horse. They fall back at a gallop and gain when the hooves slow;
+    // when they catch up one of them nips, the horse starts, and they drop back a little: a scare, never a fail.
+    const pack = (b.pursuers ?? []).map((id) => this.actors.get(id)).filter((a): a is Actor => !!a);
+    let gap = 5.2;
+    let nipped = 9;
+    const [hx, hz] = this.mount ? [this.mount.root.position.x, this.mount.root.position.z] : [0, 1.3];
+    const run = (ended: boolean, dt: number): void => {
+      nipped += dt;
+      const pace = this.mount?.speed ?? 0;
+      gap = ended ? gap + dt * 4.5 : Math.max(1.7, Math.min(8.2, gap + (pace - 0.5) * 2.4 * dt));
+      pack.forEach((a, i) => a.root.position.set(hx - gap - i * 1.35, 0, hz + (i % 2 ? 0.95 : -0.75)));
+      if (!ended && gap <= 1.72 && nipped > 2.4 && pack[0]) {
+        nipped = 0;
+        gap = 2.7;
+        pack[0].play('chop');
+        this.side.push(sequence([() => wait(0.5), () => call(() => pack[0].play('run'))]));
+        this.mount?.lurch();
+        this.theatre.onSound?.('boing');
+        if (this.mounted) this.theatre.emote(this.mounted, '!');
+      }
+    };
     return {
       update: (dt) => {
-        if (inner) return inner.update(dt);
+        if (inner) {
+          run(true, dt);
+          const over = inner.update(dt);
+          if (over) for (const a of pack) this.theatre.removeActor(a);
+          return over;
+        }
         if (!started) {
           started = true;
           this.stats.asked++;
           this.pending.length = 0;
           this.setWaiting(w);
           this.theatre.onSound?.('whinny');
+          for (const a of pack) {
+            a.place(hx - gap, hz, Math.PI / 2);
+            a.play('run');
+            this.theatre.addActor(a);
+          }
         }
+        run(false, dt);
         for (let i = recent.length - 1; i >= 0; i--) if ((recent[i] += dt) > 1.2) recent.splice(i, 1);
         let s: Sound | undefined;
         while ((s = this.pending.shift())) {

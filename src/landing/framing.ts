@@ -18,16 +18,19 @@ interface View {
   el: number;
 }
 
-/** A three-quarter view from the left and above while the page introduces the show; nearly head-on while a reel plays. */
-const INTRO: View = { az: -0.24, el: 0.36 };
-const REEL: View = { az: -0.12, el: 0.27 };
-const PHONE: View = { az: -0.14, el: 0.34 };
+/** A little from the left and above while the page introduces the show; nearly head-on while a reel plays. */
+const INTRO: View = { az: -0.13, el: 0.24 };
+const REEL: View = { az: -0.05, el: 0.2 };
+const PHONE: View = { az: -0.07, el: 0.22 };
 
-/** The stage before its models and the theatre arrive: the desk-size theatre and the table (world metres). */
-const FALLBACK = new Box3(new Vector3(-0.72, 0.8, -1.3), new Vector3(0.72, 1.78, -0.24));
+/** The stage before its models arrive: the desk-size theatre and the table in front of it (world metres). */
+const FALLBACK = [
+  new Box3(new Vector3(-0.64, 0.84, -1.13), new Vector3(0.64, 1.77, -0.76)),
+  new Box3(new Vector3(-0.37, 0.82, -0.66), new Vector3(0.37, 1.05, -0.22)),
+];
 
 let cam: PerspectiveCamera | null = null;
-let box = FALLBACK.clone();
+let boxes = FALLBACK.map((b) => b.clone());
 let boxAt = -Infinity;
 let playing = false;
 const pos = new Vector3();
@@ -38,7 +41,7 @@ let solvedKey = '';
 let posed = false;
 
 const probe = new PerspectiveCamera();
-const corners = Array.from({ length: 8 }, () => new Vector3());
+const corner = new Vector3();
 const tmp = new Vector3();
 const tmpBox = new Box3();
 const right = new Vector3();
@@ -63,29 +66,51 @@ function frameRect(): { rect: Rect; view: { w: number; h: number } } | null {
   return { rect: { x: r.left - c.left, y: r.top - c.top, w: r.width, h: r.height }, view: { w: c.width, h: c.height } };
 }
 
-/** Everything drawn on the stage, in world space; the house-lights dome and anything far from the table are left out. */
-function measureStage(from: Object3D): Box3 | null {
+/**
+ * What the eye sees of the stage, as two boxes: the theatre (its front and a hand's breadth of its roof; the sets and
+ * the cast inside count only within its walls) and everything in front of it (the table, the props and their tags).
+ * One box round both would have corners where nothing is, high up and near the camera, and frame the stage too small.
+ */
+function measureStage(from: Object3D): Box3[] | null {
   let root: Object3D = from;
   while (root.parent) root = root.parent;
   const stage = root.getObjectByName('coconuts-stage');
   if (!stage) return null;
   stage.updateWorldMatrix(true, true);
   const centre = stage.getWorldPosition(new Vector3());
-  const out = new Box3();
-  stage.traverseVisible((o) => {
-    const m = o as Mesh & { isInstancedMesh?: boolean; isSkinnedMesh?: boolean };
-    if (!m.isMesh || m.isInstancedMesh || o.name === 'house-lights' || !m.geometry) return;
+  const worldBox = (o: Object3D): Box3 | null => {
+    const m = o as Mesh & { isInstancedMesh?: boolean };
+    if (!m.isMesh || m.isInstancedMesh || o.name === 'house-lights' || !m.geometry) return null;
     if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
     const bb = m.geometry.boundingBox;
-    if (!bb || bb.isEmpty()) return;
+    if (!bb || bb.isEmpty()) return null;
     tmpBox.copy(bb).applyMatrix4(o.matrixWorld);
-    if (tmpBox.getCenter(tmp).distanceTo(centre) > 4.5) return; // a stray full-screen quad or a skybox, not the stage
-    out.union(tmpBox);
+    return tmpBox.getCenter(tmp).distanceTo(centre) > 4.5 ? null : tmpBox; // a stray full-screen quad, not the stage
+  };
+  const shell = new Box3();
+  stage.traverseVisible((o) => {
+    if (o.name === 'box' && o.parent?.name === 'theatre') {
+      const b = worldBox(o);
+      if (b) shell.copy(b);
+    }
   });
-  return out.isEmpty() ? null : out;
+  if (shell.isEmpty()) return null;
+  const depth = shell.max.z - shell.min.z;
+  const theatre = new Box3();
+  const front = new Box3();
+  stage.traverseVisible((o) => {
+    const b = worldBox(o);
+    if (!b) return;
+    const c = b.getCenter(tmp);
+    if (shell.containsPoint(c)) b.intersect(shell);
+    (c.z <= shell.max.z + depth * 0.2 ? theatre : front).union(b);
+  });
+  if (theatre.isEmpty()) return null;
+  theatre.min.z = Math.max(theatre.min.z, shell.max.z - depth * 0.3);
+  return front.isEmpty() ? [theatre] : [theatre, front];
 }
 
-function project(p: Vector3, a: Vector3, b: Box3): { cx: number; cy: number; hw: number; hh: number; ok: boolean } {
+function project(p: Vector3, a: Vector3, bs: Box3[]): { cx: number; cy: number; hw: number; hh: number; ok: boolean } {
   probe.position.copy(p);
   probe.lookAt(a);
   probe.updateMatrixWorld(true);
@@ -94,28 +119,28 @@ function project(p: Vector3, a: Vector3, b: Box3): { cx: number; cy: number; hw:
   let minY = Infinity;
   let maxY = -Infinity;
   let ok = true;
-  let i = 0;
-  for (const x of [b.min.x, b.max.x])
-    for (const y of [b.min.y, b.max.y])
-      for (const z of [b.min.z, b.max.z]) {
-        const v = corners[i++].set(x, y, z).project(probe);
-        if (v.z < -1 || v.z > 1) ok = false;
-        minX = Math.min(minX, v.x);
-        maxX = Math.max(maxX, v.x);
-        minY = Math.min(minY, v.y);
-        maxY = Math.max(maxY, v.y);
-      }
+  for (const b of bs)
+    for (const x of [b.min.x, b.max.x])
+      for (const y of [b.min.y, b.max.y])
+        for (const z of [b.min.z, b.max.z]) {
+          const v = corner.set(x, y, z).project(probe);
+          if (v.z < -1 || v.z > 1) ok = false;
+          minX = Math.min(minX, v.x);
+          maxX = Math.max(maxX, v.x);
+          minY = Math.min(minY, v.y);
+          maxY = Math.max(maxY, v.y);
+        }
   return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, hw: (maxX - minX) / 2, hh: (maxY - minY) / 2, ok };
 }
 
-/** The camera pose that puts the whole stage box, seen from `view`, inside `rect` of a canvas `size` pixels big. */
-function solve(source: PerspectiveCamera, size: { w: number; h: number }, rect: Rect, b: Box3, view: View): void {
+/** The camera pose that puts the whole stage, seen from `view`, inside `rect` of a canvas `size` pixels big. */
+function solve(source: PerspectiveCamera, size: { w: number; h: number }, rect: Rect, bs: Box3[], view: View): void {
   probe.fov = source.fov;
   probe.near = source.near;
   probe.far = source.far;
   probe.aspect = size.w / size.h;
   probe.updateProjectionMatrix();
-  const centre = b.getCenter(new Vector3());
+  const centre = bs.reduce((u, b) => u.union(b), new Box3()).getCenter(new Vector3());
   const dir = new Vector3(Math.sin(view.az) * Math.cos(view.el), Math.sin(view.el), Math.cos(view.az) * Math.cos(view.el));
   const tx = ((rect.x + rect.w / 2) / size.w) * 2 - 1;
   const ty = 1 - ((rect.y + rect.h / 2) / size.h) * 2;
@@ -127,13 +152,13 @@ function solve(source: PerspectiveCamera, size: { w: number; h: number }, rect: 
   const place = (d: number) => {
     p.copy(centre).addScaledVector(dir, d);
     a.copy(centre);
-    let f = project(p, a, b);
+    let f = project(p, a, bs);
     for (let k = 0; k < 6; k++) {
       // turn the camera until the stage's middle lands on the rectangle's middle
       right.setFromMatrixColumn(probe.matrixWorld, 0);
       up.setFromMatrixColumn(probe.matrixWorld, 1);
       a.addScaledVector(right, -(tx - f.cx) * d * tanHalf * probe.aspect).addScaledVector(up, -(ty - f.cy) * d * tanHalf);
-      f = project(p, a, b);
+      f = project(p, a, bs);
     }
     return f;
   };
@@ -164,20 +189,20 @@ function target(c: PerspectiveCamera, now: number): boolean {
     // the stage changes shape rarely (its models arriving, the theatre growing to the size of the wall)
     boxAt = now;
     const b = measureStage(c);
-    if (b && b.getSize(tmp).length() < 12) box = b;
+    if (b && b[0].getSize(tmp).length() < 12) boxes = b;
   }
   const { rect, view } = f;
   // breathing room inside the rectangle: the stage never touches its edges
   const pad = Math.max(16, Math.min(rect.w, rect.h) * 0.05);
   const r = { x: rect.x + pad, y: rect.y + pad, w: rect.w - 2 * pad, h: rect.h - 2 * pad };
   const angle = view.w <= 900 ? PHONE : playing ? REEL : INTRO;
-  const key = [r.x, r.y, r.w, r.h, view.w, view.h, c.fov, angle.az, angle.el, box.min.toArray(), box.max.toArray()]
+  const key = [r.x, r.y, r.w, r.h, view.w, view.h, c.fov, angle.az, angle.el, ...boxes.flatMap((b) => [...b.min.toArray(), ...b.max.toArray()])]
     .flat()
     .map((n) => Math.round(n * 100))
     .join(',');
   if (key !== solvedKey) {
     solvedKey = key;
-    solve(c, view, r, box, angle);
+    solve(c, view, r, boxes, angle);
   }
   return true;
 }

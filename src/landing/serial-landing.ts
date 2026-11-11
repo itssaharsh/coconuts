@@ -1,8 +1,10 @@
 // The Serial's page. The hero says what it is and puts the theatre on your desk; without a headset the stage beside it
 // plays with the mouse and the keys. A status chip follows the Serial, and while a reel plays the copy steps back and the
-// house lights go down across the page, so the stage is the page.
+// house lights go down across the page, so the stage is the page. An optional switch asks for the microphone, so the
+// player can pitch the next reel by voice through the megaphone between reels.
 import './serial.css';
 import { ensureAudio } from '../foley/sound';
+import { enableVoice, voiceSupported } from '../foley/voice';
 import { followSerial } from './framing';
 import type { EngineBridge } from './landing';
 
@@ -61,6 +63,23 @@ export function mountSerialLanding(engine: EngineBridge): void {
     say('This browser can’t open VR. Open ', ' in the Quest browser, or play it right here.');
   });
 
+  // pitch by voice: optional; the microphone prompt comes from this click, on the page, before the headset view
+  const voice = byId<HTMLDivElement>('s-voice');
+  const voiceBtn = byId<HTMLButtonElement>('s-voice-btn');
+  const voiceLabel = byId<HTMLSpanElement>('s-voice-label');
+  if (voice && voiceBtn && voiceLabel) {
+    if (!voiceSupported()) voice.hidden = true;
+    voiceBtn.addEventListener('click', () => {
+      if (voiceBtn.dataset.on === 'true' || voiceBtn.getAttribute('aria-busy') === 'true') return;
+      voiceBtn.setAttribute('aria-busy', 'true');
+      void enableVoice().then((ok) => {
+        voiceBtn.removeAttribute('aria-busy');
+        voiceBtn.dataset.on = String(ok);
+        voiceLabel.textContent = ok ? 'Voice is on' : 'No microphone';
+      });
+    });
+  }
+
   // the keys on the page dip when the same key plays a prop (the engine does the playing)
   const caps = new Map<string, HTMLElement>();
   document.querySelectorAll<HTMLElement>('.s-keys kbd[data-key]').forEach((k) => caps.set(k.dataset.key ?? '', k));
@@ -86,7 +105,14 @@ export function mountSerialLanding(engine: EngineBridge): void {
       scene.style.height = '';
     }
   };
-  addEventListener('resize', layout);
+  // a window changing size (or a media query flipping) should not play the house-lights move
+  let still = 0;
+  addEventListener('resize', () => {
+    document.body.classList.add('s-resizing');
+    clearTimeout(still);
+    still = window.setTimeout(() => document.body.classList.remove('s-resizing'), 300);
+    layout();
+  });
   new ResizeObserver(layout).observe(hero);
   void document.fonts?.ready.then(layout);
   layout();

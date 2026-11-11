@@ -92,7 +92,7 @@ export type Beat =
       miss?: Beat[];
     }
   /** The rider goes as fast as the clops come and stands still without them. `need` clops is a hit; `secs` is how much silence the ride forgives. */
-  | { k: 'ride'; who: string; label: string; need: number; secs: number; hit: Beat[]; miss: Beat[] }
+  | { k: 'ride'; who: string; label: string; need: number; secs: number; /** Beasts that run after the horse: they gain when the hooves slow. */ pursuers?: string[]; hit: Beat[]; miss: Beat[] }
   /** The stage freezes on a question; whichever prop sounds picks the branch. */
   | { k: 'open'; prompt: string; hold?: number; branches: Partial<Record<PropId, { title: string; flag?: string; beats: Beat[] }>>; miss: Beat[] }
   /** Close the curtain, change the set and the cast behind it, open again. */
@@ -235,6 +235,7 @@ export function validateReel(reel: Reel, sets: Record<string, SetInfo>): string[
           cues++;
           who(b.who, at);
           if (!(b.need >= 3 && b.need <= 40)) errs.push(`${at}: a ride needs 3 to 40 clops`);
+          for (const p of b.pursuers ?? []) who(p, at);
           if (!(b.secs >= 4 && b.secs <= 60)) errs.push(`${at}: a ride lasts 4 to 60 seconds`);
           walk(b.hit, `${at}.hit`, depth + 1);
           walk(b.miss, `${at}.miss`, depth + 1);

@@ -492,6 +492,8 @@ describe('the prompt and the schema', () => {
         return typeof v === 'string' ? [] : [`${path}: not a string`];
       case 'integer':
         return Number.isInteger(v) ? [] : [`${path}: not an integer`];
+      case 'boolean':
+        return typeof v === 'boolean' ? [] : [`${path}: not a boolean`];
       case 'array':
         return Array.isArray(v) ? v.flatMap((x, i) => conforms(schema.items as Record<string, unknown>, x, `${path}[${i}]`)) : [`${path}: not an array`];
       case 'object': {

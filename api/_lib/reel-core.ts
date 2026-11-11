@@ -100,7 +100,7 @@ export const PIECE_GUIDE: Record<PieceName, { fields: string; sound: PropId | 'a
   card: { fields: 'line, sub?', sound: null, does: 'a plain intertitle: `line` at most 8 words, `sub` a smaller second line of at most 10 words.' },
   arrive: { fields: 'who, from? ("left" | "right"), line?', sound: null, does: '`who` walks on from the wings, after an optional card `line`.' },
   ride: {
-    fields: 'who, line?, clops? (6 to 16, default 10)',
+    fields: 'who, line?, clops? (6 to 16, default 10), wolves? (true: a wolf pack runs after the rider and gains whenever the hooves slow)',
     sound: 'coconuts',
     does: '`who` gallops on horseback after a card `line` (default “Ride! Ride!”); the horse runs only while the player clops the coconuts.',
     rule: 'only on a road set; the ride is the first piece of its scene (the rider is in the saddle when the curtain opens); a road scene may add only cards after it.',
@@ -289,13 +289,13 @@ const piece = (name: PieceName, props: Record<string, unknown>, required: string
 
 let SCHEMA: Record<string, unknown> | null = null;
 
-/** The JSON schema of an answer: 13 optional fields and one union, well inside the API's limits (24 and 16). */
+/** The JSON schema of an answer: 14 optional fields and one union, well inside the API's limits (24 and 16). */
 export function reelSchema(): Record<string, unknown> {
   if (SCHEMA) return SCHEMA;
   const pieces = [
     piece('card', { line: card, sub: { type: 'string', description: 'at most 10 words' } }, ['line']),
     piece('arrive', { who: actor, from: { enum: ['left', 'right'] }, line: card }, ['who']),
-    piece('ride', { who: actor, line: card, clops: { type: 'integer', description: '6 to 16' } }, ['who']),
+    piece('ride', { who: actor, line: card, clops: { type: 'integer', description: '6 to 16' }, wolves: { type: 'boolean', description: 'a wolf pack chases the rider' } }, ['who']),
     piece('knock', { who: actor, opener: actor, line: card }, ['who', 'opener']),
     piece('wake', { who: actor, sleeper: actor }, ['who', 'sleeper']),
     piece('duel', { a: actor, b: actor, blows: { type: 'integer', description: '1 to 3' }, loser: { enum: ['a', 'b'] } }, ['a', 'b']),
@@ -344,7 +344,7 @@ export function typographic(s: string): string {
 const PIECE_FIELDS: Record<PieceName, string[]> = {
   card: ['line', 'sub'],
   arrive: ['who', 'from', 'line'],
-  ride: ['who', 'line', 'clops'],
+  ride: ['who', 'line', 'clops', 'wolves'],
   knock: ['who', 'opener', 'line'],
   wake: ['who', 'sleeper'],
   duel: ['a', 'b', 'blows', 'loser'],
