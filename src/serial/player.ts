@@ -95,6 +95,27 @@ export class ReelPlayer {
     this.stats = { reel: reel.id, asked: 0, hits: 0, wrong: 0, missed: 0, wrote: [], flags: [] };
     await this.troupe.preload(reel.cast.map((c) => c.char));
     await this.changeScene(reel.set, reel.cast);
+    // the reel's later scenes are fetched while the first one plays, so a scene change is a curtain, not a wait
+    const later = (beats: Beat[]): void => {
+      for (const b of beats) {
+        if (b.k === 'scene') {
+          this.theatre.preloadSet(b.set);
+          void this.troupe.preload((b.cast ?? []).map((c) => c.char));
+        } else if (b.k === 'par') later(b.beats);
+        else if (b.k === 'cue') {
+          later(b.hit);
+          later(b.miss ?? []);
+          for (const list of Object.values(b.wrong ?? {})) later(list ?? []);
+        } else if (b.k === 'ride') {
+          later(b.hit);
+          later(b.miss);
+        } else if (b.k === 'open') {
+          for (const br of Object.values(b.branches)) later(br?.beats ?? []);
+          later(b.miss);
+        }
+      }
+    };
+    later(reel.beats);
     this.theatre.setTint(reel.tint);
     this.theatre.setColour(0);
     console.log('REEL loaded', reel.id, reel.cast.length, 'actors');

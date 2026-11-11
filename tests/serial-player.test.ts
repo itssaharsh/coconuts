@@ -68,6 +68,7 @@ class FakeTheatre {
   setColour(): void {}
   setSky(): void {}
   quake(): void {}
+  preloadSet(): void {}
   grows: boolean[] = [];
   grow(big = true): void {
     this.grows.push(big);

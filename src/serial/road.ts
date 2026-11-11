@@ -66,6 +66,11 @@ export class Road {
     this.root.add(ground, hills);
   }
 
+  /** Fetch a theme's pieces ahead of time, so the scene change that needs them does not wait on the network. */
+  static preload(base: string, theme: RoadTheme): void {
+    for (const id of new Set(LANES[theme].flatMap((l) => l.pieces))) void loadGLB(`${base}scenery/${id}.glb`).catch(() => null);
+  }
+
   /** Load the pieces and set them out along the lanes. */
   async build(): Promise<void> {
     const lanes = LANES[this.theme];

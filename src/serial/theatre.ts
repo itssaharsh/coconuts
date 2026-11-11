@@ -366,6 +366,14 @@ export class Theatre {
     this.scroll = 0;
   }
 
+  /** Fetch a set's model ahead of time (a later scene of the reel that is playing). */
+  preloadSet(id: string): void {
+    if (id === 'road' || id.startsWith('road-')) {
+      const theme = id === 'road' ? 'road' : id.slice(5);
+      Road.preload(this.base, theme === 'forest' || theme === 'village' ? theme : 'road');
+    } else void loadGLB(`${this.base}sets/${id}.glb`).catch(() => null);
+  }
+
   /** Swap the set. Call with the curtain closed. `road`, `road-forest` and `road-village` are the endless road. */
   async loadSet(id: string): Promise<SetInfo> {
     this.clearSet();
