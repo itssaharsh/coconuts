@@ -62,17 +62,17 @@ const ready = new Promise<FoleyApi>((resolve) => {
       const line = preTakeLine(currentClip);
       a.say(line, 'the Director', 7);
       console.log('DIRECTOR', line);
-      void speak(line, base);
+      void speak(line); // the Director's own base: this site, or VITE_DIRECTOR_BASE in a dev build
     },
     onTakeEnd: (take, a) => {
       const tracker = a.cues();
       const summary = tracker ? tracker.summary() : '';
       console.log('TAKE summary', take.clipId, take.events.length, 'hits', summary);
       if (!tracker || !currentClip) return;
-      void reviewTake({ clip: currentClip, tracker, take, base }).then(({ line, source }) => {
+      void reviewTake({ clip: currentClip, tracker, take }).then(({ line, source }) => {
         console.log('DIRECTOR review', source, line);
         a.say(line, source === 'model' ? 'the Director' : 'the Director, offline', 10);
-        void speak(line, base);
+        void speak(line);
         for (const cb of takeEndListeners) cb(take, summary, line);
       });
     },
