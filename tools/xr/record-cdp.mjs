@@ -50,7 +50,10 @@ const W = Number(process.env.REC_W ?? 0);
 const H = Number(process.env.REC_H ?? 0);
 if (W && H) await cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
 await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 85, maxWidth: W || 1280, maxHeight: H || 1280, everyNthFrame: Number(process.env.REC_NTH ?? 1) });
-console.log(JSON.stringify({ recording: true, port, audio: audioOn, page: page.url(), app: app.url() }));
+// a capture run steps the show a thirtieth of a second per drawn frame: note where its clock stands as recording starts
+const mark = await app.evaluate(() => (window.__capture ? { clock: window.__capture.clock(), frame: window.__capture.frame() } : null)).catch(() => null);
+if (mark) writeFileSync(join(dir, 'mark.json'), JSON.stringify(mark));
+console.log(JSON.stringify({ recording: true, port, audio: audioOn, page: page.url(), app: app.url(), mark }));
 
 let stopping = false;
 async function stop(reason) {
@@ -59,6 +62,8 @@ async function stop(reason) {
   await cdp.send('Page.stopScreencast').catch(() => undefined);
   if (W && H) await cdp.send('Emulation.clearDeviceMetricsOverride').catch(() => undefined);
   writeFileSync(join(dir, 'frames.json'), JSON.stringify(frames));
+  const endMark = await app.evaluate(() => (window.__capture ? { clock: window.__capture.clock(), frame: window.__capture.frame() } : null)).catch(() => null);
+  if (endMark) writeFileSync(join(dir, 'mark-end.json'), JSON.stringify(endMark));
   let audio = null;
   if (audioOn) {
     const dataUrl = await app.evaluate(() => window.__coconuts?.stop?.() ?? '').catch(() => '');

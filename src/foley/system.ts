@@ -266,6 +266,8 @@ export class FoleySystem extends createSystem({
     if (this.capture) {
       sound.setSoundTrace((type, key, gain) => console.log('SND', this.showClock.toFixed(3), type, key, gain.toFixed(2)));
       console.log('CAPTURE on: one drawn frame is 1/30 s of the show');
+      // the recorder asks where the show clock stands when it starts, to lay the soundtrack under the right frame
+      (window as unknown as { __capture: unknown }).__capture = { clock: () => this.showClock, frame: () => this.frameNo };
     }
     console.log('STAGE ready');
     hooks.onReady(this.api);
