@@ -3,22 +3,139 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Coconuts: be the sound of a silent movie</title>
-    <meta name="description" content="A silent film plays on a little screen. Toy props on your table make the sound: coconuts for the running feet, a tiny door for the bang, a slide whistle for the fall. Your take plays back with the film. Hands only, on Meta Quest and Meta VR Glasses." />
+    <title>Coconuts: the Serial · a toy theatre where you make every sound</title>
+    <meta name="description" content="A toy theatre stands on your desk in mixed reality and plays a comic silent-film serial. Six props on the table make every sound, and nothing on stage happens until you make it. Free, hands only, on Meta Quest 3 / 3S and Meta VR Glasses." />
     <meta name="theme-color" content="#fbf7f0" />
-    <meta property="og:title" content="Coconuts: be the sound of a silent movie" />
-    <meta property="og:description" content="Make the sound effects for a silent film with toy props on your table, in mixed reality. Hands or eyes only." />
-    <meta property="og:image" content="/brand/og.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Coconuts" />
+    <meta property="og:title" content="Coconuts: the Serial" />
+    <meta property="og:description" content="A toy theatre on your desk plays a silent-film serial, and you make every sound with six props. Mixed reality on Meta Quest, hands only, free." />
+    <meta property="og:image" content="/brand/og-serial.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A toy theatre with red curtains behind a table of foley props: coconut shells, a little door, a bell, a thunder sheet, a slide whistle and a bag of glass." />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="/brand/icon.svg" type="image/svg+xml" />
+    <script>
+      // which show's page to draw before the app loads (the same rule as serialMode() in src/foley/env.ts), so neither flashes
+      (function () {
+        var q = new URLSearchParams(location.search);
+        var films = q.has('films');
+        try {
+          if (!films && !q.has('serial')) films = localStorage.getItem('coconuts.show') === 'films';
+        } catch (e) {}
+        document.documentElement.className += films ? ' show-films' : ' show-serial';
+        // the voice control shows only where the page can record a microphone
+        if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder)) document.documentElement.className += ' no-voice';
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400..700&family=Limelight&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="scene-container"></div>
+    <div id="scene-container"><div class="house" aria-hidden="true"></div></div>
 
     <div class="landing" id="landing">
-      <header class="hero" id="top">
+      <header class="s-hero s-only" id="serial-top">
+        <nav class="s-nav" aria-label="Coconuts: the Serial">
+          <a class="s-mark" href="#serial-top">
+            <svg viewBox="0 0 26 24" aria-hidden="true"><ellipse cx="13" cy="21.6" rx="11" ry="2.2" fill="#D9C29B"/><path d="M2 10.5h22c0 6.2-4.9 10.6-11 10.6S2 16.7 2 10.5z" fill="#7A4B2A"/><path d="M5 13.4c1.4 3.4 4.4 5.4 8 5.4" fill="none" stroke="#9A6A42" stroke-width="1.4" stroke-linecap="round"/><ellipse cx="13" cy="10.5" rx="11" ry="3.4" fill="#4A2C18"/><ellipse cx="13" cy="10.6" rx="9.4" ry="2.5" fill="#F6EBD3"/></svg>
+            <span>Coconuts: the Serial</span>
+          </a>
+        </nav>
+
+        <div class="s-col">
+          <div class="s-fold">
+            <div>
+              <p class="s-eyebrow">A silent-film serial, in mixed reality</p>
+              <h1 class="s-h1">You make every <span class="brush">sound</span>.</h1>
+              <p class="s-lede">A toy theatre on your desk plays a comic serial, and nothing happens on stage until you make its sound: knock three times and the castle gate opens.</p>
+            </div>
+          </div>
+
+          <div class="s-cta">
+            <button class="btn btn-primary s-enter" type="button" id="s-enter">Enter in your headset</button>
+          </div>
+          <div class="s-fold">
+            <div>
+              <p class="s-after">Your room dims, a theatre rises on your desk; tap the clapper.</p>
+              <p class="s-device">Meta Quest 3 / 3S<span class="sep"> · </span>Meta VR Glasses<span class="sep"> · </span>hands only<span class="sep"> · </span>free</p>
+              <p class="s-note" id="s-note"></p>
+            </div>
+          </div>
+          <div class="s-voice" id="s-voice">
+            <button class="btn s-voice-btn" type="button" id="s-voice-btn" aria-describedby="s-voice-line">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="2.5" width="7" height="12" rx="3.5" fill="currentColor"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.2M8.6 21.2h6.8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+              <span id="s-voice-label" aria-live="polite">Pitch by voice</span>
+            </button>
+            <p class="s-voice-line" id="s-voice-line">Optional: hold the megaphone between reels and say what happens next.</p>
+          </div>
+
+          <div class="s-stage" aria-hidden="true" data-stage-frame></div>
+
+          <section class="s-here" aria-labelledby="here-h">
+            <p class="s-status" id="status" role="status" data-state="loading"><span class="bulb" aria-hidden="true"></span><span id="status-text">Loading the theatre…</span></p>
+            <h2 class="s-here-h" id="here-h"><b>No headset? Play right here.</b> <span class="when-keys">Click the props, or press</span><span class="when-touch">Tap the props on the stage.</span></h2>
+            <ul class="s-keys" aria-label="Keys for the props">
+              <li><kbd data-key="c">C</kbd>Coconuts</li>
+              <li><kbd data-key="d">D</kbd>Door</li>
+              <li><kbd data-key="b">B</kbd>Bell</li>
+              <li><kbd data-key="t">T</kbd>Thunder</li>
+              <li><kbd data-key="w">W</kbd>Whistle</li>
+              <li><kbd data-key="g">G</kbd>Glass</li>
+              <li class="space"><kbd data-key=" ">Space</kbd>Clapper</li>
+            </ul>
+          </section>
+        </div>
+
+        <div class="s-frame" aria-hidden="true" data-stage-frame></div>
+      </header>
+
+      <main class="s-main s-only">
+        <section class="s-band s-how" aria-labelledby="how-h">
+          <h2 id="how-h">How to play</h2>
+          <ol class="s-steps">
+            <li>
+              <img src="/landing/curtain.jpg" alt="The toy theatre's title card: A Knight at Midnight" width="960" height="600" loading="lazy" decoding="async" />
+              <h3><span class="n" aria-hidden="true">1</span>Tap the clapper</h3>
+              <p>The curtain rises on the first reel. In the headset, tap it with a finger; here, click it or press Space.</p>
+            </li>
+            <li>
+              <img src="/landing/knock.jpg" alt="A knight waits at the castle gate while a card on the stage asks you to knock for him" width="960" height="600" loading="lazy" decoding="async" />
+              <h3><span class="n" aria-hidden="true">2</span>Make the sound</h3>
+              <p>The stage waits for you. Coconut shells for hooves, a little door to knock and slam, a desk bell, a thunder sheet, a slide whistle and a bag of glass: three knocks open the castle gate, and the knight’s horse runs only as fast as you clop.</p>
+            </li>
+            <li>
+              <img src="/landing/next.jpg" alt="The card after a reel: What happens next? Ride after the thief, a storm in the graveyard, or ask at the inn" width="960" height="600" loading="lazy" decoding="async" />
+              <h3><span class="n" aria-hidden="true">3</span>Choose what happens next</h3>
+              <p>After each reel a card asks what happens next. You choose by making a sound, and the next reel is written around your choice.</p>
+            </li>
+          </ol>
+          <p class="s-hands">In the headset every prop answers a pat, a pinch from afar, or a look and a pinch.</p>
+        </section>
+
+        <section class="s-band s-director" aria-labelledby="director-h">
+          <div class="s-card">
+            <h2 id="director-h">What happens next?</h2>
+            <p>An AI Director writes each next reel around the sound you chose. When it is offline, a written reel stands in, so the show goes on.</p>
+          </div>
+        </section>
+
+        <footer class="s-band s-foot">
+          <div>
+            <p class="s-foot-device">Meta Quest 3 / 3S and Meta VR Glasses<span class="sep"> · </span>hands only, seated<span class="sep"> · </span>free, in the headset’s browser</p>
+            <p class="s-foot-real">Recorded CC0 sounds; CC0 3D kits by KayKit and Quaternius.</p>
+          </div>
+          <ul class="s-links">
+            <li><a href="/audio/CREDITS.md">Credits</a></li>
+            <li><a href="https://github.com/itssaharsh/coconuts">Source on GitHub</a></li>
+            <li><a href="?films">Classic films</a></li>
+          </ul>
+        </footer>
+      </main>
+
+      <header class="hero f-only" id="top">
         <nav class="nav" aria-label="Coconuts">
           <a class="mark" href="#top">
             <svg viewBox="0 0 26 24" aria-hidden="true"><ellipse cx="13" cy="21.6" rx="11" ry="2.2" fill="#D9C29B"/><path d="M2 10.5h22c0 6.2-4.9 10.6-11 10.6S2 16.7 2 10.5z" fill="#7A4B2A"/><path d="M5 13.4c1.4 3.4 4.4 5.4 8 5.4" fill="none" stroke="#9A6A42" stroke-width="1.4" stroke-linecap="round"/><ellipse cx="13" cy="10.5" rx="11" ry="3.4" fill="#4A2C18"/><ellipse cx="13" cy="10.6" rx="9.4" ry="2.5" fill="#F6EBD3"/></svg>
@@ -83,7 +200,7 @@
         </div>
       </header>
 
-      <main>
+      <main class="f-only">
         <section class="band story">
           <p class="subhead">A silent film plays on a little screen. The props on your table make the sound: coconuts for the running feet, the tiny door for the bang, the slide whistle for the fall. Your take plays back with the film, and the Director gives you one line about it.</p>
           <ul class="proofs">

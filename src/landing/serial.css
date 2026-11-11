@@ -462,6 +462,15 @@ html:not(.show-serial) #scene-container > .house {
 .reel-on .s-voice-line {
   color: var(--cream-2);
 }
+@media (min-width: 901px) {
+  /* the programme column while a reel plays: the keys, the button, the voice switch; nothing reaches the stage */
+  .reel-on .s-col {
+    width: var(--col-play);
+  }
+  .reel-on .s-voice-line {
+    display: none;
+  }
+}
 .s-status {
   display: inline-flex;
   align-items: center;
@@ -783,7 +792,7 @@ html:not(.show-serial) #scene-container > .house {
   .show-serial {
     --gutter: 40px;
     --split: clamp(420px, 47vw, 560px);
-    --col-play: 330px;
+    --col-play: 350px;
   }
   .s-col {
     width: calc(var(--split) - var(--gutter) - 32px);
@@ -829,22 +838,26 @@ html:not(.show-serial) #scene-container > .house {
 }
 @media (max-height: 800px) and (min-width: 901px) {
   .s-col {
-    padding-top: 92px;
+    padding-top: 80px;
   }
   .s-eyebrow {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
   .s-lede {
-    margin-top: 14px;
+    margin-top: 12px;
   }
   .s-cta {
-    margin-top: 20px;
+    margin-top: 18px;
   }
   .s-after {
     margin-top: 10px;
+    font-size: 15px;
   }
   .s-here {
-    margin-top: 14px;
+    margin-top: 12px;
+  }
+  .s-keys {
+    row-gap: 8px;
   }
   .s-here-h {
     margin: 0 0 10px;
@@ -945,14 +958,10 @@ html:not(.show-serial) #scene-container > .house {
     font-size: 15px;
   }
   .s-device {
-    font-size: 14px;
+    font-size: 13.5px;
   }
   .s-note {
-    min-height: 0;
     font-size: 14px;
-  }
-  .s-note:empty {
-    display: none;
   }
   .s-voice {
     margin-top: 12px;
@@ -975,7 +984,8 @@ html:not(.show-serial) #scene-container > .house {
       0 1px 2px oklch(40% 0.06 70 / 0.12);
   }
   .reel-on .s-here-h,
-  .reel-on .s-keys li {
+  .reel-on .s-keys li,
+  .reel-on .s-voice-line {
     color: var(--ink-2);
   }
   .reel-on .s-here-h b {
