@@ -15,6 +15,7 @@ import {
   PlaneGeometry,
   Quaternion,
   RepeatWrapping,
+  ShaderMaterial,
   Sprite,
   SpriteMaterial,
   type Texture,
@@ -173,6 +174,10 @@ export class Theatre {
   private skies = new Map<Sky, Texture>();
   private flashMesh: Mesh;
   private flash = 0;
+  /** The iris: the picture closes to a point and opens from one, the silent film's own scene change. */
+  private irisMesh: Mesh;
+  private irisOpen = 1;
+  private wantIris = 1;
   private shake = 0;
   private floaters: Floater[] = [];
   private wantColour = 0;
@@ -277,7 +282,22 @@ export class Theatre {
     this.flashMesh.position.set(0, STAGE_H / 2, 0.002);
     this.flashMesh.renderOrder = 2;
     this.flashMesh.visible = false;
-    this.group.add(this.flashMesh, this.titleMesh, this.cueMesh);
+    this.irisMesh = new Mesh(
+      new PlaneGeometry(STAGE_W + 0.004, STAGE_H + 0.004),
+      new ShaderMaterial({
+        uniforms: { uOpen: { value: 1 } },
+        vertexShader: 'varying vec2 vUv;\nvoid main() {\n  vUv = uv;\n  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n}',
+        // black everywhere but a circle; at uOpen = 1 the circle is wider than the frame's diagonal
+        fragmentShader:
+          'uniform float uOpen;\nvarying vec2 vUv;\nvoid main() {\n  vec2 p = (vUv - 0.5) * vec2(1.7778, 1.0);\n  if (length(p) < uOpen * 1.03) discard;\n  gl_FragColor = vec4(0.012, 0.01, 0.009, 1.0);\n}',
+        toneMapped: false,
+      }),
+    );
+    this.irisMesh.position.set(0, STAGE_H / 2, 0.003);
+    this.irisMesh.renderOrder = 2;
+    this.irisMesh.visible = false;
+    this.irisMesh.name = 'iris';
+    this.group.add(this.flashMesh, this.irisMesh, this.titleMesh, this.cueMesh);
   }
 
   /** Make the whole theatre larger or smaller (its light is worked out in stage space, so nothing else changes). */
@@ -480,6 +500,16 @@ export class Theatre {
     return this.curtainOpen > 0.9;
   }
 
+  /** Close the picture to a point, or open it from one (a scene change inside a reel; the curtain is for reels). */
+  iris(open: boolean): Task {
+    return {
+      update: () => {
+        this.wantIris = open ? 1 : 0;
+        return Math.abs(this.irisOpen - this.wantIris) < 0.01;
+      },
+    };
+  }
+
   /** An intertitle over the whole opening. */
   title(text: string, sub = '', secs = 2.8): Task {
     let left = secs;
@@ -629,6 +659,13 @@ export class Theatre {
     (this.cueMesh.material as MeshBasicMaterial).opacity = this.cueShow;
     this.cueMesh.visible = this.cueShow > 0.01;
     this.cueMesh.scale.setScalar(this.cueScale * (1 + 0.04 * Math.sin(this.time * 6) * this.cueShow)); // it breathes while it waits
+    // the iris closes and opens at a steady pace (an eased one looks like a camera, not a film)
+    if (this.irisOpen !== this.wantIris) {
+      const step = dt * 1.9;
+      this.irisOpen = this.wantIris > this.irisOpen ? Math.min(1, this.irisOpen + step) : Math.max(0, this.irisOpen - step);
+      (this.irisMesh.material as ShaderMaterial).uniforms.uOpen.value = this.irisOpen;
+    }
+    this.irisMesh.visible = this.irisOpen < 0.999;
     // doors and lids
     for (const d of this.dynamics.values()) {
       if (Math.abs(d.cur - d.want) < 1e-3) continue;

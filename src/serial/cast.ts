@@ -31,7 +31,7 @@ export function loadGLB(url: string): Promise<GLTF> {
   return p;
 }
 
-type ClipSpec = { clip: string; loop?: boolean; hold?: boolean; then?: string; alt?: string };
+type ClipSpec = { clip: string; loop?: boolean; hold?: boolean; then?: string; alt?: string | string[] };
 type ClipTable = Record<Verb, ClipSpec>;
 
 /** verb -> clip(s). `then` plays after a one-shot; `hold` stays on the last frame (a fallen actor stays down). */
@@ -72,39 +72,41 @@ const CLIPS: ClipTable = {
 const LEFT_HAND_ITEMS = new Set(['shield_round', 'spellbook', 'skeleton_shield_small']);
 
 /** A beast has a few clips; every verb a reel may use lands on the nearest of them, so beats written for people play. */
-const beast = (clip: string, extra: Partial<ClipSpec> = {}): ClipSpec => ({ clip, alt: 'Idle', ...extra });
+const beast = (clips: string[], extra: Partial<ClipSpec> = {}): ClipSpec => ({ clip: clips[0], alt: [...clips.slice(1), 'Idle'], ...extra });
+const ATTACK = ['Attack', 'Attack_Headbutt', 'Attack_Kick'];
+const HURT = ['Idle_HitReact_Left', 'Idle_HitReact_Right', 'Jump'];
 const BEAST_CLIPS: ClipTable = {
-  idle: beast('Idle', { loop: true }),
-  walk: beast('Walk', { loop: true }),
-  run: beast('Gallop', { loop: true, alt: 'Walk' }),
-  jump: beast('Gallop_Jump'),
-  flinch: beast('Idle_HitReact_Left'),
-  stagger: beast('Idle_HitReact_Right'),
-  fall: beast('Death', { hold: true }),
-  faint: beast('Death', { hold: true }),
-  getup: beast('Idle'),
-  block: beast('Idle_HitReact_Left'),
-  chop: beast('Attack'),
-  slash: beast('Attack'),
-  stab: beast('Attack'),
-  punch: beast('Attack'),
-  kick: beast('Attack'),
-  pickup: beast('Eating'),
-  throw: beast('Attack'),
-  drink: beast('Eating'),
-  knock: beast('Attack'),
-  cheer: beast('Idle_2'),
-  sit: beast('Idle', { loop: true, hold: true }),
-  stand: beast('Idle'),
-  sitfloor: beast('Idle_Headlow', { loop: true, hold: true }),
-  sleep: beast('Idle_Headlow', { loop: true, hold: true }),
-  cast: beast('Attack'),
-  zap: beast('Attack'),
-  dodge: beast('Idle_HitReact_Right'),
-  guard: beast('Idle', { loop: true }),
-  awaken: beast('Idle'),
-  collapse: beast('Death', { hold: true }),
-  rise: beast('Idle'),
+  idle: beast(['Idle'], { loop: true }),
+  walk: beast(['Walk'], { loop: true }),
+  run: beast(['Gallop', 'Run', 'Walk'], { loop: true }),
+  jump: beast(['Gallop_Jump', 'Jump']),
+  flinch: beast(HURT),
+  stagger: beast(['Idle_HitReact_Right', ...HURT]),
+  fall: beast(['Death'], { hold: true }),
+  faint: beast(['Death'], { hold: true }),
+  getup: beast(['Idle']),
+  block: beast(HURT),
+  chop: beast(ATTACK),
+  slash: beast(ATTACK),
+  stab: beast(ATTACK),
+  punch: beast(ATTACK),
+  kick: beast(['Attack_Kick', ...ATTACK]),
+  pickup: beast(['Eating']),
+  throw: beast(ATTACK),
+  drink: beast(['Eating']),
+  knock: beast(ATTACK),
+  cheer: beast(['Idle_2', 'Jump']),
+  sit: beast(['Idle'], { loop: true, hold: true }),
+  stand: beast(['Idle']),
+  sitfloor: beast(['Idle_Headlow', 'Eating'], { loop: true, hold: true }),
+  sleep: beast(['Idle_Headlow', 'Eating'], { loop: true, hold: true }),
+  cast: beast(ATTACK),
+  zap: beast(ATTACK),
+  dodge: beast(HURT),
+  guard: beast(['Idle'], { loop: true }),
+  awaken: beast(['Idle']),
+  collapse: beast(['Death'], { hold: true }),
+  rise: beast(['Idle']),
 };
 
 /** How each kind of performer moves and how much room it takes: speeds in kit units a second, head height for emotes. */
@@ -188,7 +190,8 @@ export class Actor {
     // getting up depends on how the actor is down: from a chair, from sitting on the floor, from lying
     const from = this.current?.getClip().name ?? '';
     const rise = verb === 'getup' || verb === 'stand' ? (from.startsWith('Sit_Chair') ? 'Sit_Chair_StandUp' : from.startsWith('Sit_Floor') ? 'Sit_Floor_StandUp' : null) : null;
-    const a = (rise ? this.action(rise) : null) ?? this.action(spec.clip) ?? (spec.alt ? this.action(spec.alt) : null) ?? this.action('Idle');
+    const alts = spec.alt === undefined ? [] : typeof spec.alt === 'string' ? [spec.alt] : spec.alt;
+    const a = (rise ? this.action(rise) : null) ?? this.action(spec.clip) ?? alts.map((n) => this.action(n)).find((x) => x) ?? this.action('Idle');
     if (!a) return 0;
     const loop = !!spec.loop;
     a.reset();

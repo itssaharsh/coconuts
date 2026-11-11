@@ -7,4 +7,5 @@ node tools/serial/build_horse.mjs 0.75 # horse.glb
 $BL -b --python assets-src/serial/decimate.py -- assets-src/kits/kaykit/Medieval-Hexagon-Pack/addons/kaykit_medieval_hexagon_pack/Assets/gltf/buildings/red/building_windmill_red.gltf assets-src/serial/work/windmill_dec.glb 1400
 node tools/serial/build_scenery.mjs    # scenery/*.glb + index.json
 tools/serial/build_sets.sh            # gen_sets.py + bake_set.py for gate vault graveyard inn hall camp
-node tools/serial/build_catalog.mjs    # catalog.json
+node tools/serial/build_beasts.mjs     # beasts/*.glb (+ assets-src/serial/beasts_report.json)
+node tools/serial/build_catalog.mjs    # catalog.json (incl. beasts)

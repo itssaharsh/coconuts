@@ -1,0 +1,230 @@
+{
+ "wolf": {
+  "id": "wolf",
+  "file": "beasts/wolf.glb",
+  "bytes": 320248,
+  "triangles": 1962,
+  "height": 1.79,
+  "length": 3.7,
+  "width": 0.71,
+  "shoulderHeight": 1.5,
+  "scale": 0.667,
+  "clips": [
+   {
+    "name": "Attack",
+    "duration": 1.33
+   },
+   {
+    "name": "Death",
+    "duration": 1.04
+   },
+   {
+    "name": "Gallop",
+    "duration": 0.54
+   },
+   {
+    "name": "Idle",
+    "duration": 3.33
+   },
+   {
+    "name": "Idle_HitReact_Left",
+    "duration": 0.67
+   },
+   {
+    "name": "Idle_HitReact_Right",
+    "duration": 0.67
+   },
+   {
+    "name": "Walk",
+    "duration": 1.04
+   }
+  ],
+  "rootNode": "RootNode",
+  "rootBone": "Body",
+  "joints": 51,
+  "material": "vertex colours (COLOR_0), no texture"
+ },
+ "spider": {
+  "id": "spider",
+  "file": "beasts/spider.glb",
+  "bytes": 347232,
+  "triangles": 2712,
+  "height": 3.2,
+  "length": 4.43,
+  "width": 4.99,
+  "scale": [
+   0.84,
+   1.64,
+   0.84
+  ],
+  "clips": [
+   {
+    "name": "Attack",
+    "duration": 0.75
+   },
+   {
+    "name": "Death",
+    "duration": 1.04
+   },
+   {
+    "name": "Idle",
+    "duration": 4.17
+   },
+   {
+    "name": "Jump",
+    "duration": 0.71
+   },
+   {
+    "name": "Walk",
+    "duration": 0.83
+   }
+  ],
+  "rootNode": "RootNode",
+  "rootBone": "Root",
+  "joints": 39,
+  "material": "vertex colours (COLOR_0), no texture"
+ },
+ "rat": {
+  "id": "rat",
+  "file": "beasts/rat.glb",
+  "bytes": 435812,
+  "triangles": 3314,
+  "height": 0.46,
+  "length": 1.4,
+  "width": 0.3,
+  "scale": 0.2,
+  "clips": [
+   {
+    "name": "Attack",
+    "duration": 0.67
+   },
+   {
+    "name": "Death",
+    "duration": 1.08
+   },
+   {
+    "name": "Idle",
+    "duration": 2.38
+   },
+   {
+    "name": "Run",
+    "duration": 0.5
+   },
+   {
+    "name": "Walk",
+    "duration": 1.33
+   }
+  ],
+  "rootNode": "RootNode",
+  "rootBone": "root",
+  "joints": 31,
+  "material": "vertex colours (COLOR_0), no texture"
+ },
+ "horse_white": {
+  "id": "horse_white",
+  "file": "beasts/horse_white.glb",
+  "bytes": 306424,
+  "triangles": 2182,
+  "height": 3.62,
+  "length": 4.26,
+  "width": 1.06,
+  "shoulderHeight": 2.56,
+  "scale": 0.75,
+  "clips": [
+   {
+    "name": "Gallop",
+    "duration": 0.58
+   },
+   {
+    "name": "Gallop_Jump",
+    "duration": 1.46
+   },
+   {
+    "name": "Idle",
+    "duration": 3.33
+   },
+   {
+    "name": "Walk",
+    "duration": 1.17
+   }
+  ],
+  "rootNode": "RootNode",
+  "rootBone": "Body",
+  "joints": 50,
+  "material": "vertex colours (COLOR_0), no texture"
+ },
+ "stag": {
+  "id": "stag",
+  "file": "beasts/stag.glb",
+  "bytes": 417712,
+  "triangles": 3667,
+  "height": 3.76,
+  "length": 3.39,
+  "width": 1.78,
+  "shoulderHeight": 2.31,
+  "scale": 0.7,
+  "clips": [
+   {
+    "name": "Death",
+    "duration": 1.08
+   },
+   {
+    "name": "Eating",
+    "duration": 12.08
+   },
+   {
+    "name": "Gallop",
+    "duration": 0.5
+   },
+   {
+    "name": "Idle",
+    "duration": 3.33
+   },
+   {
+    "name": "Walk",
+    "duration": 1.17
+   }
+  ],
+  "rootNode": "RootNode",
+  "rootBone": "Body",
+  "joints": 38,
+  "material": "vertex colours (COLOR_0), no texture"
+ },
+ "bull": {
+  "id": "bull",
+  "file": "beasts/bull.glb",
+  "bytes": 319260,
+  "triangles": 2418,
+  "height": 2.39,
+  "length": 4.19,
+  "width": 1.31,
+  "shoulderHeight": 2.29,
+  "scale": 0.52,
+  "clips": [
+   {
+    "name": "Attack_Headbutt",
+    "duration": 1
+   },
+   {
+    "name": "Death",
+    "duration": 1
+   },
+   {
+    "name": "Gallop",
+    "duration": 0.58
+   },
+   {
+    "name": "Idle",
+    "duration": 3.33
+   },
+   {
+    "name": "Walk",
+    "duration": 1.17
+   }
+  ],
+  "rootNode": "RootNode",
+  "rootBone": "Body",
+  "joints": 42,
+  "material": "vertex colours (COLOR_0), no texture"
+ }
+}

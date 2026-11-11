@@ -340,7 +340,7 @@ export class ReelPlayer {
   private sceneTask(set: string, tint: Reel['tint'] | undefined, cast: CastEntry[] | undefined): Task {
     let loaded = false;
     return sequence([
-      () => this.theatre.curtain(false),
+      () => this.theatre.iris(false),
       () => {
         this.changeScene(set, cast ?? this.reel?.cast ?? [])
           .catch((e) => console.warn('SCENE failed', set, e instanceof Error ? e.message : e))
@@ -350,7 +350,8 @@ export class ReelPlayer {
           });
         return { update: () => loaded };
       },
-      () => this.theatre.curtain(true),
+      () => wait(0.25),
+      () => this.theatre.iris(true),
     ]);
   }
 

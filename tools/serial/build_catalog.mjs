@@ -36,4 +36,8 @@ out.horse = { file: 'horse.glb', bytes: fs.statSync(hf).size, scale: sc, height:
 out.sets = {};
 for (const f of fs.readdirSync(SV + 'sets').filter((x) => x.endsWith('.json'))) { const s = JSON.parse(fs.readFileSync(SV + 'sets/' + f)); out.sets[s.id] = { glb: s.glb, json: 'sets/' + f, bytes: s.bytes, triangles: s.stats.triangles, materials: s.stats.materials, drawCalls: s.stats.drawCalls, footprint: s.footprint, marks: Object.keys(s.marks), dynamicNodes: Object.keys(s.dynamic) }; }
 const si = JSON.parse(fs.readFileSync(SV + 'scenery/index.json')); out.scenery = { index: 'scenery/index.json', pieces: si.pieces.map((p) => ({ id: p.id, file: p.file, kind: p.kind, height: p.height, footprint: p.footprint, triangles: p.triangles, bytes: p.bytes })) };
+const bf = ROOT + '/assets-src/serial/beasts_report.json';
+if (fs.existsSync(bf)) { const br = JSON.parse(fs.readFileSync(bf)); out.beasts = {};
+  for (const [id, r] of Object.entries(br)) out.beasts[id] = { file: r.file, bytes: r.bytes, triangles: r.triangles, height: r.height, shoulderHeight: r.shoulderHeight, length: r.length, width: r.width, scale: r.scale, clips: r.clips, rootNode: r.rootNode, rootBone: r.rootBone, joints: r.joints, material: r.material, facing: '+z', origin: 'feet at y=0, centred on the body' };
+  if (out.beasts.horse_white) out.beasts.horse_white.riderSeat = out.horse.riderSeat; }
 fs.writeFileSync(SV + 'catalog.json', JSON.stringify(out, null, 1)); console.log(JSON.stringify({ horse: out.horse, chars: Object.fromEntries(Object.entries(out.characters).map(([k, v]) => [k, v.height])) }));

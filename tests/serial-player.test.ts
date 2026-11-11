@@ -89,6 +89,11 @@ class FakeTheatre {
   removeActor(a: FakeActor): void {
     a.onStage = false;
   }
+  irises: boolean[] = [];
+  iris(open: boolean): Task {
+    this.irises.push(open);
+    return { update: () => true };
+  }
   curtain(open: boolean): Task {
     this.curtains.push(open);
     return wait(0.5);
@@ -569,7 +574,7 @@ describe('whole reels', () => {
     expect(s.flags).toEqual([]);
   });
 
-  it('a character that fails to load is skipped: the curtain still opens and the reel still ends', async () => {
+  it('a character that fails to load is skipped: the picture still opens and the reel still ends', async () => {
     const rig = makeRig({ failing: ['ghost'] });
     const cast: CastEntry[] = [HERO, { id: 'ghost', char: 'mage', at: 'left' }];
     const reel = reelOf(
@@ -587,7 +592,8 @@ describe('whole reels', () => {
     expect(rig.player.actor('hero')).toBeDefined();
     await run(rig, true);
     expect(rig.player.actor('ghost')).toBeUndefined();
-    expect(rig.theatre.curtains.filter((o) => o).length).toBeGreaterThanOrEqual(2); // opening and after the scene change
+    expect(rig.theatre.curtains.filter((o) => o).length).toBeGreaterThanOrEqual(1); // the reel opened
+    expect(rig.theatre.irises).toEqual([false, true]); // and the scene change closed and opened the picture
     expect(rig.ends).toHaveLength(1);
     expect(rig.player.stats).toMatchObject({ asked: 2, hits: 2 });
   });
