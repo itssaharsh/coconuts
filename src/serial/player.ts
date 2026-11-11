@@ -296,6 +296,8 @@ export class ReelPlayer {
           else if (b.fx === 'shake') this.theatre.quake();
           else if (b.fx === 'dark') this.theatre.setSky('storm');
           else if (b.fx === 'light') this.theatre.setSky('day');
+          else if (b.fx === 'grow') this.theatre.grow(true);
+          else if (b.fx === 'shrink') this.theatre.grow(false);
         });
       case 'tint':
         return call(() => this.theatre.setTint(b.tint));

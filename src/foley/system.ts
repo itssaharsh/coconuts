@@ -11,7 +11,7 @@ import { modelStats } from './models';
 import { Recorder, encodeTake } from './recorder';
 import { Replayer, schedule } from './replay';
 import * as sound from './sound';
-import { Stage } from './stage';
+import { Stage, THEATRE_SMALL } from './stage';
 import { SCREEN_H } from './screen';
 import { TABLE_H } from './toys';
 import { ShakeMeter, SlideTracker, StrikeDetector, isDrop } from './triggers';
@@ -77,8 +77,6 @@ const NEAR_GRAB_M = 0.18;
 type Hand = 'left' | 'right';
 const HANDS: Hand[] = ['right', 'left'];
 const VOLUME_STEPS = [1, 0.6, 0.25, 0];
-/** The toy theatre is a little larger than its model: the characters read at this size from a seat. */
-const THEATRE_SIZE = 1.1;
 
 export class FoleySystem extends createSystem({
   pressed: { required: [RayInteractable, Pressed] },
@@ -148,12 +146,17 @@ export class FoleySystem extends createSystem({
           this.wantedPulse = 0;
         },
         onStage: (cue) => sound.playStage(cue),
+        onScale: (big) => {
+          this.stage.setTheatreBig(big);
+          this.stage.setTileLabel('size', big ? 'Stage small' : 'Stage big');
+          console.log('STAGE size', big ? 'wall' : 'desk');
+        },
         onNote: (note) => {
           this.director.say(note, 'the Director', 10);
           console.log('DIRECTOR note', note);
         },
       });
-      this.serial.theatre.setSize(THEATRE_SIZE);
+      this.serial.theatre.setSize(THEATRE_SMALL);
       this.stage.theatreMount.add(this.serial.theatre.group);
       this.director.group.position.set(-0.7, 0.36, 0.04);
       this.stage.theatreMount.add(this.director.group);
@@ -386,7 +389,8 @@ export class FoleySystem extends createSystem({
 
   private onTile(id: string): void {
     if (this.serial && id !== 'tile-volume') {
-      if (id === 'tile-pause' && this.serial.state === 'playing') {
+      if (id === 'tile-size') this.serial.theatre.grow(!this.serial.theatre.isBig);
+      else if (id === 'tile-pause' && this.serial.state === 'playing') {
         const paused = this.serial.togglePause();
         this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
         console.log(paused ? 'REEL pause' : 'REEL resume');
@@ -791,6 +795,13 @@ export class FoleySystem extends createSystem({
     if (this.mode === 'replay' && this.replayer) this.replayer.tick(this.stage.screen.currentTime);
     if (this.serial) {
       this.serial.update(dt);
+      // the theatre's size follows its mount (desk or wall), and the Director's tag keeps beside its pillar
+      const size = this.stage.theatreSize;
+      if (Math.abs(size - this.serial.theatre.scale) > 1e-4) {
+        this.serial.theatre.setSize(size);
+        const k = size / THEATRE_SMALL;
+        this.director.group.position.set(-0.7 * k, 0.36 * k, 0.04);
+      }
       if (this.house) {
         // down with the curtain's rise, up again between reels; lightning on the stage lights the room for an instant
         const t = this.serial.theatre;

@@ -5,7 +5,7 @@ import { Screen } from './screen';
 import { PALETTE, TABLE_D, TABLE_H, TABLE_W, buildClapper, buildProp, buildTable, buildTile, mat, nameHitBoxes } from './toys';
 import { PROPS, type PropId } from './types';
 
-export type PieceId = PropId | 'clapper' | 'tile-pause' | 'tile-volume' | 'tile-redo' | 'tile-glasses' | 'tile-calm';
+export type PieceId = PropId | 'clapper' | 'tile-pause' | 'tile-volume' | 'tile-redo' | 'tile-size' | 'tile-glasses' | 'tile-calm';
 
 export interface PropPiece {
   id: PieceId;
@@ -28,12 +28,19 @@ const SERIAL_TABLE_AHEAD = 0.46;
 const SERIAL_TABLE_BELOW = 0.38;
 const THEATRE_AHEAD = 0.88;
 const THEATRE_FLOOR_BELOW = 0.24;
+// ...and blown up to the size of the wall: further off and lower, so a seated player looks down into a room-wide stage
+const BIG_AHEAD = 1.55;
+const BIG_FLOOR_BELOW = 0.78;
+export const THEATRE_SMALL = 1.1;
+export const THEATRE_BIG = 3.2;
 
 const TILES: { id: PieceId; label: string }[] = [
   { id: 'tile-pause', label: 'Pause' },
   { id: 'tile-volume', label: 'Vol 100' },
   { id: 'tile-redo', label: 'Redo' },
 ];
+/** The Serial's fourth tile: the theatre at wall size or back on the desk, whenever the player likes. */
+const SIZE_TILE: { id: PieceId; label: string } = { id: 'tile-size', label: 'Stage big' };
 
 export class Stage {
   readonly root = new Group();
@@ -52,6 +59,9 @@ export class Stage {
   readonly theatreMount = new Group();
   private ahead: number;
   private below: number;
+  /** 0 = the toy on the desk, 1 = wall size; eased, fast enough to hide inside a lightning flash. */
+  private bigness = 0;
+  private wantBig = 0;
 
   constructor(readonly serial = false) {
     this.ahead = serial ? SERIAL_TABLE_AHEAD : TABLE_AHEAD;
@@ -74,7 +84,7 @@ export class Stage {
     clapper.rotation.y = 0.35;
     this.table.add(clapper);
     this.addPiece('clapper', clapper);
-    TILES.forEach((t, i) => {
+    (serial ? [...TILES, SIZE_TILE] : TILES).forEach((t, i) => {
       const tile = buildTile(t.label);
       tile.name = t.id;
       tile.position.set(TABLE_W / 2 - 0.03, TABLE_H, TABLE_D / 2 - 0.04 - i * 0.1); // 10 cm apart: wider than the gaze cone
@@ -151,6 +161,19 @@ export class Stage {
     this.root.rotation.set(0, Math.atan2(fwd.x, fwd.z) + Math.PI, 0);
   }
 
+  setTheatreBig(big: boolean): void {
+    this.wantBig = big ? 1 : 0;
+  }
+
+  get theatreBig(): boolean {
+    return this.wantBig === 1;
+  }
+
+  /** The theatre's size right now, between its desk size and its wall size. */
+  get theatreSize(): number {
+    return THEATRE_SMALL + (THEATRE_BIG - THEATRE_SMALL) * this.bigness;
+  }
+
   setHovered(id: string, on: boolean): void {
     const p = this.pieces.get(id);
     if (p) p.hovered = on;
@@ -191,7 +214,7 @@ export class Stage {
     slide.position.x = home - 0.02 * (1 - Math.max(0, Math.min(1, pitch))); // pushed in at the bottom, pulled out at the top
   }
 
-  setTileLabel(tile: 'pause' | 'volume' | 'redo' | 'glasses' | 'calm', label: string): void {
+  setTileLabel(tile: 'pause' | 'volume' | 'redo' | 'size' | 'glasses' | 'calm', label: string): void {
     const p = this.pieces.get(`tile-${tile}`);
     const face = p?.root.getObjectByName('face') as Mesh | undefined;
     if (!face) return;
@@ -202,6 +225,16 @@ export class Stage {
   }
 
   update(dt: number): void {
+    if (this.bigness !== this.wantBig) {
+      const step = dt * 5; // a fifth of a second: the change happens under the flash, not as a zoom
+      this.bigness = this.wantBig > this.bigness ? Math.min(1, this.bigness + step) : Math.max(0, this.bigness - step);
+      const b = this.bigness * this.bigness * (3 - 2 * this.bigness);
+      this.theatreMount.position.set(
+        0,
+        this.below - (THEATRE_FLOOR_BELOW + (BIG_FLOOR_BELOW - THEATRE_FLOOR_BELOW) * b),
+        -(THEATRE_AHEAD + (BIG_AHEAD - THEATRE_AHEAD) * b - this.ahead),
+      );
+    }
     const k = Math.min(1, dt * 14);
     for (const p of this.pieces.values()) {
       const lamp = p.root.getObjectByName('lamp') as Mesh | undefined;

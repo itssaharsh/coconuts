@@ -12,7 +12,8 @@ export type Verb = (typeof VERBS)[number];
 export const EMOTES = ['!', '?', 'zzz', 'heart', 'skull', 'note', 'angry', 'sweat', 'idea'] as const;
 export type Emote = (typeof EMOTES)[number];
 
-export const FX = ['lightning', 'rain', 'rainstop', 'dark', 'light', 'shake', 'dust', 'sparkle'] as const;
+/** grow / shrink: the toy theatre bursts to the size of the wall in front of the player, and comes back. */
+export const FX = ['lightning', 'rain', 'rainstop', 'dark', 'light', 'shake', 'dust', 'sparkle', 'grow', 'shrink'] as const;
 export type Fx = (typeof FX)[number];
 
 export const CHARACTERS = [

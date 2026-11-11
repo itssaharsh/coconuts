@@ -44,6 +44,18 @@ serial.theatre.setSize(Number(q.get('size') ?? 1.1));
 serial.theatre.group.position.set(0, Number(q.get('ty') ?? -0.24), -0.88);
 scene.add(serial.theatre.group);
 
+// desk size and wall size, as the app's stage does it
+let big = 0;
+let wantBig = 0;
+serial.theatre.onScale = (b) => (wantBig = b ? 1 : 0);
+function sizeStep(dt: number): void {
+  if (big === wantBig) return;
+  big = wantBig > big ? Math.min(1, big + dt * 5) : Math.max(0, big - dt * 5);
+  const e = big * big * (3 - 2 * big);
+  serial.theatre.setSize(1.1 + (3.2 - 1.1) * e);
+  serial.theatre.group.position.set(0, -0.24 - (0.78 - 0.24) * e, -0.88 - (1.55 - 0.88) * e);
+}
+
 // a stand-in for the foley table, for scale and occlusion
 const table = new Mesh(new BoxGeometry(0.7, 0.015, 0.4), new MeshStandardMaterial({ color: 0xead9b9, roughness: 0.75 }));
 table.position.set(0, -0.3875, -0.48);
@@ -70,6 +82,7 @@ const forceColour = q.has('colour') ? Number(q.get('colour')) : null;
 function frame(dt: number, draw = true): void {
   clock += dt;
   if (forceColour !== null) serial.theatre.setColour(forceColour);
+  sizeStep(dt);
   serial.update(dt);
   if (!draw) return;
   renderer.render(scene, camera);
@@ -100,6 +113,8 @@ const api = {
     }
   },
   sound: (prop: PropId, kind = 'script') => serial.sound(prop, kind, 1),
+  /** What the stage is doing and what it waits for (for scripts that play a reel by themselves). */
+  status: () => ({ state: serial.state, reel: serial.reel.id, title: serial.reel.title, clock, waiting: serial.waiting, playing: serial.player.playing }),
   roll: () => serial.roll(),
   info: () => ({ state: serial.state, waiting, clock, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, colour: 0 }),
 };

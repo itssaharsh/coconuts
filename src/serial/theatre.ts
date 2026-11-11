@@ -165,6 +165,9 @@ export class Theatre {
   scroll = 0;
   /** The stage's own sounds (curtain, a door's creak): whoever owns the audio listens here. */
   onSound: ((cue: StageCue) => void) | null = null;
+  /** The theatre wants to be wall-size (or desk-size again): whoever placed it moves and scales it. */
+  onScale: ((big: boolean) => void) | null = null;
+  private bigNow = false;
 
   constructor(private base: string) {
     this.group.name = 'theatre';
@@ -512,6 +515,18 @@ export class Theatre {
   /** Colour bleeds into the film as cues land: 0 monochrome, 1 the kit's own colours. */
   setColour(amount: number): void {
     this.wantColour = Math.max(0, Math.min(1, amount));
+  }
+
+  /** Burst to the size of the wall, under cover of a lightning flash; or come back to the desk. */
+  grow(big = true): void {
+    if (big === this.bigNow) return;
+    this.bigNow = big;
+    this.flash = 1;
+    this.onScale?.(big);
+  }
+
+  get isBig(): boolean {
+    return this.bigNow;
   }
 
   /** A sound was made: the picture blooms with colour for a moment. */

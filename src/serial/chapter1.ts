@@ -132,6 +132,19 @@ export const REEL_1: Reel = {
     },
     { k: 'par', beats: [{ k: 'do', who: 'thief', verb: 'flinch', face: 'knight' }, { k: 'emote', who: 'thief', emote: '!' }] },
     { k: 'title', text: '“The crown, villain!”', secs: 1.9 },
+    // the player's thunder blows the toy theatre open to the size of the wall: the rest of the reel is played large
+    { k: 'title', text: 'A storm breaks overhead.', secs: 1.8 },
+    {
+      k: 'cue',
+      prop: 'thunder',
+      label: 'Shake the thunder!',
+      hold: 10,
+      hit: [
+        { k: 'fx', fx: 'grow' },
+        { k: 'fx', fx: 'shake' },
+        { k: 'par', beats: [{ k: 'do', who: 'thief', verb: 'flinch' }, { k: 'do', who: 'knight', verb: 'flinch' }] },
+      ],
+    },
     { k: 'par', beats: [{ k: 'move', who: 'thief', to: 'door_side', gait: 'run', face: 'door' }, { k: 'door', open: true }] },
     {
       k: 'cue',

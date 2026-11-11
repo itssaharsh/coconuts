@@ -2,8 +2,9 @@
 // Plays a reel of the Serial in the emulator the way a seated player would: pinch the clapper, then answer every
 // moment the stage waits for (the WAIT lines it logs) by pointing at the prop it wants and pinching.
 // Requires the dev runtime (`iwsdk dev up --ai-mode agent --allow-browser-automation --headless`).
-// Usage: node tools/xr/run-serial.mjs [--shots qa/serial] [--until ride|open|end] [--silent] [--open bell] [--glasses]
+// Usage: node tools/xr/run-serial.mjs [--shots qa/serial] [--until ride|open|end] [--silent] [--open bell] [--reels 2] [--pitch thunder] [--glasses]
 // --silent: answer nothing, to prove the reel reaches its end by itself. --open: the prop played at open moments.
+// --reels N: after a reel, answer "What happens next?" with --pitch's prop (default: the second one offered) and play on.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -21,6 +22,8 @@ const silent = !!opt('silent', false);
 const openProp = opt('open', 'bell');
 const glasses = !!opt('glasses', false);
 const maxSeconds = Number(opt('max', 420));
+const reels = Number(opt('reels', 1));
+const pitchProp = opt('pitch', null);
 if (shots) mkdirSync(shots, { recursive: true });
 
 const CLI = resolve('node_modules/@iwsdk/cli/dist/cli.js');
@@ -150,11 +153,46 @@ async function main() {
   let lastWait = 0;
   let waits = 0;
   let ended = false;
+  let reelsDone = 0;
   const begun = Date.now();
   while (Date.now() - begun < maxSeconds * 1000) {
-    if (since('^REEL end', t0).length) {
-      ended = true;
-      break;
+    const ends = since('^REEL end', t0).length;
+    if (ends > reelsDone) {
+      reelsDone = ends;
+      if (reelsDone >= reels || (until !== 'end' && until !== 'pitch')) {
+        ended = true;
+        break;
+      }
+      // between reels: the card asks what happens next; answer it with a prop and wait for the next reel to roll
+      let offer = null;
+      for (let i = 0; i < 20 && !offer; i++) {
+        offer = since('^PITCH [a-z]+:', t0).pop() ?? null;
+        if (!offer) await sleep(800);
+      }
+      if (!offer) {
+        console.error('FAIL: no pitches were offered after the reel');
+        process.exit(1);
+      }
+      log(offer.message);
+      shot('pitch');
+      if (until === 'pitch') break;
+      const offered = offer.message.replace(/^PITCH /, '').split(' | ').map((x) => x.split(':')[0].trim());
+      const pick = pitchProp && offered.includes(pitchProp) ? pitchProp : offered[1] ?? offered[0];
+      const before = since('^REEL start', t0).length;
+      for (let i = 0; i < 4 && since('^PITCH chosen', t0).length < reelsDone; i++) await pinch(pick);
+      shot('writing');
+      let rolled = false;
+      for (let i = 0; i < 40 && !rolled; i++) {
+        rolled = since('^REEL start', t0).length > before;
+        if (!rolled) await sleep(700);
+      }
+      if (!rolled) {
+        console.error('FAIL: the next reel did not roll after the pitch');
+        log(since('^(PITCH|REEL|SERIAL|DIRECTOR)', t0).slice(-8).map((e) => e.message).join('\n'));
+        process.exit(1);
+      }
+      log(since('^REEL written', t0).pop()?.message ?? 'next reel rolling');
+      continue;
     }
     const w = since('^WAIT ', t0).pop();
     if (w && w.timestamp > lastWait) {
@@ -187,7 +225,7 @@ async function main() {
     } else await sleep(250);
   }
   shot('end');
-  const story = since('^(TITLE|CUE|REEL|SET|NUDGE|SCENE|CAST|HIT)', t0).map((e) => e.message);
+  const story = since('^(TITLE|CUE|REEL|SET|NUDGE|SCENE|CAST|HIT|PITCH|DIRECTOR)', t0).map((e) => e.message);
   log('story:\n  ' + story.join('\n  '));
   const perf = since('^PERF serial', t0).map((e) => e.message);
   const calls = perf.map((l) => Number((l.match(/calls (\d+)/) ?? [])[1])).filter(Number.isFinite);
@@ -196,10 +234,10 @@ async function main() {
   const errors = since('rror|THEATRE .*failed|failed', t0).map((e) => e.message).filter((m) => !/favicon/.test(m));
   if (errors.length) log('errors:\n  ' + errors.slice(-8).join('\n  '));
   if (until === 'end' && !ended) {
-    console.error('FAIL: the reel did not reach its end');
+    console.error(`FAIL: ${reelsDone} of ${reels} reel(s) reached the end`);
     process.exit(1);
   }
-  log(until === 'end' ? 'PASS: the reel played to its end' : `stopped at ${until}`, `(${waits} waits, ${Math.round((Date.now() - begun) / 1000)} s)`);
+  log(until === 'end' ? `PASS: ${reelsDone} reel(s) played to the end` : `stopped at ${until}`, `(${waits} waits, ${Math.round((Date.now() - begun) / 1000)} s)`);
 }
 main().catch((e) => {
   console.error('FAIL:', e.message);

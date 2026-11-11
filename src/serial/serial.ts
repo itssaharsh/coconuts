@@ -33,6 +33,8 @@ export interface SerialHooks extends PlayerHooks {
   onStage?: (cue: StageCue) => void;
   /** The Director's remark on the reel just written. */
   onNote?: (note: string, source: string) => void;
+  /** The theatre bursts to wall size (or comes back to the desk). */
+  onScale?: (big: boolean) => void;
 }
 
 export class Serial {
@@ -66,6 +68,7 @@ export class Serial {
   ) {
     this.theatre = new Theatre(base);
     this.theatre.onSound = (cue) => this.hooks.onStage?.(cue);
+    this.theatre.onScale = (big) => this.hooks.onScale?.(big);
     this.troupe = new Troupe(base);
     this.mount = new Mount(base);
     this.player = new ReelPlayer(this.theatre, this.troupe, this.mount, {
@@ -123,6 +126,7 @@ export class Serial {
     this.index = Math.max(0, Math.min(this.reels.length - 1, i));
     this.setState('loading');
     this.theatre.hideCard();
+    if (this.index === 0) this.theatre.grow(false); // reel one always starts as the toy on the desk
     try {
       await this.player.load(this.reel);
       const errs = validateReel(this.reel, { ...this.catalogue, [this.theatre.set.id]: this.theatre.set });
