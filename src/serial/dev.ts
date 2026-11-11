@@ -1,6 +1,7 @@
 // The stage dev page: the theatre and a stand-in table seen from the player's seat, driven by the keyboard
 // (c d b t w g = coconuts door bell thunder whistle glass, space = clapper) or by scripts through window.__serial.
 // ?step=1 stops the clock so a script can advance it frame by frame (smooth capture on a slow machine).
+// ?fx=rain (snow sparks dust shards motes fog embers confetti all) puts a stage effect on, bursts again every 1.2 s.
 import {
   AmbientLight,
   BoxGeometry,
@@ -16,6 +17,7 @@ import {
 } from 'three';
 import type { PropId } from '../foley/types';
 import { film } from './film';
+import { StageFx } from './fx';
 import { WRITTEN } from './pieces';
 import { Serial } from './serial';
 
@@ -75,6 +77,35 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
+// a stage effect to look at: the steady ones stay on, the bursts go off again every 1.2 s of show time
+let fx: StageFx | null = null;
+let fxNext = 0;
+let fxClock = 0;
+const fxName = q.get('fx') ?? '';
+const BURSTS: Record<string, (f: StageFx) => void> = {
+  sparks: (f) => f.sparks(0, 1.5, 1),
+  dust: (f) => f.dust(0, 1),
+  shards: (f) => f.shards(0, 1.5, 1),
+  confetti: (f) => f.confetti(),
+};
+function fxStart(f: StageFx, name: string): void {
+  const all = name === 'all';
+  if (all || name === 'rain') f.rain(true);
+  if (all || name === 'snow') f.snow(true);
+  if (all || name === 'motes') f.motes(true);
+  if (all || name === 'fog') f.fog(1);
+  if (all || name === 'embers') f.embers(0, 0.4, 1.2, true);
+}
+function fxStep(dt: number): void {
+  if (!fx) return;
+  fxClock += dt;
+  if (fxClock >= fxNext) {
+    fxNext += 1.2;
+    for (const [k, go] of Object.entries(BURSTS)) if (fxName === k || fxName === 'all') go(fx);
+  }
+  fx.update(dt);
+}
+
 const stepped = q.has('step');
 const timer = new Timer();
 let clock = 0;
@@ -84,9 +115,11 @@ function frame(dt: number, draw = true): void {
   if (forceColour !== null) serial.theatre.setColour(forceColour);
   sizeStep(dt);
   serial.update(dt);
+  fxStep(dt);
   if (!draw) return;
   renderer.render(scene, camera);
-  hud.textContent = q.has('hud') ? `${serial.state} reel ${serial.reelNumber}  t=${clock.toFixed(1)}\n${waiting}\ncalls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}` : '';
+  const pts = fx ? ` points ${renderer.info.render.points}` : '';
+  hud.textContent = q.has('hud') ? `${serial.state} reel ${serial.reelNumber}  t=${clock.toFixed(1)}\n${waiting}\ncalls ${renderer.info.render.calls} tris ${renderer.info.render.triangles}${pts}` : '';
 }
 if (!stepped) {
   renderer.setAnimationLoop(() => {
@@ -98,6 +131,8 @@ if (!stepped) {
 const api = {
   serial,
   film,
+  /** The stage effects of ?fx= (null without it). */
+  fx: null as StageFx | null,
   ready: false,
   /** Advance the stage by dt seconds and draw (stepped mode). */
   step: (dt: number) => frame(dt),
@@ -124,6 +159,10 @@ void serial.init().then(async () => {
   // ?written=thunder puts that prop's written reel on the stage instead of reel one
   const written = q.get('written') as PropId | null;
   if (written && WRITTEN[written]) await serial.preview(WRITTEN[written]);
+  if (fxName) {
+    fx = api.fx = new StageFx(serial.theatre.stage);
+    fxStart(fx, fxName);
+  }
   api.ready = true;
   document.title = 'stage ready';
   if (q.has('roll')) void serial.roll();

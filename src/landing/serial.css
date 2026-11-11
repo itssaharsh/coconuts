@@ -11,30 +11,99 @@
   --hero-h: clamp(640px, 100svh, 1040px);
   --ease-house: cubic-bezier(0.65, 0, 0.25, 1);
   /* metric-matched fallbacks: the page keeps its shape when the web fonts land */
-  --display: 'Bricolage Grotesque', 'Bricolage fallback', ui-sans-serif, system-ui, sans-serif;
-  --body: 'Instrument Sans', 'Instrument fallback', ui-sans-serif, system-ui, sans-serif;
-  --film: 'Limelight', 'Limelight fallback', Georgia, serif;
+  --display: 'Bricolage Grotesque', 'Bricolage fb A', 'Bricolage fb R', 'Bricolage fb D', ui-sans-serif, system-ui, sans-serif;
+  --body: 'Instrument Sans', 'Instrument fb A', 'Instrument fb R', 'Instrument fb D', ui-sans-serif, system-ui, sans-serif;
+  --film: 'Limelight', 'Limelight fb', Georgia, serif;
 }
+/* fallbacks sized to the web fonts' widths, one per common system font (Arial on Windows and macOS, Roboto on Android
+   and the Quest, DejaVu on Linux), so lines wrap the same before and after the web fonts land. Measured against
+   DejaVu (Bricolage 800 = 0.82, Instrument 400 = 0.92 and 600 = 0.82, Limelight = 0.95); Arial and Roboto from their
+   average widths relative to DejaVu. */
 @font-face {
-  font-family: 'Bricolage fallback';
-  src: local('Arial'), local('Helvetica'), local('Liberation Sans');
-  size-adjust: 104%;
-  ascent-override: 90%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
-@font-face {
-  font-family: 'Instrument fallback';
-  src: local('Arial'), local('Helvetica'), local('Liberation Sans');
+  font-family: 'Bricolage fb A';
+  src: local('Arial Bold'), local('Arial-BoldMT');
+  font-weight: 600 800;
   size-adjust: 96%;
-  ascent-override: 95%;
-  descent-override: 24%;
+  ascent-override: 93%;
+  descent-override: 27%;
   line-gap-override: 0%;
 }
 @font-face {
-  font-family: 'Limelight fallback';
-  src: local('Georgia'), local('Times New Roman'), local('Liberation Serif');
+  font-family: 'Bricolage fb R';
+  src: local('Roboto Bold'), local('Roboto-Bold');
+  font-weight: 600 800;
+  size-adjust: 98%;
+  ascent-override: 93%;
+  descent-override: 27%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Bricolage fb D';
+  src: local('DejaVu Sans Bold'), local('DejaVuSans-Bold');
+  font-weight: 600 800;
+  size-adjust: 82%;
+  ascent-override: 93%;
+  descent-override: 27%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Instrument fb A';
+  src: local('Arial'), local('ArialMT');
+  font-weight: 400 500;
+  size-adjust: 105%;
+  ascent-override: 97%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Instrument fb A';
+  src: local('Arial Bold'), local('Arial-BoldMT');
+  font-weight: 600 700;
+  size-adjust: 96%;
+  ascent-override: 97%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Instrument fb R';
+  src: local('Roboto'), local('Roboto-Regular');
+  font-weight: 400 500;
   size-adjust: 108%;
+  ascent-override: 97%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Instrument fb R';
+  src: local('Roboto Bold'), local('Roboto-Bold');
+  font-weight: 600 700;
+  size-adjust: 98%;
+  ascent-override: 97%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Instrument fb D';
+  src: local('DejaVu Sans'), local('DejaVuSans');
+  font-weight: 400 500;
+  size-adjust: 92%;
+  ascent-override: 97%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Instrument fb D';
+  src: local('DejaVu Sans Bold'), local('DejaVuSans-Bold');
+  font-weight: 600 700;
+  size-adjust: 82%;
+  ascent-override: 97%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Limelight fb';
+  src: local('Georgia'), local('DejaVu Serif'), local('DejaVuSerif');
+  size-adjust: 97%;
 }
 .show-serial body {
   font-family: var(--body);
@@ -336,7 +405,7 @@ html:not(.show-serial) #scene-container > .house {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-top: 14px;
+  margin-top: 8px;
 }
 .show-serial .s-voice-btn {
   flex: none;
@@ -752,7 +821,7 @@ html:not(.show-serial) #scene-container > .house {
     bottom: 24px;
   }
   .s-voice {
-    margin-top: 12px;
+    margin-top: 6px;
   }
   .s-voice-line {
     font-size: 13.5px;
@@ -884,6 +953,9 @@ html:not(.show-serial) #scene-container > .house {
   }
   .s-note:empty {
     display: none;
+  }
+  .s-voice {
+    margin-top: 12px;
   }
   .s-stage {
     display: block;

@@ -47,7 +47,7 @@ export const FACINGS = ['audience', 'upstage', 'left', 'right'];
  * door and the window; duel_a / duel_b face each other across the middle; front_* and aside_* are the clear places
  * downstage and in the front corners.
  */
-export const DERIVED_MARKS = ['door_side', 'window_side', 'duel_a', 'duel_b', 'front_left', 'front_right', 'aside_left', 'aside_right', 'boss'];
+export const DERIVED_MARKS = ['door_side', 'window_side', 'duel_a', 'duel_b', 'front_left', 'front_right', 'aside_left', 'aside_right', 'lair'];
 
 /** A place on the stage: a named mark of the set, or the wings. */
 export type Mark = string;

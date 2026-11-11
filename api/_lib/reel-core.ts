@@ -147,7 +147,7 @@ export const PIECE_GUIDE: Record<PieceName, { fields: string; sound: PropId | 'a
     fields: 'hero, beast? ("spider" | "bull" | "wolf", default "spider"), line?',
     sound: 'thunder',
     does: 'a monster comes out of the dark after a card `line` (default “Something stirs in the dark.”) and `hero` fights it: the player\'s thunder drives it back (and bursts the theatre to wall size), the bell rings two blows, and a crash of glass finishes it. The big set piece of a reel: thunder, bell and glass in one piece.',
-    rule: 'not on a road; at most one a scene and one a reel; do not name any actor "boss"; best in the graveyard, the camp, the hall or at the gate, where there is room.',
+    rule: 'not on a road; at most one a scene and one a reel; actor ids are short lowercase names of people (never "monster", and never a place such as door, window, left, right, centre, table or chest); best in the graveyard, the camp, the hall or at the gate, where there is room.',
   },
 };
 

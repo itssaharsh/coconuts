@@ -4,7 +4,7 @@
 // `checkPlan` plays, reads on the stage and gives the player something to do.
 // (.js on the relative imports: /api/reel runs this file as plain ESM on Node, which needs the extension; Vite and tsc map it to the .ts)
 import type { PropId } from '../foley/types.js';
-import { type Beat, type CastEntry, CHARACTERS, type CharacterId, type Reel, type Side, type Tint, TINT_NAMES } from './schema.js';
+import { type Beat, type CastEntry, CHARACTERS, type CharacterId, DERIVED_MARKS, type Reel, type Side, type Tint, TINT_NAMES } from './schema.js';
 
 export const SET_IDS = ['gate', 'vault', 'graveyard', 'inn', 'hall', 'camp', 'road', 'road-forest', 'road-village'] as const;
 export type SetId = (typeof SET_IDS)[number];
@@ -70,6 +70,14 @@ export interface Pitch {
 }
 
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
+
+/** Names an actor may not take: a beat that says "to the door" must mean the door, not an actor called door. */
+const RESERVED = new Set([
+  ...DERIVED_MARKS,
+  'door', 'window', 'centre', 'left', 'right', 'table', 'chest', 'bar', 'behind_bar', 'table_l', 'table_r', 'throne', 'dais_left', 'dais_right',
+  'fire', 'log', 'cart', 'tree', 'grave_a', 'grave_b', 'grave_c', 'upstage_left', 'upstage_right', 'wings_left', 'wings_right', 'audience', 'upstage',
+  'monster', 'wolf_a', 'wolf_b',
+]);
 const PIECES = ['card', 'arrive', 'ride', 'knock', 'wake', 'duel', 'storm', 'smash', 'whistle', 'slam', 'chase', 'toast', 'boss'];
 const BOSSES = ['spider', 'bull', 'wolf'];
 /** Pieces that wait for a sound (a reel needs at least two). */
@@ -100,6 +108,7 @@ export function checkPlan(plan: unknown): string[] {
     const ids = new Set<string>();
     for (const c of sc.cast) {
       if (!c || typeof c.id !== 'string' || !/^[a-z][a-z0-9_]{0,15}$/.test(c.id)) errs.push(`${at}: an actor id is a short lowercase word`);
+      else if (RESERVED.has(c.id)) errs.push(`${at}: an actor cannot be called ${c.id} (that is a place on the stage)`);
       else if (ids.has(c.id)) errs.push(`${at}: actor ${c.id} twice`);
       else ids.add(c.id);
       if (!c || !(CHARACTERS as readonly string[]).includes(c.char)) errs.push(`${at}: unknown character ${String(c?.char)}`);
@@ -176,7 +185,6 @@ export function checkPlan(plan: unknown): string[] {
         case 'boss':
           who(pc.hero, w);
           if (pc.beast !== undefined && !BOSSES.includes(pc.beast)) errs.push(`${at} ${w}: the beast is a spider, a bull or a wolf`);
-          if (ids.has('boss')) errs.push(`${at} ${w}: the name "boss" is the monster's`);
           if (sc.pieces.filter((x) => x?.piece === 'boss').length > 1) errs.push(`${at} ${w}: one monster a scene`);
           line(pc.line, 8, `${at} ${w} line`, true);
           break;
@@ -241,9 +249,9 @@ export function assemble(plan: ReelPlan, id: string): Reel {
       at.set(lead.sleeper, info.sleep[0]);
       down.add(lead.sleeper);
     }
-    // the monster waits in the wings under the name "boss"
+    // the monster waits in the wings under the name "monster" (its mark is the lair: a name must never be both)
     const monster = sc.pieces.find((p) => p.piece === 'boss') as Extract<PiecePlan, { piece: 'boss' }> | undefined;
-    if (monster) cast.push({ id: 'boss', char: monster.beast ?? 'spider' });
+    if (monster) cast.push({ id: 'monster', char: monster.beast ?? 'spider' });
     const storm = sc.pieces.find((p) => p.piece === 'storm') as Extract<PiecePlan, { piece: 'storm' }> | undefined;
     (storm?.risers ?? []).forEach((r, i) => {
       if (at.has(r) || !info.graves) return;
@@ -455,18 +463,18 @@ export function assemble(plan: ReelPlan, id: string): Reel {
         }
         case 'boss': {
           // the middle and the back of the stage are the monster's; everyone but the hero keeps to the corners
-          clear(['duel_a', 'duel_b', 'centre', 'boss', 'front_left', 'front_right'], [pc.hero], ['aside_left', 'aside_right']);
+          clear(['duel_a', 'duel_b', 'centre', 'lair', 'front_left', 'front_right'], [pc.hero], ['aside_left', 'aside_right']);
           scene.push({ k: 'title', text: pc.line ?? 'Something stirs in the dark.', secs: 2.2 });
-          scene.push(bring('boss', 'boss', { from: 'right', face: 'audience' }));
+          scene.push(bring('monster', 'lair', { from: 'right', face: 'audience' }));
           scene.push({ k: 'fx', fx: 'shake' });
-          scene.push({ k: 'par', beats: [bring(pc.hero, 'front_left', { face: 'boss', from: 'left' }), ...standing().filter((x) => x !== 'boss').map((x): Beat => ({ k: 'emote', who: x, emote: '!' }))] });
+          scene.push({ k: 'par', beats: [bring(pc.hero, 'front_left', { face: 'monster', from: 'left' }), ...standing().filter((x) => x !== 'monster').map((x): Beat => ({ k: 'emote', who: x, emote: '!' }))] });
           scene.push({
             k: 'cue',
             prop: 'thunder',
             label: 'Thunder! Drive it back!',
             who: pc.hero,
             hold: 10,
-            hit: [{ k: 'fx', fx: 'grow' }, { k: 'fx', fx: 'lightning' }, { k: 'do', who: 'boss', verb: 'flinch' }],
+            hit: [{ k: 'fx', fx: 'grow' }, { k: 'fx', fx: 'lightning' }, { k: 'do', who: 'monster', verb: 'flinch' }],
           });
           scene.push({
             k: 'cue',
@@ -474,7 +482,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             label: 'Ring: a blow!',
             who: pc.hero,
             hold: 9,
-            hit: [{ k: 'par', beats: [{ k: 'do', who: pc.hero, verb: 'chop', face: 'boss' }, { k: 'do', who: 'boss', verb: 'stagger' }] }],
+            hit: [{ k: 'par', beats: [{ k: 'do', who: pc.hero, verb: 'chop', face: 'monster' }, { k: 'do', who: 'monster', verb: 'stagger' }] }],
           });
           scene.push({
             k: 'cue',
@@ -482,7 +490,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             label: 'Ring: it strikes!',
             who: pc.hero,
             hold: 9,
-            hit: [{ k: 'par', beats: [{ k: 'do', who: 'boss', verb: 'chop', face: pc.hero }, { k: 'do', who: pc.hero, verb: 'block', face: 'boss' }] }],
+            hit: [{ k: 'par', beats: [{ k: 'do', who: 'monster', verb: 'chop', face: pc.hero }, { k: 'do', who: pc.hero, verb: 'block', face: 'monster' }] }],
           });
           scene.push({
             k: 'cue',
@@ -491,13 +499,13 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             who: pc.hero,
             hold: 10,
             hit: [
-              { k: 'do', who: pc.hero, verb: 'throw', face: 'boss' },
+              { k: 'do', who: pc.hero, verb: 'throw', face: 'monster' },
               { k: 'fx', fx: 'shake' },
-              { k: 'do', who: 'boss', verb: 'fall' },
+              { k: 'do', who: 'monster', verb: 'fall' },
               { k: 'do', who: pc.hero, verb: 'cheer', face: 'audience' },
             ],
           });
-          down.add('boss');
+          down.add('monster');
           break;
         }
         case 'toast':
@@ -593,14 +601,13 @@ export const WRITTEN: Record<PropId, ReelPlan> = {
         cast: [KNIGHT, { id: 'duke', char: 'skeleton_mage', items: ['skeleton_staff'] }, { id: 'guard', char: 'skeleton_warrior' }],
         pieces: [
           { piece: 'knock', who: 'knight', opener: 'guard', line: '“The Duke is not at home.”' },
-          { piece: 'duel', a: 'knight', b: 'guard', blows: 2 },
           { piece: 'arrive', who: 'duke', from: 'right', line: 'The Duke was at home.' },
-          { piece: 'storm', line: 'He raises his staff.' },
-          { piece: 'slam', who: 'knight' },
+          { piece: 'card', line: '“Meet my pet, sir knight.”' },
+          { piece: 'boss', hero: 'knight', beast: 'spider', line: 'Eight legs. No manners.' },
         ],
       },
     ],
-    cliffhanger: 'Locked in with the Duke.',
+    cliffhanger: 'The Duke slips out the back.',
   },
   whistle: {
     title: 'A Friend in Need',
