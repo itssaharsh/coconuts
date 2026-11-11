@@ -70,6 +70,16 @@ export function directorPayload(clip: { id: string; title: string; year: number 
   return payload;
 }
 
+/** The client's patience with the functions; a dev build may stretch it (VITE_DIRECTOR_TIMEOUT) for a remote deployment. */
+const defaultTimeout = (fallback: number): number => {
+  try {
+    const v = Number(import.meta.env?.VITE_DIRECTOR_TIMEOUT);
+    return Number.isFinite(v) && v > 0 ? v : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 const defaultBase = (): string => {
   try {
     // VITE_DIRECTOR_BASE points a dev build at a deployed Director (the dev server has no functions)
@@ -106,7 +116,7 @@ export async function reviewTake(args: {
   base?: string;
   timeoutMs?: number;
 }): Promise<{ line: string; source: 'model' | 'rules' }> {
-  const { clip, tracker, take, base = defaultBase(), timeoutMs = 2500 } = args;
+  const { clip, tracker, take, base = defaultBase(), timeoutMs = defaultTimeout(2500) } = args;
   const rules = () => ({ line: directorLine(tracker), source: 'rules' as const });
   try {
     const body = JSON.stringify(directorPayload(clip, tracker, take));
@@ -124,7 +134,7 @@ export async function reviewTake(args: {
 }
 
 /** Say a line in the Director's voice. Resolves true once it has played, false (quietly) when it could not. */
-export async function speak(text: string, base: string = defaultBase(), timeoutMs = 2500): Promise<boolean> {
+export async function speak(text: string, base: string = defaultBase(), timeoutMs = defaultTimeout(2500)): Promise<boolean> {
   try {
     const t = text.trim();
     if (!t || t.length > 160) return false;
