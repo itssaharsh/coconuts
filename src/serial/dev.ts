@@ -88,10 +88,16 @@ const api = {
   ready: false,
   /** Advance the stage by dt seconds and draw (stepped mode). */
   step: (dt: number) => frame(dt),
-  /** Advance by `seconds` in steps of `dt` without waiting for real time; only the last step is drawn. */
-  run: (seconds: number, dt = 1 / 30) => {
+  /**
+   * Advance by `seconds` in steps of `dt` without waiting for real time; only the last step is drawn. The loop
+   * yields to the page a few times each simulated second, so loads that start mid-run (a scene change) can land.
+   */
+  run: async (seconds: number, dt = 1 / 30) => {
     const n = Math.max(1, Math.round(seconds / dt));
-    for (let i = 0; i < n; i++) frame(dt, i === n - 1);
+    for (let i = 0; i < n; i++) {
+      frame(dt, i === n - 1);
+      if (i % 8 === 7) await new Promise((r) => setTimeout(r, 0));
+    }
   },
   sound: (prop: PropId, kind = 'script') => serial.sound(prop, kind, 1),
   roll: () => serial.roll(),

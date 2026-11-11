@@ -455,9 +455,9 @@ export function choiceCard(prompt: string, options: { prop: PropId; text: string
     g.textBaseline = 'middle';
     const ps = fit(g, prompt.toUpperCase(), c.width - 200, 78, TITLE_FONT);
     g.font = `400 ${ps}px ${TITLE_FONT}`;
-    g.fillText(prompt.toUpperCase(), c.width / 2, 132);
-    const rowH = 128;
-    const top = 224;
+    g.fillText(prompt.toUpperCase(), c.width / 2, 124);
+    const rowH = 112;
+    const top = 196;
     options.slice(0, 3).forEach((o, i) => {
       const y = top + i * (rowH + 14);
       g.strokeStyle = '#8d8472';
@@ -476,7 +476,7 @@ export function choiceCard(prompt: string, options: { prop: PropId; text: string
       g.fillStyle = '#c9bda0';
       g.textAlign = 'center';
       g.font = `500 34px ${BODY_FONT}`;
-      g.fillText(footer, c.width / 2, c.height - 74);
+      g.fillText(footer, c.width / 2, c.height - 86);
     }
     return texture(c);
   });

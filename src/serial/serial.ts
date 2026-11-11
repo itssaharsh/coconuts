@@ -143,6 +143,7 @@ export class Serial {
   /** The clapper: roll the reel that is ready. */
   async roll(): Promise<void> {
     if (this.state !== 'ready') return;
+    this.theatre.hideCard();
     this.player.start();
     this.setState('playing');
   }

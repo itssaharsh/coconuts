@@ -53,7 +53,8 @@ export function mat(hex: string, roughness = 0.7, metalness = 0): MeshStandardMa
 function hitBox(size = HIT_BOX, height = size, depth = size, name = 'hit'): Mesh {
   const m = new Mesh(
     new BoxGeometry(size, height, depth),
-    new MeshBasicMaterial({ colorWrite: false, depthWrite: false, transparent: true, opacity: 0 }),
+    // never drawn (the material is invisible), still hit by rays and pokes
+    new MeshBasicMaterial({ colorWrite: false, depthWrite: false, transparent: true, opacity: 0, visible: false }),
   );
   m.position.y = height / 2;
   m.name = name;

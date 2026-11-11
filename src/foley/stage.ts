@@ -209,6 +209,7 @@ export class Stage {
         const m = lamp.material as MeshBasicMaterial;
         const target = Math.max(p.pulse, p.selected ? 1 : p.hovered ? 0.55 : 0);
         m.opacity += (target - m.opacity) * k;
+        lamp.visible = m.opacity > 0.01 || target > 0; // a dark lamp is not drawn at all
       }
       p.pulse = Math.max(0, p.pulse - dt * 2.5);
       const s = p.hovered ? 1.04 : 1;

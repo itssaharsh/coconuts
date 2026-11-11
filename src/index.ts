@@ -89,6 +89,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
     console.log('RENDER low-fidelity (automation run)');
   }
   world.registerSystem(FoleySystem);
+  if (import.meta.env.DEV) (window as unknown as { __world: unknown }).__world = world; // for the test drivers, not shipped
   if (soundForced()) {
     // the video's soundtrack: start() records the mix, stop() resolves with a data URL of the WebM audio
     let rec: MediaRecorder | null = null;

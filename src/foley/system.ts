@@ -190,11 +190,13 @@ export class FoleySystem extends createSystem({
           this.hitBoxes.set(id, hit);
           const h = this.world.createTransformEntity(hit, { parent: e, persistent: true });
           h.addComponent(RayInteractable);
+          h.addComponent(PokeInteractable); // a pat with an open hand sounds the prop too
           this.entityPiece.set(h, piece.id);
         }
       } else {
         e.addComponent(RayInteractable);
-        if (POKEABLE.includes(id)) e.addComponent(PokeInteractable);
+        // in the Serial everything on the table answers a touch: the clapper and the tiles too
+        if (POKEABLE.includes(id) || this.serialOn) e.addComponent(PokeInteractable);
       }
     }
     this.stage.screen.onEnded = () => this.endTake();
@@ -254,7 +256,11 @@ export class FoleySystem extends createSystem({
   private onSerialState(s: SerialState): void {
     const serial = this.serial;
     if (!serial) return;
-    if (s === 'ready') this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, 'Pinch the clapper to roll', 0);
+    if (s === 'ready') {
+      this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, 'Tap the clapper to roll', 0);
+      // the marquee before the first reel: what this is and the one thing to do
+      if (serial.reelNumber === 1) serial.theatre.showCard('Coconuts: the Serial', 'You make every sound. Try the props, then tap the clapper.');
+    }
     else if (s === 'playing') {
       this.slate.hide();
       sound.setMusic(true); // the house pianist plays from the first reel on
@@ -424,9 +430,10 @@ export class FoleySystem extends createSystem({
     void sound.ensureAudio();
     if (GRABBABLE.includes(prop)) {
       if (this.held.has(prop)) return; // the pinch already picked it up this frame
-      // a ray press from a hand right beside the prop is a grab, not a far pinch
+      // a pinch from a hand right beside the prop is a grab, not a far pinch (an open hand's touch is a pat: it sounds)
       for (const hand of HANDS) {
-        if (this.pinchHeld[hand] === null && this.distanceToProp(hand, prop) < NEAR_GRAB_M) {
+        const pinch = this.input.xr.getSelectState(hand);
+        if ((pinch.active || pinch.start) && this.pinchHeld[hand] === null && this.distanceToProp(hand, prop) < NEAR_GRAB_M) {
           this.pinchHeld[hand] = prop;
           this.beginHold(prop, hand);
           return;
@@ -772,7 +779,14 @@ export class FoleySystem extends createSystem({
         console.log('PERF serial calls', r.calls, 'triangles', r.triangles, 'dt', dt.toFixed(3));
       }
       // the prop the stage is waiting for glows on the table; at an open moment they all do, in turn
-      if (this.wanted) {
+      if (this.serial.state === 'ready') {
+        // the clapper is the way in: it glows until the reel rolls
+        this.wantedPulse -= dt;
+        if (this.wantedPulse <= 0) {
+          this.wantedPulse = 0.85;
+          this.stage.flash('clapper', 0.9);
+        }
+      } else if (this.wanted) {
         this.wantedPulse -= dt;
         if (this.wantedPulse <= 0) {
           this.wantedPulse = 0.85;
