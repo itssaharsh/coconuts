@@ -103,3 +103,7 @@ assets-src/audio-raw/
 
 # intermediate files of the set pipeline
 assets-src/serial/work/
+
+# python caches
+__pycache__/
+*.pyc
