@@ -143,6 +143,12 @@ export const PIECE_GUIDE: Record<PieceName, { fields: string; sound: PropId | 'a
     rule: 'runner and chaser are different actors.',
   },
   toast: { fields: 'line?', sound: 'bell', does: 'an optional card `line`, then the bell for a toast or last orders: everyone on stage cheers.' },
+  boss: {
+    fields: 'hero, beast? ("spider" | "bull" | "wolf", default "spider"), line?',
+    sound: 'thunder',
+    does: 'a monster comes out of the dark after a card `line` (default “Something stirs in the dark.”) and `hero` fights it: the player\'s thunder drives it back (and bursts the theatre to wall size), the bell rings two blows, and a crash of glass finishes it. The big set piece of a reel: thunder, bell and glass in one piece.',
+    rule: 'not on a road; at most one a scene and one a reel; do not name any actor "boss"; best in the graveyard, the camp, the hall or at the gate, where there is room.',
+  },
 };
 
 /** Who each character is in the serial. */
@@ -289,7 +295,7 @@ const piece = (name: PieceName, props: Record<string, unknown>, required: string
 
 let SCHEMA: Record<string, unknown> | null = null;
 
-/** The JSON schema of an answer: 14 optional fields and one union, well inside the API's limits (24 and 16). */
+/** The JSON schema of an answer: 16 optional fields and one union, well inside the API's limits (24 and 16). */
 export function reelSchema(): Record<string, unknown> {
   if (SCHEMA) return SCHEMA;
   const pieces = [
@@ -305,6 +311,7 @@ export function reelSchema(): Record<string, unknown> {
     piece('slam', { who: actor }, ['who']),
     piece('chase', { runner: actor, chaser: actor }, ['runner', 'chaser']),
     piece('toast', { line: card }, []),
+    piece('boss', { hero: actor, beast: { enum: ['spider', 'bull', 'wolf'] }, line: card }, ['hero']),
   ];
   const scene = obj(
     {
@@ -354,6 +361,7 @@ const PIECE_FIELDS: Record<PieceName, string[]> = {
   slam: ['who'],
   chase: ['runner', 'chaser'],
   toast: ['line'],
+  boss: ['hero', 'beast', 'line'],
 };
 
 /** Keep only the fields a plan has (a model may add others, or send null for a field it leaves out). */

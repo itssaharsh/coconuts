@@ -70,6 +70,8 @@ const COMMON_MARKS: Record<string, [number, number]> = {
   front_right: [3.0, 2.0],
   aside_left: [-5.2, 2.4],
   aside_right: [5.2, 2.4],
+  // where something large comes to rest: the middle of the back of the stage
+  boss: [1.4, -1.5],
 };
 
 /** Where a set's own marks put an actor behind its furniture, the stage knows better. */

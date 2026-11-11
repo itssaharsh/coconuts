@@ -46,7 +46,9 @@ export type PiecePlan =
   /** `runner` flees across the stage and off; `chaser` goes after. */
   | { piece: 'chase'; runner: string; chaser: string }
   /** The bell for a toast or last orders: everyone on stage cheers. */
-  | { piece: 'toast'; line?: string };
+  | { piece: 'toast'; line?: string }
+  /** A monster comes out of the dark and `hero` fights it: thunder drives it back, the bell rings two blows, glass finishes it. */
+  | { piece: 'boss'; hero: string; beast?: 'spider' | 'bull' | 'wolf'; line?: string };
 
 export interface ScenePlan {
   set: SetId;
@@ -68,9 +70,10 @@ export interface Pitch {
 }
 
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
-const PIECES = ['card', 'arrive', 'ride', 'knock', 'wake', 'duel', 'storm', 'smash', 'whistle', 'slam', 'chase', 'toast'];
+const PIECES = ['card', 'arrive', 'ride', 'knock', 'wake', 'duel', 'storm', 'smash', 'whistle', 'slam', 'chase', 'toast', 'boss'];
+const BOSSES = ['spider', 'bull', 'wolf'];
 /** Pieces that wait for a sound (a reel needs at least two). */
-const SOUNDING = new Set(['ride', 'knock', 'wake', 'duel', 'storm', 'smash', 'whistle', 'slam', 'toast']);
+const SOUNDING = new Set(['ride', 'knock', 'wake', 'duel', 'storm', 'smash', 'whistle', 'slam', 'toast', 'boss']);
 
 /** Every problem with a plan, empty when `assemble` can stage it. Plans come from a model: nothing is assumed. */
 export function checkPlan(plan: unknown): string[] {
@@ -170,6 +173,13 @@ export function checkPlan(plan: unknown): string[] {
         case 'toast':
           line(pc.line, 8, `${at} ${w} line`, true);
           break;
+        case 'boss':
+          who(pc.hero, w);
+          if (pc.beast !== undefined && !BOSSES.includes(pc.beast)) errs.push(`${at} ${w}: the beast is a spider, a bull or a wolf`);
+          if (ids.has('boss')) errs.push(`${at} ${w}: the name "boss" is the monster's`);
+          if (sc.pieces.filter((x) => x?.piece === 'boss').length > 1) errs.push(`${at} ${w}: one monster a scene`);
+          line(pc.line, 8, `${at} ${w} line`, true);
+          break;
       }
     });
   });
@@ -231,6 +241,9 @@ export function assemble(plan: ReelPlan, id: string): Reel {
       at.set(lead.sleeper, info.sleep[0]);
       down.add(lead.sleeper);
     }
+    // the monster waits in the wings under the name "boss"
+    const monster = sc.pieces.find((p) => p.piece === 'boss') as Extract<PiecePlan, { piece: 'boss' }> | undefined;
+    if (monster) cast.push({ id: 'boss', char: monster.beast ?? 'spider' });
     const storm = sc.pieces.find((p) => p.piece === 'storm') as Extract<PiecePlan, { piece: 'storm' }> | undefined;
     (storm?.risers ?? []).forEach((r, i) => {
       if (at.has(r) || !info.graves) return;
@@ -438,6 +451,53 @@ export function assemble(plan: ReelPlan, id: string): Reel {
           const out = side; // the wing the runner did not come from
           scene.push(leave(pc.runner, out));
           scene.push(bring(pc.chaser, 'centre', { gait: 'run' }), { k: 'emote', who: pc.chaser, emote: 'angry' }, leave(pc.chaser, out));
+          break;
+        }
+        case 'boss': {
+          // the middle and the back of the stage are the monster's; everyone but the hero keeps to the corners
+          clear(['duel_a', 'duel_b', 'centre', 'boss', 'front_left', 'front_right'], [pc.hero], ['aside_left', 'aside_right']);
+          scene.push({ k: 'title', text: pc.line ?? 'Something stirs in the dark.', secs: 2.2 });
+          scene.push(bring('boss', 'boss', { from: 'right', face: 'audience' }));
+          scene.push({ k: 'fx', fx: 'shake' });
+          scene.push({ k: 'par', beats: [bring(pc.hero, 'front_left', { face: 'boss', from: 'left' }), ...standing().filter((x) => x !== 'boss').map((x): Beat => ({ k: 'emote', who: x, emote: '!' }))] });
+          scene.push({
+            k: 'cue',
+            prop: 'thunder',
+            label: 'Thunder! Drive it back!',
+            who: pc.hero,
+            hold: 10,
+            hit: [{ k: 'fx', fx: 'grow' }, { k: 'fx', fx: 'lightning' }, { k: 'do', who: 'boss', verb: 'flinch' }],
+          });
+          scene.push({
+            k: 'cue',
+            prop: 'bell',
+            label: 'Ring: a blow!',
+            who: pc.hero,
+            hold: 9,
+            hit: [{ k: 'par', beats: [{ k: 'do', who: pc.hero, verb: 'chop', face: 'boss' }, { k: 'do', who: 'boss', verb: 'stagger' }] }],
+          });
+          scene.push({
+            k: 'cue',
+            prop: 'bell',
+            label: 'Ring: it strikes!',
+            who: pc.hero,
+            hold: 9,
+            hit: [{ k: 'par', beats: [{ k: 'do', who: 'boss', verb: 'chop', face: pc.hero }, { k: 'do', who: pc.hero, verb: 'block', face: 'boss' }] }],
+          });
+          scene.push({
+            k: 'cue',
+            prop: 'glass',
+            label: 'Smash! Finish it!',
+            who: pc.hero,
+            hold: 10,
+            hit: [
+              { k: 'do', who: pc.hero, verb: 'throw', face: 'boss' },
+              { k: 'fx', fx: 'shake' },
+              { k: 'do', who: 'boss', verb: 'fall' },
+              { k: 'do', who: pc.hero, verb: 'cheer', face: 'audience' },
+            ],
+          });
+          down.add('boss');
           break;
         }
         case 'toast':

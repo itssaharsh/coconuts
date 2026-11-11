@@ -49,7 +49,7 @@ export async function transcribe(audio: Uint8Array, deps: HearDeps = {}): Promis
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), DEADLINE_MS);
   try {
-    const up = await f(`${API}/upload`, { method: 'POST', headers: { authorization: key, 'content-type': 'application/octet-stream' }, body: audio, signal: ctl.signal });
+    const up = await f(`${API}/upload`, { method: 'POST', headers: { authorization: key, 'content-type': 'application/octet-stream' }, body: new Blob([audio.buffer.slice(audio.byteOffset, audio.byteOffset + audio.byteLength) as ArrayBuffer]), signal: ctl.signal });
     if (!up.ok) return null;
     const { upload_url } = (await up.json()) as { upload_url?: string };
     if (!upload_url) return null;
