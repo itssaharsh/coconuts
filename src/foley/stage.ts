@@ -1,6 +1,6 @@
 // The stage: the table with its props, clapperboard and tiles, and the screen, as one root group.
 import { CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, Quaternion, SRGBColorSpace, Vector3 } from 'three';
-import { dress, modelStats } from './models';
+import { dress, mergeByFinish, modelStats } from './models';
 import { Screen } from './screen';
 import { PALETTE, TABLE_D, TABLE_H, TABLE_W, buildClapper, buildMegaphone, buildProp, buildTable, buildTile, mat, nameHitBoxes } from './toys';
 import { PROPS, type PropId } from './types';
@@ -122,21 +122,26 @@ export class Stage {
           const spot = model.getObjectByName(`Spot${i + 1}`);
           if (spec && spot) spot.position.set(spec.x, spot.position.y, spec.z);
         });
+        saved += mergeByFinish(model); // after the spots have moved: they fold into the table top
       }),
     ];
+    let saved = 0;
+    const fold = (model: Object3D | null) => {
+      if (model) saved += mergeByFinish(model);
+    };
     for (const spec of PROPS) {
       const piece = this.pieces.get(spec.id);
-      if (piece) jobs.push(dress(piece.root, spec.id));
+      if (piece) jobs.push(dress(piece.root, spec.id).then(fold));
     }
     const clapper = this.pieces.get('clapper');
-    if (clapper) jobs.push(dress(clapper.root, 'clapper'));
+    if (clapper) jobs.push(dress(clapper.root, 'clapper').then(fold));
     // the frame's opening is centred 0.28 m above its base, and the film plane has to sit behind its back face
     const frame = this.screen.group.getObjectByName('screen-frame');
     if (frame) jobs.push(dress(frame, 'screen', { y: -0.28, z: 0.02 }));
     await Promise.all(jobs);
     const s = modelStats();
     this.dressed = true;
-    console.log('MODELS', s.loaded, 'in', s.failed, 'failed');
+    console.log('MODELS', s.loaded, 'in', s.failed, 'failed;', saved, 'draw calls folded away');
   }
 
   private addPiece(id: PieceId, root: Group): void {
