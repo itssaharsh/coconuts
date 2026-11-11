@@ -6,7 +6,7 @@
 import type { PropId } from '../foley/types.js';
 import { type Beat, type CastEntry, CHARACTERS, type CharacterId, DERIVED_MARKS, type Reel, type Side, type Tint, TINT_NAMES } from './schema.js';
 
-export const SET_IDS = ['gate', 'vault', 'graveyard', 'inn', 'hall', 'camp', 'road', 'road-forest', 'road-village'] as const;
+export const SET_IDS = ['gate', 'vault', 'graveyard', 'inn', 'hall', 'camp', 'market', 'road', 'road-forest', 'road-village'] as const;
 export type SetId = (typeof SET_IDS)[number];
 
 /** What each set offers a piece: its film stock, a door, a window, where a sleeper lies, where the dead rise. */
@@ -17,6 +17,7 @@ export const SETS: Record<SetId, { tint: Tint; door?: boolean; window?: boolean;
   inn: { tint: 'amber', door: true, sleep: ['table_l', 'sitfloor'], about: 'a tavern: a bar with kegs, two tables, a door' },
   hall: { tint: 'amber', door: true, sleep: ['dais_right', 'sitfloor'], about: 'a throne room: a throne on a dais, banners, braziers, a door' },
   camp: { tint: 'red', sleep: ['log', 'sitfloor'], about: 'a forest clearing at night: a campfire, a log, a tent' },
+  market: { tint: 'plain', door: true, window: true, sleep: ['stall_r', 'sitfloor'], about: 'a village market square at noon, the one sunny place: house fronts with a door and a window, striped stalls, bunting, a cart' },
   road: { tint: 'blue', road: true, about: 'an open road at night (only the ride piece plays here)' },
   'road-forest': { tint: 'green', road: true, about: 'a forest road (only the ride piece plays here)' },
   'road-village': { tint: 'plain', road: true, about: 'a village road by day (only the ride piece plays here)' },
@@ -251,7 +252,8 @@ export function assemble(plan: ReelPlan, id: string): Reel {
     }
     // the monster waits in the wings under the name "monster" (its mark is the lair: a name must never be both)
     const monster = sc.pieces.find((p) => p.piece === 'boss') as Extract<PiecePlan, { piece: 'boss' }> | undefined;
-    if (monster) cast.push({ id: 'monster', char: monster.beast ?? 'spider' });
+    // (the spider was built as a giant; a bull or a wolf has to grow into the part)
+    if (monster) cast.push({ id: 'monster', char: monster.beast ?? 'spider', ...(monster.beast && monster.beast !== 'spider' ? { size: 1.7 } : {}) });
     const storm = sc.pieces.find((p) => p.piece === 'storm') as Extract<PiecePlan, { piece: 'storm' }> | undefined;
     (storm?.risers ?? []).forEach((r, i) => {
       if (at.has(r) || !info.graves) return;
@@ -465,7 +467,16 @@ export function assemble(plan: ReelPlan, id: string): Reel {
         }
         case 'boss': {
           // the middle and the back of the stage are the monster's; everyone but the hero keeps to the corners
-          clear(['duel_a', 'duel_b', 'centre', 'lair', 'front_left', 'front_right'], [pc.hero], ['aside_left', 'aside_right']);
+          {
+            // wherever they stood (a stall, a grave, the bar), they run for the corners
+            const corners = ['aside_left', 'aside_right'];
+            const flee: Beat[] = [];
+            for (const [who, m] of [...at]) {
+              if (who === pc.hero || down.has(who) || corners.includes(m)) continue;
+              flee.push(bring(who, corners, { gait: 'run', face: 'centre' }));
+            }
+            if (flee.length) scene.push(flee.length === 1 ? flee[0] : { k: 'par', beats: flee });
+          }
           scene.push({ k: 'title', text: pc.line ?? 'Something stirs in the dark.', secs: 2.2 });
           scene.push(bring('monster', 'lair', { from: 'right', face: 'audience' }));
           scene.push({ k: 'fx', fx: 'shake' });
@@ -536,7 +547,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
 export const PITCHES_2: Pitch[] = [
   { prop: 'coconuts', text: 'Ride after the thief' },
   { prop: 'thunder', text: 'A storm in the graveyard' },
-  { prop: 'bell', text: 'Ask at the inn' },
+  { prop: 'bell', text: 'Ask at the market' },
 ];
 
 const KNIGHT = { id: 'knight', char: 'knight' as const, items: ['sword_1handed', 'shield_round'] };
@@ -578,21 +589,22 @@ export const WRITTEN: Record<PropId, ReelPlan> = {
     cliffhanger: 'The dead do not stay down.',
   },
   bell: {
-    title: 'Last Orders',
+    title: 'Market Day',
     scenes: [
+      { set: 'road-village', cast: [KNIGHT], pieces: [{ piece: 'ride', who: 'knight', line: 'To market, at a trot!', clops: 12 }] },
       {
-        set: 'inn',
-        cast: [KNIGHT, { id: 'keeper', char: 'barbarian' }, THIEF, { id: 'sage', char: 'mage' }],
+        set: 'market',
+        cast: [KNIGHT, { id: 'seller', char: 'barbarian' }, THIEF],
         pieces: [
-          { piece: 'knock', who: 'knight', opener: 'keeper', line: '“A hooded stranger? Upstairs.”' },
-          { piece: 'toast', line: '“A drink first, sir knight!”' },
-          { piece: 'arrive', who: 'thief', from: 'right' },
-          { piece: 'duel', a: 'knight', b: 'thief', blows: 2 },
-          { piece: 'smash', who: 'sage' },
+          { piece: 'wake', who: 'knight', sleeper: 'seller' },
+          { piece: 'toast', line: '“Fresh pies! Ring for one!”' },
+          { piece: 'card', line: '“A hooded man? He bought my bull.”' },
+          { piece: 'boss', hero: 'knight', beast: 'bull', line: 'The bull did not like the price.' },
+          { piece: 'chase', runner: 'thief', chaser: 'knight' },
         ],
       },
     ],
-    cliffhanger: 'The thief was never the thief.',
+    cliffhanger: 'The bull is wearing the crown.',
   },
   // the other props, for the day a pitch is made with them and the Director is away
   door: {
@@ -644,5 +656,26 @@ export const WRITTEN: Record<PropId, ReelPlan> = {
       },
     ],
     cliffhanger: 'An empty chest. A full moon.',
+  },
+};
+
+/** A second written reel for a prop: played when that prop is pitched again and the Director is away. */
+export const WRITTEN_MORE: Partial<Record<PropId, ReelPlan>> = {
+  bell: {
+    title: 'Last Orders',
+    scenes: [
+      {
+        set: 'inn',
+        cast: [KNIGHT, { id: 'keeper', char: 'barbarian' }, THIEF, { id: 'sage', char: 'mage' }],
+        pieces: [
+          { piece: 'knock', who: 'knight', opener: 'keeper', line: '“A hooded stranger? Upstairs.”' },
+          { piece: 'toast', line: '“A drink first, sir knight!”' },
+          { piece: 'arrive', who: 'thief', from: 'right' },
+          { piece: 'duel', a: 'knight', b: 'thief', blows: 2 },
+          { piece: 'smash', who: 'sage' },
+        ],
+      },
+    ],
+    cliffhanger: 'The thief was never the thief.',
   },
 };

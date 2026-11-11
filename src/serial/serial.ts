@@ -6,7 +6,7 @@ import type { PropId } from '../foley/types';
 import { Mount, Troupe } from './cast';
 import { CHAPTER_1 } from './chapter1';
 import { type ReelAnswer, type ReelRequest, requestReel, type StoryLine } from './director';
-import { assemble, checkPlan, type Pitch, PITCHES_2, type ReelPlan, WRITTEN } from './pieces';
+import { assemble, checkPlan, type Pitch, PITCHES_2, type ReelPlan, WRITTEN, WRITTEN_MORE } from './pieces';
 import { ReelPlayer, type PlayerHooks, type ReelStats, type Sound, type Waiting } from './player';
 import { DERIVED_MARKS, type Reel, type SetInfo, type StageCue, validateReel } from './schema';
 import { Theatre } from './theatre';
@@ -40,7 +40,7 @@ function readSave(): Saved | null {
 const STOCK_PITCH: Record<PropId, string> = {
   coconuts: 'Ride after the thief',
   thunder: 'A storm in the graveyard',
-  bell: 'Ask at the inn',
+  bell: 'Ask at the market',
   door: 'Knock at the Duke’s hall',
   whistle: 'Whistle for a friend',
   glass: 'Break into the vault',
@@ -274,7 +274,10 @@ export class Serial {
     }
     const prop = pitch.prop ?? this.pitches[0]?.prop ?? 'coconuts';
     // the Director's plan if it checks, else the written reel for this prop (which always assembles)
-    const reel = this.stage(answer?.plan, `reel-${number}`) ?? this.stage(WRITTEN[prop], `reel-${number}`) ?? assemble(WRITTEN[prop], `reel-${number}`);
+    // (a prop pitched a second time gets its second written reel, where there is one)
+    const again = this.usedProps.filter((p) => p === prop).length % 2 === 1;
+    const written = (again && WRITTEN_MORE[prop]) || WRITTEN[prop];
+    const reel = this.stage(answer?.plan, `reel-${number}`) ?? this.stage(written, `reel-${number}`) ?? assemble(written, `reel-${number}`);
     console.log('REEL written', reel.id, answer && reel.title === answer.plan.title ? answer.source : 'written', '|', reel.title);
     if (answer && reel.title === answer.plan.title) {
       this.nextPitches = answer.pitches.length === 3 ? answer.pitches : null;

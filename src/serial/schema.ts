@@ -28,7 +28,7 @@ export type PerformerId = CharacterId | BeastId;
 export const isBeast = (c: string): c is BeastId => (BEASTS as readonly string[]).includes(c);
 
 /** Sounds the stage makes by itself (the player's props make the rest). */
-export type StageCue = 'curtain' | 'creak' | 'whinny' | 'clang' | 'applause' | 'boing' | 'thud' | 'step';
+export type StageCue = 'curtain' | 'creak' | 'whinny' | 'clang' | 'applause' | 'boing' | 'thud' | 'step' | 'laugh' | 'gasp' | 'ooh' | 'cheer' | 'whoosh' | 'crash_far';
 
 export const TINT_NAMES = ['amber', 'blue', 'red', 'green', 'plain'] as const;
 export type Tint = (typeof TINT_NAMES)[number];
@@ -118,6 +118,8 @@ export interface CastEntry {
   pose?: 'sleep' | 'sit' | 'sitfloor' | 'guard';
   /** Snores: a Zzz floats up now and then while the pose lasts. */
   zzz?: boolean;
+  /** Larger than life (a monster): the figure is drawn this many times its size. */
+  size?: number;
 }
 
 export interface Reel {

@@ -10,6 +10,7 @@ import { Lane } from './lane';
 import { modelStats } from './models';
 import { Recorder, encodeTake } from './recorder';
 import { Replayer, schedule } from './replay';
+import { HOUSE_SOUNDS } from './samples';
 import * as sound from './sound';
 import * as voice from './voice';
 import { Stage, THEATRE_SMALL } from './stage';
@@ -175,7 +176,8 @@ export class FoleySystem extends createSystem({
           this.wanted = w;
           this.wantedPulse = 0;
         },
-        onStage: (cue) => sound.playStage(cue),
+        // the stage's own sounds come from the stage; the audience's from behind the player's seat
+        onStage: (cue) => (HOUSE_SOUNDS.has(cue) ? sound.playStage(cue, cue === 'applause' ? 0.9 : 0.55, 'house') : sound.playStage(cue)),
         onScale: (big) => {
           this.stage.setTheatreBig(big);
           this.stage.setTileLabel('size', big ? 'Stage small' : 'Stage big');
@@ -1026,7 +1028,15 @@ export class FoleySystem extends createSystem({
         sound.placeSource(piece.id as PropId, piece.root.getWorldPosition(tmpP));
       }
       sound.placeSource('director', this.director.group.getWorldPosition(tmpP));
-      if (this.serial) sound.placeSource('stage', this.stage.theatreMount.getWorldPosition(tmpP));
+      if (this.serial) {
+        sound.placeSource('stage', this.stage.theatreMount.getWorldPosition(tmpP));
+        // the house: a metre and a half behind where the player sits, facing the stage with them
+        this.stage.root.getWorldPosition(tmpU);
+        tmpF.set(this.placedEye.x - tmpP.x, 0, this.placedEye.z - tmpP.z);
+        if (tmpF.lengthSq() < 1e-6) tmpF.set(0, 0, 1);
+        tmpF.normalize();
+        sound.placeSource('house', tmpU.set(this.placedEye.x, Math.max(1, this.placedEye.y), this.placedEye.z).addScaledVector(tmpF, 1.5));
+      }
     }
   }
 

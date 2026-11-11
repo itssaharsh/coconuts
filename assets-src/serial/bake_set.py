@@ -124,25 +124,36 @@ for i, pc in enumerate(spec['pieces']):
             continue
         me = o.data.copy(); me.transform(P @ o.matrix_world); static.append(new_obj('s%d' % i, me, Matrix.Identity(4)))
 
+def rot_gl(rx=0.0, ry=0.0, rz=0.0):
+    """rotation in glTF space (degrees): X, then Z... applied as Ry * Rx * Rz"""
+    return (Matrix.Rotation(math.radians(ry), 3, 'Y') @ Matrix.Rotation(math.radians(rx), 3, 'X') @ Matrix.Rotation(math.radians(rz), 3, 'Z'))
+
+dyn_prims = {}
 for k, pm in enumerate(spec.get('prims', [])):
     like = proto(pm['like'])[0].material_slots[0].material
     mn, mx = Vector(pm['min']), Vector(pm['max'])
-    bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
     c = (mn + mx) / 2; sz = mx - mn
-    # glTF (x,y,z) -> blender (x,-z,y)
+    R = rot_gl(pm.get('rotX', 0), pm.get('rotY', 0), pm.get('rotZ', 0))
+    bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:
-        v.co = Vector((v.co.x * sz.x, v.co.y * sz.z, v.co.z * sz.y))
+        g = R @ Vector((v.co.x * sz.x, v.co.y * sz.y, v.co.z * sz.z)) + c   # glTF space
+        v.co = Vector((g.x, -g.z, g.y))                                      # -> blender
     uv = bm.loops.layers.uv.new('UVMap'); u, v_ = pm.get('uv', [0.5, 0.5])
     for f in bm.faces:
         for l in f.loops: l[uv].uv = (u, 1.0 - v_)
     me = bpy.data.meshes.new(pm['name']); bm.to_mesh(me); bm.free(); me.materials.append(like)
     for p in me.polygons: p.use_smooth = False
-    M = Matrix.Translation((c.x, -c.z, c.y)) @ Matrix.Rotation(math.radians(pm.get('rotY', 0)), 4, 'Z')
-    me.transform(M)
-    if 'name' in pm and pm.get('dynamic'):
-        ob = new_obj(pm['name'], me, Matrix.Identity(4)); dynamic.append(ob)
+    dyn = pm.get('dynamic')
+    if dyn:
+        piv = pm['pivot']; pvb = Vector((piv[0], -piv[2], piv[1]))
+        me.transform(Matrix.Translation(-pvb)); ob = new_obj(dyn, me, Matrix.Translation(pvb)); dyn_prims.setdefault(dyn, []).append(ob)
     else:
         static.append(new_obj('p%d' % k, me, Matrix.Identity(4)))
+for nm, objs in dyn_prims.items():
+    for o in objs: o.data.transform(o.matrix_world); o.matrix_world = Matrix.Identity(4)   # bake to world, then re-pivot
+    pv = [pm for pm in spec['prims'] if pm.get('dynamic') == nm][0]['pivot']; pvb = Vector((pv[0], -pv[2], pv[1]))
+    ob = join(objs, nm); ob.data.transform(Matrix.Translation(-pvb)); ob.matrix_world = Matrix.Translation(pvb)
+    dynamic.append(ob); dyn_info[nm] = {'src': 'prims'}
 
 stat = join(static, 'static')
 stat_objs = [stat] if stat else []

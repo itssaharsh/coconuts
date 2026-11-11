@@ -68,6 +68,30 @@
     ],
     "thud": [
       "stage/thud.mp3"
+    ],
+    "laugh": [
+      "stage/laugh-1.mp3",
+      "stage/laugh-2.mp3",
+      "stage/laugh-3.mp3"
+    ],
+    "gasp": [
+      "stage/gasp-1.mp3",
+      "stage/gasp-2.mp3"
+    ],
+    "ooh": [
+      "stage/ooh-1.mp3",
+      "stage/ooh-2.mp3"
+    ],
+    "cheer": [
+      "stage/cheer.mp3"
+    ],
+    "whoosh": [
+      "stage/whoosh-1.mp3",
+      "stage/whoosh-2.mp3"
+    ],
+    "crash_far": [
+      "stage/crash_far-1.mp3",
+      "stage/crash_far-2.mp3"
     ]
   },
   "music": [

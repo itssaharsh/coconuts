@@ -139,6 +139,7 @@ export class ReelPlayer {
         continue;
       }
       this.actors.set(c.id, a);
+      if (c.size) a.setSize(c.size);
       for (const item of c.items ?? (c.item ? [c.item] : [])) await a.hold(this.troupe.base, item);
       if (c.mounted && this.mount) {
         const [x, z] = this.theatre.mark(c.at ?? 'centre');
@@ -321,9 +322,11 @@ export class ReelPlayer {
                 call(() => {
                   this.theatre.onSound?.('thud');
                   this.theatre.burst('dust', a.root.position.x, 0, a.root.position.z, 1.1);
+                  this.theatre.react('laugh', 7);
                 }),
             ]),
           );
+        if (b.verb === 'cheer') this.theatre.react('cheer', 12);
         return a.perform(b.verb, b.secs);
       }
       case 'emote': {
@@ -592,6 +595,7 @@ export class ReelPlayer {
           moving = false;
           this.mount?.lurch();
           this.theatre.onSound?.('boing');
+          this.theatre.react('laugh', 9);
           if (this.mounted) this.theatre.emote(this.mounted, '!');
         }
         w.progress = Math.min(1, clops / b.need);

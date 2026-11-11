@@ -42,6 +42,7 @@ class FakeActor {
     return wait(this.secs);
   }
   async hold(): Promise<void> {}
+  setSize(): void {}
   drop(): void {}
   pose(): void {}
   poseVerb(): void {}
@@ -75,6 +76,10 @@ class FakeTheatre {
   }
   lightning(): void {
     this.lightnings++;
+  }
+  readonly reactions: string[] = [];
+  react(kind: string): void {
+    this.reactions.push(kind);
   }
   readonly left: string[] = [];
   leaveStage(a: FakeActor): Task {

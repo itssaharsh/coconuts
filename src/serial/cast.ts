@@ -154,6 +154,7 @@ export class Actor {
   private held = false;
   private items = new Map<string, Object3D>();
   private shadow: Mesh;
+  private body: Object3D;
   private free = false;
   onStage = false;
 
@@ -167,6 +168,7 @@ export class Actor {
   ) {
     this.build = isBeast(char) ? BEAST_BUILD[char] : HUMAN;
     this.root.name = `actor-${id}`;
+    this.body = body;
     this.root.add(body);
     filmify(body, { actor: true });
     this.shadow = blob(...this.build.blob);
@@ -326,6 +328,12 @@ export class Actor {
     this.items.delete(item);
   }
 
+  /** Larger (or smaller) than the kit made it: a monster. The root keeps its scale of one, so marks and speeds hold. */
+  setSize(k: number): void {
+    this.body.scale.setScalar(k);
+    this.shadow.scale.set(this.build.blob[0] * k, 1, this.build.blob[1] * k);
+  }
+
   /** Out of the picture (onto the player's desk) or back in: outside, nothing cuts the figure off at the wings. */
   setFree(on: boolean): void {
     if (this.free === on) return;
@@ -341,7 +349,7 @@ export class Actor {
       if (stage) stage.worldToLocal(out);
       return out.setY(out.y + 2.4);
     }
-    return out.copy(this.root.position).setY(this.build.head);
+    return out.copy(this.root.position).setY(this.build.head * this.body.scale.y);
   }
 
   get isDown(): boolean {

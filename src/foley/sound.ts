@@ -5,7 +5,7 @@ import { HIT_BANKS, pickTake, type StageSound } from './samples';
 import type { HitEvent, PropId } from './types';
 
 export type { StageSound } from './samples';
-type SourceId = PropId | 'director' | 'stage';
+type SourceId = PropId | 'director' | 'stage' | 'house';
 
 type Vec3Like = { x: number; y: number; z: number };
 
@@ -455,7 +455,7 @@ function stageTake(name: StageSound): AudioBuffer | null {
 const pendingStage = new Set<StageSound>();
 
 /** One stage sound from the theatre's position ('stage' source). Unknown or missing sounds are ignored. */
-export function playStage(name: StageSound, gain = 1): void {
+export function playStage(name: StageSound, gain = 1, from: 'stage' | 'house' = 'stage'): void {
   trace?.('stage', name, gain);
   if (!ctx) return;
   const buf = stageTake(name);
@@ -463,7 +463,7 @@ export function playStage(name: StageSound, gain = 1): void {
     if (stageLoading.has(name)) pendingStage.add(name); // first use: play as soon as it has decoded
     return;
   }
-  playBuffer(buf, pannerFor('stage'), gain, vary());
+  playBuffer(buf, pannerFor(from), gain, vary());
 }
 
 const MUSIC_GAIN = 0.16;

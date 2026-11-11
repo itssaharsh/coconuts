@@ -211,6 +211,8 @@ export class Theatre {
   fx: StageFx | null = null;
   private raining = false;
   private warmFrames = 0;
+  /** When the house last made each of its sounds (show time): an audience, not a laugh track. */
+  private reacted = new Map<StageCue, number>();
 
   constructor(private base: string) {
     this.group.name = 'theatre';
@@ -541,7 +543,12 @@ export class Theatre {
     return sequence([
       // the theatre must be the toy on the desk again before anyone can step out of it
       () => ({ update: () => !this.bigNow && this.size < 1.6 }),
-      () => call(() => (a.onStage = false)),
+      () =>
+        call(() => {
+          a.onStage = false;
+          this.onSound?.('whoosh');
+          this.react('gasp', 4);
+        }),
       () => desk.arrive(a, () => this.onSound?.('thud')),
     ]);
   }
@@ -551,11 +558,13 @@ export class Theatre {
     const desk = this.desk;
     if (!desk || !desk.holds(a)) return call(() => this.removeActor(a));
     return sequence([
+      () => call(() => this.onSound?.('whoosh')),
       () => desk.leave(a),
       () =>
         call(() => {
           this.removeActor(a);
-          this.onSound?.('thud');
+          this.onSound?.('crash_far');
+          this.react('laugh', 3);
         }),
     ]);
   }
@@ -671,10 +680,19 @@ export class Theatre {
     this.bigNow = big;
     this.flash = 1;
     this.onScale?.(big);
+    if (big) this.react('ooh', 10);
   }
 
   get isBig(): boolean {
     return this.bigNow;
+  }
+
+  /** The house reacts (a laugh, a gasp), unless it made that sound within the last `every` seconds. */
+  react(kind: StageCue, every = 6): void {
+    const last = this.reacted.get(kind) ?? -1e9;
+    if (this.time - last < every) return;
+    this.reacted.set(kind, this.time);
+    this.onSound?.(kind);
   }
 
   /** A sound was made: the picture blooms with colour for a moment. */
@@ -732,6 +750,7 @@ export class Theatre {
   emote(actor: Actor, emote: Emote): void {
     const s = new Sprite(new SpriteMaterial({ toneMapped: false, map: emoteCard(emote), transparent: true, depthWrite: false }));
     actor.head(s.position);
+    if (emote === 'skull') this.react('gasp', 8); // the dead are up
     s.scale.setScalar(1.5);
     s.renderOrder = 8;
     this.stage.add(s);

@@ -53,8 +53,24 @@ ITEMS = {
  'stage/step-1':       ('oga/x/steps/stone01.ogg', 'perc', 0.0, 0.30, 0.08),
  'stage/step-2':       ('fs/390764.mp3', 'perc', 0.028, 0.28, 0.08),
  'stage/thud':         ('fs/346694.mp3', 'perc', 0.479, 0.80, 0.2),
+ 'stage/laugh-1':      ('fs/678668.mp3', 'raw', 0.10, 1.6, 0.5),
+ 'stage/laugh-2':      ('fs/678669.mp3', 'raw', 0.15, 2.5, 0.7),
+ 'stage/laugh-3':      ('fs/678670.mp3', 'raw', 0.05, 2.4, 0.7),
+ 'stage/gasp-1':       ('fs/635110.mp3', 'raw', 0.0, 1.0, 0.3),
+ 'stage/gasp-2':       ('fs/480774.mp3', 'raw', 1.0, 1.1, 0.4),
+ 'stage/ooh-1':        ('fs/264499.mp3', 'raw', 0.25, 1.5, 0.5),
+ 'stage/ooh-2':        ('fs/264499.mp3', 'raw', 2.25, 1.6, 0.5),
+ 'stage/cheer':        ('fs/678543.mp3', 'raw', 0.9, 2.8, 0.8),
+ 'stage/whoosh-1':     ('fs/495390.mp3', 'raw', 0.0, 0.7, 0.25),
+ 'stage/whoosh-2':     ('fs/495390.mp3', 'raw', 1.35, 0.7, 0.25),
+ 'stage/crash_far-1':  ('fs/135830.mp3', 'raw', 0.45, 1.0, 0.35),
+ 'stage/crash_far-2':  ('fs/209002.mp3', 'raw', 2.2, 1.1, 0.4),
 }
-FADE_IN = {'stage/applause': 0.25}
+FADE_IN = {'stage/applause': 0.25, 'stage/laugh-1': 0.08, 'stage/laugh-2': 0.08, 'stage/laugh-3': 0.08,
+           'stage/gasp-2': 0.05, 'stage/ooh-1': 0.1, 'stage/ooh-2': 0.1, 'stage/cheer': 0.2,
+           'stage/whoosh-1': 0.04, 'stage/whoosh-2': 0.06, 'stage/crash_far-1': 0.01, 'stage/crash_far-2': 0.01}
+# extra filters: crash_far is low-passed so it reads as distant
+EXTRA = {'stage/crash_far-1': 'lowpass=f=4000', 'stage/crash_far-2': 'lowpass=f=4000'}
 MUSIC = {
  'music/sensation-rag':     ('commons/Scott_Joplin_Sensation_Rag_1908_.ogg',),
  'music/peacherine-rag':    ('commons/Scott_Joplin_Peacherine_Rag_1901_.ogg',),
@@ -93,7 +109,7 @@ def oneshot(name, spec):
     path = os.path.join(RAW, src)
     ss = refine(load(path), t) if mode == 'perc' else t
     # atrim (decode from the start, then cut): input-side -ss mis-decodes MP3 sources, output-side -ss cuts after the filters
-    chain = [f'atrim=start={ss:.4f}:duration={dur:.3f}', 'asetpts=PTS-STARTPTS', 'highpass=f=20'] + mono_chain(path) + ([f'afade=t=in:d={FADE_IN[name]}'] if name in FADE_IN else []) + [f'afade=t=out:st={dur-fo:.3f}:d={fo:.3f}']
+    chain = [f'atrim=start={ss:.4f}:duration={dur:.3f}', 'asetpts=PTS-STARTPTS', 'highpass=f=20'] + mono_chain(path) + ([EXTRA[name]] if name in EXTRA else []) + ([f'afade=t=in:d={FADE_IN[name]}'] if name in FADE_IN else []) + [f'afade=t=out:st={dur-fo:.3f}:d={fo:.3f}']
     base = ['-i', path]
     pk = max_volume(base, chain)
     gain = -1.5 - pk

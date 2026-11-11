@@ -826,6 +826,50 @@
     "door"
    ]
   },
+  "market": {
+   "glb": "sets/market.glb",
+   "json": "sets/market.json",
+   "bytes": 369820,
+   "triangles": 5435,
+   "materials": 1,
+   "drawCalls": 2,
+   "footprint": {
+    "x": [
+     -8,
+     8
+    ],
+    "z": [
+     -4,
+     4
+    ],
+    "floorY": 0,
+    "backWallInnerZ": -4,
+    "frontEdgeZ": 4,
+    "visibleX": [
+     -6,
+     6
+    ],
+    "openingY": [
+     0,
+     6.75
+    ]
+   },
+   "marks": [
+    "door",
+    "window",
+    "stall_l",
+    "stall_r",
+    "well",
+    "centre",
+    "left",
+    "right",
+    "wings_left",
+    "wings_right"
+   ],
+   "dynamicNodes": [
+    "door"
+   ]
+  },
   "vault": {
    "glb": "sets/vault.glb",
    "json": "sets/vault.json",

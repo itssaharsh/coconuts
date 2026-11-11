@@ -1,7 +1,13 @@
 // Pure helpers for the recorded samples: which bank a hit draws from, and which take to play.
 import type { HitKind } from './types';
 
-export type StageSound = 'curtain' | 'creak' | 'whinny' | 'clang' | 'applause' | 'clap' | 'boing' | 'step' | 'thud';
+export type StageSound =
+  | 'curtain' | 'creak' | 'whinny' | 'clang' | 'applause' | 'clap' | 'boing' | 'step' | 'thud'
+  // the house: a small audience that laughs, gasps and cheers; and two sounds of a figure leaving the picture
+  | 'laugh' | 'gasp' | 'ooh' | 'cheer' | 'whoosh' | 'crash_far';
+
+/** The sounds the audience makes: they come from behind the player's seat, not from the stage. */
+export const HOUSE_SOUNDS: ReadonlySet<StageSound> = new Set(['applause', 'laugh', 'gasp', 'ooh', 'cheer']);
 
 /** Manifest keys a hit kind may draw from, best first (the first one that has a decoded take wins). */
 export const HIT_BANKS: Record<HitKind, string[]> = {

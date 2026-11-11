@@ -31,6 +31,7 @@ WHAT = {
  'foley/whistle-fall': 'slide whistle, falling', 'foley/whistle-rise': 'slide whistle, rising', 'foley/glass': 'breaking glass crash',
  'stage/curtain': 'curtain pull / swish', 'stage/creak': 'wooden door creak', 'stage/whinny': 'horse whinny', 'stage/clang': 'sword clash (metal on metal)',
  'stage/applause': 'audience applause', 'stage/clap': 'film clapperboard clap', 'stage/boing': 'comic boing', 'stage/step': 'footstep on stone', 'stage/thud': 'body fall thud',
+ 'stage/laugh': 'small audience laughing', 'stage/gasp': 'small audience gasp', 'stage/ooh': 'audience impressed "ooh"', 'stage/cheer': 'short cheer with clapping', 'stage/whoosh': 'air whoosh (cloth/body pass-by)', 'stage/crash_far': 'distant clatter / crash of pots and pans (low-passed at 4 kHz)',
 }
 def what(n):
     for k in sorted(WHAT, key=len, reverse=True):

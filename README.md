@@ -23,7 +23,8 @@ Experience division.
 
 | Piece | State |
 |---|---|
-| The theatre: six 3D sets, an endless road, nine rigged characters, a horse, its own lighting and film look | real, in the build; CC0 kits baked by the scripts in `tools/serial/` |
+| The theatre: seven 3D sets (six by torch and moonlight, one sunny market), an endless road, nine rigged characters, a horse and six beasts, its own lighting and film look | real, in the build; CC0 kits baked by the scripts in `tools/serial/` |
+| The house | a small recorded audience behind your seat: it laughs when the knight goes over the horse's neck, gasps when the dead get up, and claps at the end of the reel |
 | Reel one (the gate, the ride, the robbers' den) | written by hand; every moment waits for the player's sound |
 | The film leaves its frame | at the end of reel one the thief steps out of the picture, lands on the player's own desk at toy size, runs between the props to the table's edge, and the slide whistle sends him over it (`src/serial/desk.ts`) |
 | Weather and debris | rain that starts on the player's thunder, ground mist, embers over fires, sparks where steel meets, dust, broken glass, confetti: four draw calls in all, lit and graded by the film's own shader (`src/serial/fx.ts`) |

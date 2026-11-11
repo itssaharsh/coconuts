@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PROP_IDS } from '../src/foley/types';
-import { assemble, checkPlan, PITCHES_2, type ReelPlan, SET_IDS, WRITTEN } from '../src/serial/pieces';
+import { assemble, checkPlan, PITCHES_2, type ReelPlan, SET_IDS, WRITTEN, WRITTEN_MORE } from '../src/serial/pieces';
 import { DERIVED_MARKS, type SetInfo, validateReel } from '../src/serial/schema';
 
 /** The set catalogue the way the Serial builds it: mark names from the set files, plus the roads. */
@@ -30,6 +30,22 @@ describe('pieces', () => {
       const reel = assemble(plan, `written-${prop}`);
       expect(validateReel(reel, sets), prop).toEqual([]);
     }
+  });
+
+  it('the second written reels stage too, and differ from the first', () => {
+    for (const [prop, plan] of Object.entries(WRITTEN_MORE)) {
+      expect(checkPlan(plan), prop).toEqual([]);
+      expect(validateReel(assemble(plan, `more-${prop}`), sets), prop).toEqual([]);
+      expect(plan.title).not.toBe(WRITTEN[prop as keyof typeof WRITTEN].title);
+    }
+  });
+
+  it('the market reel brings the bull on as its monster', () => {
+    const reel = assemble(WRITTEN.bell, 'market');
+    const flat = JSON.stringify(reel);
+    expect(flat).toContain('"set":"market"');
+    expect(flat).toContain('"char":"bull"');
+    expect(validateReel(reel, sets)).toEqual([]);
   });
 
   it('offers three pitches after reel one, each on its own prop with a written reel behind it', () => {

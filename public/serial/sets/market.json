@@ -1,0 +1,126 @@
+{
+ "id": "market",
+ "title": "Village market at noon",
+ "glb": "sets/market.glb",
+ "convention": "Kit units, y-up, floor y=0, audience at +z looking down -z, +x = the audience's right (left/right mark names are the audience's left/right). Runtime scale: 1 unit = 1/12 of the proscenium opening width. Proscenium opening x in [-6,6], y in [0,6.75], plane z=+4. Stage floor z in [-4,4], x in [-8,8]; back wall inner face z=-4. Everything with |x|>6.85 is discarded by the runtime. Marks are [x, z].",
+ "kind": "exterior",
+ "sky": "day",
+ "footprint": {
+  "x": [
+   -8,
+   8
+  ],
+  "z": [
+   -4,
+   4
+  ],
+  "floorY": 0,
+  "backWallInnerZ": -4,
+  "frontEdgeZ": 4,
+  "visibleX": [
+   -6,
+   6
+  ],
+  "openingY": [
+   0,
+   6.75
+  ]
+ },
+ "floorY": 0,
+ "marks": {
+  "door": [
+   -3.6,
+   -2.6
+  ],
+  "window": [
+   2.6,
+   -2.6
+  ],
+  "stall_l": [
+   -6.6,
+   -1.4
+  ],
+  "stall_r": [
+   0.3,
+   -1.4
+  ],
+  "well": [
+   4.0,
+   -0.3
+  ],
+  "centre": [
+   0,
+   1.2
+  ],
+  "left": [
+   -3.8,
+   1.2
+  ],
+  "right": [
+   3.8,
+   1.2
+  ],
+  "wings_left": [
+   -8.5,
+   2
+  ],
+  "wings_right": [
+   8.5,
+   2
+  ]
+ },
+ "lights": [],
+ "torches": [],
+ "dynamic": {
+  "door": {
+   "src": "prims",
+   "axis": [
+    0,
+    1,
+    0
+   ],
+   "closed": 0,
+   "open": -1.75,
+   "note": "hinge on the -x edge of the leaf; negative angle swings the free edge towards the audience (+z), positive swings it away behind the wall",
+   "node": "door",
+   "pivot": [
+    -4.6,
+    0.0,
+    -4.17
+   ],
+   "baseQuaternion": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "triangles": 60
+  }
+ },
+ "bounds": {
+  "min": [
+   -9.0,
+   -0.5,
+   -12.076
+  ],
+  "max": [
+   9.05,
+   7.567,
+   4.6
+  ]
+ },
+ "stats": {
+  "triangles": 5435,
+  "materials": 1,
+  "materialNames": [
+   "hexagons_medieval"
+  ],
+  "drawCalls": 2,
+  "staticMeshes": 1,
+  "dynamicNodes": 1
+ },
+ "bytes": 369820,
+ "meta": {
+  "note": "sunny set, no lamps; dressing on the back wall and sides, acting area |x|<=4.5, z -1.2..3.6 kept clear"
+ }
+}

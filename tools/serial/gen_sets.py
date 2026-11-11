@@ -136,7 +136,99 @@ def camp():
     lights = [{'name': 'campfire', 'kind': 'fire', 'pos': [-1.6, 1.0, -0.8], 'color': '#ff8a30', 'intensity': 1.6, 'distance': 14}]
     return spec('camp', 'Forest camp', 'exterior', 'night', P, prims, marks, lights, {})
 
+def cell(c, r, f=0.5): return [(c + 0.5) / 8, (r + f) / 4]   # texel centre of the 8x4 gradient atlas of the Hexagon pack (f = how far down the cell)
+def market():
+    L = HX + ':buildings/neutral/wall_straight'
+    PL = cell(1, 0, 0.08); YEL = cell(3, 1, 0.2); SAL = cell(7, 2, 0.3); BRN = cell(2, 1, 0.8); DBRN = cell(7, 1, 0.8)
+    RED = cell(1, 3, 0.4); BLU = cell(1, 1, 0.3); GRN = cell(3, 3, 0.4); CRM = cell(5, 3, 0.2); ORG = cell(6, 2, 0.3); TAN1 = cell(5, 1, 0.5); TAN2 = cell(3, 2, 0.5); TAN3 = cell(6, 3, 0.5); STO = cell(6, 1, 0.5)
+    pr = []
+    def b(n, mn, mx, uv, **kw):
+        d = box(n, mn, mx, L, uv); d.update(kw); pr.append(d)
+    # --- cobbled ground: running-bond stones of three tans over a dark joint colour
+    b('ground', [-9, -0.5, -4.6], [9, -0.001, 4.6], DBRN)
+    cols = [TAN1, TAN2, TAN3, TAN2]
+    for r in range(9):
+        z0 = -4.5 + r * 1.0; off = 0.0 if r % 2 == 0 else 1.0
+        for i in range(-5, 5):
+            x0 = i * 2.0 + off
+            if x0 + 2.0 < -9 or x0 > 9: continue
+            b('st', [max(x0, -9) + 0.05, 0.0, z0 + 0.05], [min(x0 + 2.0, 9) - 0.05, 0.03, z0 + 0.95], cols[(i * 3 + r) % 4])
+    # --- house fronts along the back wall (face z=-4), with gable roofs
+    fronts = [(-7.2, -1.6, 4.0, PL, RED), (-1.6, 3.4, 4.5, YEL, ORG), (3.4, 7.2, 3.7, SAL, BLU)]
+    for (x0, x1, h, col, roof) in fronts:
+        pass
+    # house A (door at -3.6, opening x -4.6..-2.6, y 0..2.8)
+    b('A_l', [-7.2, 0, -4.5], [-4.6, 4.0, -4.0], PL); b('A_r', [-2.6, 0, -4.5], [-1.6, 4.0, -4.0], PL); b('A_top', [-4.6, 2.8, -4.5], [-2.6, 4.0, -4.0], PL)
+    b('A_rec', [-4.6, 0, -4.5], [-2.6, 2.8, -4.38], DBRN)
+    # house B (window at 2.6: opening x 1.8..3.4, y 1.5..3.0)
+    b('B_l', [-1.6, 0, -4.5], [1.8, 4.5, -4.0], YEL); b('B_r', [3.4, 0, -4.5], [3.5, 4.5, -4.0], YEL)
+    b('B_lo', [1.8, 0, -4.5], [3.4, 1.5, -4.0], YEL); b('B_hi', [1.8, 3.0, -4.5], [3.4, 4.5, -4.0], YEL); b('B_glass', [1.8, 1.5, -4.5], [3.4, 3.0, -4.38], cell(1, 0, 0.5))
+    b('B_mx', [2.55, 1.5, -4.42], [2.65, 3.0, -4.3], BRN); b('B_my', [1.8, 2.2, -4.42], [3.4, 2.3, -4.3], BRN)
+    b('B_sh_l', [1.35, 1.5, -4.1], [1.8, 3.0, -4.0], GRN); b('B_sh_r', [3.4, 1.5, -4.1], [3.85, 3.0, -4.0], GRN)
+    b('B_sill', [1.7, 1.35, -4.2], [3.5, 1.5, -3.75], BRN)
+    for i, x in enumerate((1.95, 2.35, 2.75, 3.15)): b('flw', [x - 0.12, 1.5, -4.0], [x + 0.12, 1.8, -3.82], (RED, YEL, RED, ORG)[i])
+    b('C', [3.5, 0, -4.5], [7.2, 3.7, -4.0], SAL)
+    # half timbering: posts and rails (dark brown) on the three fronts
+    for x in (-7.1, -1.7, -1.55, 3.45, 7.1): b('post', [x - 0.12, 0, -4.1], [x + 0.12, (4.0 if x < -1.6 else 4.5 if x < 3.5 else 3.7), -3.94], DBRN)
+    for (x0, x1, y) in ((-7.2, -1.6, 2.9), (-7.2, -1.6, 4.0), (-1.6, 3.4, 4.5), (-1.6, 3.4, 3.15), (3.5, 7.2, 3.7), (3.5, 7.2, 2.2)):
+        b('rail', [x0, y - 0.12, -4.1], [x1, y + 0.12, -3.94], DBRN)
+    for x in (-6.0, -5.2, -1.9, 4.6, 5.8, 6.6): b('stud', [x - 0.09, 0.0 if x != -1.9 else 0.0, -4.08], [x + 0.09, 2.9 if x < 0 else 2.2 if x > 4 else 3.0, -3.95], DBRN)
+    b('lintel', [-4.75, 2.8, -4.12], [-2.45, 3.05, -3.92], DBRN); b('jamb_l', [-4.75, 0, -4.12], [-4.58, 2.8, -3.92], DBRN); b('jamb_r', [-2.62, 0, -4.12], [-2.45, 2.8, -3.92], DBRN)
+    b('step', [-4.9, 0, -4.12], [-2.3, 0.18, -3.6], STO)
+    # gable roofs (two slabs each) + chimneys
+    import math
+    for (x0, x1, eave, col, fc) in ((-7.4, -1.4, 4.0, RED, PL), (-1.8, 3.6, 4.5, ORG, YEL), (3.3, 7.4, 3.7, BLU, SAL)):
+        xc = (x0 + x1) / 2; half = (x1 - x0) / 2; th = 28; L2 = half / math.cos(math.radians(th)) + 0.1
+        yc = eave + half / 2 * math.tan(math.radians(th)) + 0.05
+        b('roof_l', [xc - half / 2 - L2 / 2 + 0.0, yc - 0.12, -6.0], [xc - half / 2 + L2 / 2, yc + 0.12, -3.6], col, rotZ=th, pivot_c=True)
+        b('roof_r', [xc + half / 2 - L2 / 2, yc - 0.12, -6.0], [xc + half / 2 + L2 / 2, yc + 0.12, -3.6], col, rotZ=-th, pivot_c=True)
+        b('gable', [xc - half + 0.2, eave, -4.4], [xc + half - 0.2, eave + half * math.tan(math.radians(th)) - 0.1, -4.2], fc)
+    b('chim', [-6.4, 4.4, -5.4], [-5.8, 6.2, -4.8], STO); b('chim2', [5.9, 3.9, -5.4], [6.5, 5.6, -4.8], STO)
+    # --- market stalls with striped awnings
+    def stall(cx, c1, c2, good, name):
+        b(name + '_ctr', [cx - 1.3, 0, -3.55], [cx + 1.3, 1.1, -2.65], BRN); b(name + '_top', [cx - 1.4, 1.1, -3.65], [cx + 1.4, 1.2, -2.55], TAN2)
+        for x in (cx - 1.35, cx + 1.35):
+            b(name + '_pf', [x - 0.1, 0, -2.6], [x + 0.1, 3.0, -2.4], BRN); b(name + '_pb', [x - 0.1, 0, -3.75], [x + 0.1, 3.5, -3.55], BRN)
+        for i in range(8):
+            xa = cx - 1.6 + i * 0.4
+            b(name + '_aw', [xa, 3.12, -3.9], [xa + 0.4, 3.24, -2.2], c1 if i % 2 == 0 else c2, rotX=10)
+            b(name + '_val', [xa, 2.72, -2.28], [xa + 0.4, 3.05, -2.2], c1 if i % 2 == 0 else c2)
+        for i, g in enumerate(good):
+            xg = cx - 0.95 + i * 0.63; b(name + '_g', [xg - 0.25, 1.2, -3.4], [xg + 0.25, 1.62, -2.95], g); b(name + '_g2', [xg - 0.17, 1.62, -3.3], [xg + 0.17, 1.9, -3.05], g)
+    stall(-6.9, RED, CRM, (RED, YEL, GRN, ORG), 'sl')
+    stall(0.3, BLU, YEL, (ORG, GRN, RED, YEL), 'sr')
+    # --- sacks, crates, barrels (small, at the sides)
+    for (x, z, w, h, col) in ((-7.0, -3.7, 0.55, 0.65, CRM),  (-1.15, -3.5, 0.7, 0.8, BRN), (-0.7, -3.6, 0.6, 0.6, TAN2), (6.2, -3.7, 0.5, 0.5, CRM)):
+        b('crate', [x - w, 0, z - w], [x + w, h * 1.1, z + w], col)
+    for (x, z) in ((-7.4, -3.5),):
+        b('bar', [x - 0.45, 0, z - 0.45], [x + 0.45, 0.9, z + 0.45], BRN); b('barh', [x - 0.47, 0.25, z - 0.47], [x + 0.47, 0.35, z + 0.47], STO); b('barh', [x - 0.47, 0.6, z - 0.47], [x + 0.47, 0.7, z + 0.47], STO)
+    # --- hay cart (far left side) : bed, sides, hay, two octagon wheels, shafts
+    cz, cxp = 1.2, 6.1
+    b('cart_bed', [cxp - 0.9, 0.7, cz - 1.3], [cxp + 0.9, 0.85, cz + 1.3], BRN)
+    for dx in (-0.9, 0.9): b('cart_side', [cxp + dx - 0.07, 0.85, cz - 1.3], [cxp + dx + 0.07, 1.5, cz + 1.3], BRN)
+    b('cart_end', [cxp - 0.9, 0.85, cz - 1.3], [cxp + 0.9, 1.5, cz - 1.2], BRN); b('hay', [cxp - 0.8, 0.85, cz - 1.1], [cxp + 0.8, 1.7, cz + 1.2], YEL)
+    for dx in (-1.0, 1.0):
+        b('wheel', [cxp + dx - 0.07, 0.0, cz - 0.1 - 0.62], [cxp + dx + 0.07, 1.24, cz - 0.1 + 0.62], BRN); b('wheel', [cxp + dx - 0.07, 0.0, cz - 0.1 - 0.62], [cxp + dx + 0.07, 1.24, cz - 0.1 + 0.62], BRN, rotX=45)
+    b('shaft', [cxp - 0.7, 0.55, cz + 1.3], [cxp - 0.55, 0.7, cz + 2.7], BRN); b('shaft', [cxp + 0.55, 0.55, cz + 1.3], [cxp + 0.7, 0.7, cz + 2.7], BRN)
+    # --- bunting along the back wall
+    cols = [RED, YEL, BLU, GRN, ORG]
+    n = 0
+    for (xa, xb) in ((-6.8, -0.2), (0.2, 6.8)):
+        xm = (xa + xb) / 2; hw = (xb - xa) / 2
+        for i in range(15):
+            x = xa + (i + 0.5) * (xb - xa) / 15; y = 3.95 - 0.85 * (1 - ((x - xm) / hw) ** 2)
+            b('flag', [x - 0.16, y - 0.36, -3.93], [x + 0.16, y - 0.04, -3.9], cols[n % 5], rotZ=45); n += 1
+    pieces = [pc(HX + ':buildings/red/building_well_red', 5.9, -2.7, 0, s=3.9), pc(HX + ':buildings/red/building_church_red', 1.0, -9.5, 0, s=4.6),
+              pc(HX + ':buildings/red/building_windmill_red', -5.5, -9.5, 0, s=4.0) if False else pc(HX + ':decoration/props/flag_red', 6.2, -3.9, 0, y=3.7, s=3.0)]
+    marks = {'door': [-3.6, -2.6], 'window': [2.6, -2.6], 'stall_l': [-6.6, -1.4], 'stall_r': [0.3, -1.4], 'well': [4.0, -0.3], 'centre': [0, 1.2], 'left': [-3.8, 1.2], 'right': [3.8, 1.2], **WINGS}
+    # the door: leaf + straps + handle, one dynamic node hinged on its -x edge (x=-4.6) at the wall face
+    piv = [-4.6, 0, -4.17]
+    for n_, mn, mx, uv in (('leaf', [-4.6, 0, -4.3], [-2.6, 2.8, -4.05], GRN), ('strap1', [-4.6, 0.5, -4.05], [-2.6, 0.72, -3.99], DBRN), ('strap2', [-4.6, 2.0, -4.05], [-2.6, 2.22, -3.99], DBRN),
+                           ('plank', [-3.63, 0, -4.05], [-3.57, 2.8, -3.99], DBRN), ('handle', [-2.95, 1.25, -4.05], [-2.8, 1.45, -3.93], YEL)):
+        d = box(n_, mn, mx, L, uv); d['dynamic'] = 'door'; d['pivot'] = piv; pr.append(d)
+    return spec('market', 'Village market at noon', 'exterior', 'day', pieces, pr, marks, [], {'door': DOOR}, {'note': 'sunny set, no lamps; dressing on the back wall and sides, acting area |x|<=4.5, z -1.2..3.6 kept clear'})
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
-    for fn in (gate, vault, graveyard, inn, hall, camp):
+    for fn in (gate, vault, graveyard, inn, hall, camp, market):
         d = fn(); json.dump(d, open(OUT + d['id'] + '.json', 'w'), indent=1); print('wrote', d['id'], len(d['pieces']), 'pieces')

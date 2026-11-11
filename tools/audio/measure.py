@@ -25,7 +25,7 @@ print('%-26s %6s %5s %6s %6s %7s %6s %8s %5s %7s' % ('file','KB','dur','peak','m
 flags = []
 for r in rows:
     print('%-26s %6.1f %5.2f %6.1f %6.1f %7.0fms %6.0f %8.5f %5.2f %7.1f' % (r['name'], r['size']/1024, r['dur'], r['pk'], r['rms'], r['first'], r['cen'], r['dc'], r['t90'], r['tail']))
-    perc = not r['name'].startswith('music') and not any(k in r['name'] for k in ('thunder-1','thunder-2','curtain','creak','applause','whistle','whinny'))
+    perc = not r['name'].startswith('music') and not any(k in r['name'] for k in ('thunder-1','thunder-2','curtain','creak','applause','whistle','whinny','laugh','gasp','ooh','cheer','whoosh','crash_far'))
     if perc and r['first'] > 15: flags.append((r['name'], 'late transient %.0f ms' % r['first']))
     if r['pk'] > -1.0: flags.append((r['name'], 'peak %.1f dBFS' % r['pk']))
     if abs(r['dc']) > 0.005: flags.append((r['name'], 'DC offset %.4f' % r['dc']))
