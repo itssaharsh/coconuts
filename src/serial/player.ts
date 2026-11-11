@@ -170,7 +170,11 @@ export class ReelPlayer {
       () => this.theatre.title(reel.title, '', 2.4),
       () => this.theatre.curtain(true),
       () => this.run(reel.beats),
-      () => call(() => this.theatre.onSound?.('applause')),
+      () =>
+        call(() => {
+          this.theatre.onSound?.('applause');
+          this.theatre.burst('confetti');
+        }),
       () => wait(0.6),
       () => this.theatre.title('To be continued', reel.cliffhanger, 3.4),
       () => this.theatre.curtain(false),
@@ -296,8 +300,30 @@ export class ReelPlayer {
         const a = this.actors.get(b.who);
         if (!a) return done;
         if (b.face) this.turn(a, b.face);
-        if (CLANGS.has(b.verb)) this.side.push(sequence([() => wait(0.3), () => call(() => this.theatre.onSound?.('clang'))]));
-        else if (THUDS.has(b.verb)) this.side.push(sequence([() => wait(0.45), () => call(() => this.theatre.onSound?.('thud'))]));
+        if (CLANGS.has(b.verb))
+          this.side.push(
+            sequence([
+              () => wait(0.3),
+              () =>
+                call(() => {
+                  this.theatre.onSound?.('clang');
+                  // steel meets a step in front of whoever swings
+                  const ry = a.root.rotation.y;
+                  this.theatre.burst('sparks', a.root.position.x + Math.sin(ry) * 0.85, 1.45, a.root.position.z + Math.cos(ry) * 0.85);
+                }),
+            ]),
+          );
+        else if (THUDS.has(b.verb))
+          this.side.push(
+            sequence([
+              () => wait(0.45),
+              () =>
+                call(() => {
+                  this.theatre.onSound?.('thud');
+                  this.theatre.burst('dust', a.root.position.x, 0, a.root.position.z, 1.1);
+                }),
+            ]),
+          );
         return a.perform(b.verb, b.secs);
       }
       case 'emote': {
@@ -305,7 +331,18 @@ export class ReelPlayer {
         return a ? call(() => this.theatre.emote(a, b.emote)) : done;
       }
       case 'door':
-        return sequence([() => call(() => this.theatre.setDynamic(b.part ?? 'door', b.open, b.toward)), () => wait(0.35)]);
+        return sequence([
+          () =>
+            call(() => {
+              const slam = !b.open && (b.part ?? 'door') === 'door' && this.theatre.doorOpen;
+              this.theatre.setDynamic(b.part ?? 'door', b.open, b.toward);
+              if (slam) {
+                const [x, z] = this.theatre.mark('door');
+                this.theatre.burst('dust', x, 0, z - 0.6, 0.9);
+              }
+            }),
+          () => wait(0.35),
+        ]);
       case 'item': {
         const a = this.actors.get(b.who);
         if (!a) return done;
@@ -319,6 +356,8 @@ export class ReelPlayer {
           else if (b.fx === 'light') this.theatre.setSky('day');
           else if (b.fx === 'grow') this.theatre.grow(true);
           else if (b.fx === 'shrink') this.theatre.grow(false);
+          else if (b.fx === 'rain') this.theatre.storm(true);
+          else if (b.fx === 'rainstop') this.theatre.storm(false);
         });
       case 'tint':
         return call(() => this.theatre.setTint(b.tint));
@@ -417,6 +456,7 @@ export class ReelPlayer {
               this.setWaiting(null);
               this.resolve('hit', w, s);
               this.stats.wrote.push(b.label);
+              if (b.prop === 'glass') this.shatter(b);
               inner = b.each ? sequence([() => this.run(b.each!), () => this.run(b.hit)]) : this.run(b.hit);
               phase = 'resolved';
               return inner.update(0);
@@ -454,6 +494,19 @@ export class ReelPlayer {
         return false;
       },
     };
+  }
+
+  /** The player's crash of glass is seen where it lands: in the window somebody leaps through, or in front of whoever threw. */
+  private shatter(b: Extract<Beat, { k: 'cue' }>): void {
+    if (JSON.stringify(b.hit).includes('"window"')) {
+      const [x, z] = this.theatre.lookAt('window');
+      this.theatre.burst('shards', x, 2.2, z + 0.9);
+      return;
+    }
+    const a = b.who ? this.actors.get(b.who) : undefined;
+    if (!a) return;
+    const ry = a.root.rotation.y;
+    this.theatre.burst('shards', a.root.position.x + Math.sin(ry) * 1.8, 0.9, a.root.position.z + Math.cos(ry) * 1.8);
   }
 
   /** The rider goes as fast as the hooves come: no clops, no horse. `secs` is how much silence the ride forgives. */
@@ -516,6 +569,8 @@ export class ReelPlayer {
             clops++;
             recent.push(0);
             quiet = 0;
+            // each hoofbeat kicks up the road, and the road carries the dust away behind
+            this.theatre.burst('dust', hx - 0.5, 0, hz + 0.25, 0.55, -(2.5 + 6 * (this.mount?.speed ?? 0)));
           } else this.side.push(this.stock(s));
         }
         // tempo sets the gait: a slow pat is a walk, a quick rattle a gallop

@@ -17,7 +17,7 @@ import {
 } from 'three';
 import type { PropId } from '../foley/types';
 import { film } from './film';
-import { StageFx } from './fx';
+import type { StageFx } from './fx';
 import { WRITTEN } from './pieces';
 import { Serial } from './serial';
 
@@ -101,9 +101,9 @@ function fxStep(dt: number): void {
   fxClock += dt;
   if (fxClock >= fxNext) {
     fxNext += 1.2;
+    fxStart(fx, fxName); // a scene change clears the stage's weather: the one being looked at comes back
     for (const [k, go] of Object.entries(BURSTS)) if (fxName === k || fxName === 'all') go(fx);
   }
-  fx.update(dt);
 }
 
 const stepped = q.has('step');
@@ -160,8 +160,8 @@ void serial.init().then(async () => {
   const written = q.get('written') as PropId | null;
   if (written && WRITTEN[written]) await serial.preview(WRITTEN[written]);
   if (fxName) {
-    fx = api.fx = new StageFx(serial.theatre.stage);
-    fxStart(fx, fxName);
+    fx = api.fx = serial.theatre.fx;
+    if (fx) fxStart(fx, fxName);
   }
   api.ready = true;
   document.title = 'stage ready';

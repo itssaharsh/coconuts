@@ -25,6 +25,7 @@ import type { PropId } from '../foley/types';
 import { backdropTexture, choiceCard, cueCard, curtainTexture, emoteCard, glowTexture, soundWordFor, titleCard, valanceTexture, wordCard } from './cards';
 import { type Actor, loadGLB } from './cast';
 import { film, filmify, MAX_LAMPS, setTint, type TintName } from './film';
+import { StageFx } from './fx';
 import { GALLOP_SPEED, Road, type RoadTheme } from './road';
 import type { Emote, SetInfo, StageCue } from './schema';
 import { type Task } from './tasks';
@@ -45,6 +46,11 @@ const TOP_BACK = 0.72;
 const BOX_BACK = BACK_Z - 1.3; // the painted sky stands behind the back wall
 const RAKE = 0.07; // radians
 const FRAME_SCALE = STAGE_W / 0.8; // the proscenium model's opening is 0.8 m wide
+/** `?nofx` plays the show without its weather and debris (a switch, should a headset dislike them). */
+const FX_OFF = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nofx');
+
+/** A burst on the stage. */
+export type Burst = 'sparks' | 'dust' | 'shards' | 'confetti';
 
 /** Theatre metres from a kit z. */
 const zt = (z: number) => (z - FRONT_Z) * KIT - 0.006;
@@ -197,6 +203,9 @@ export class Theatre {
   private bigNow = false;
   /** False once wall size proved too much for the headset: the theatre then stays on the desk. */
   allowBig = true;
+  /** The stage's weather and debris: rain, mist, embers, sparks, dust. Null when switched off. */
+  fx: StageFx | null = null;
+  private raining = false;
 
   constructor(private base: string) {
     this.group.name = 'theatre';
@@ -237,6 +246,7 @@ export class Theatre {
     this.stage.rotation.x = RAKE;
     this.stage.position.set(0, FRONT_Z * KIT * Math.sin(RAKE), zt(0));
     this.group.add(this.stage);
+    if (!FX_OFF) this.fx = new StageFx(this.stage);
 
 
     // the curtain: two halves that gather toward the pillars
@@ -386,6 +396,8 @@ export class Theatre {
     }
     this.lamps.length = 0;
     this.scroll = 0;
+    this.raining = false;
+    this.fx?.clear();
   }
 
   /** Fetch a set's model ahead of time (a later scene of the reel that is playing). */
@@ -444,6 +456,13 @@ export class Theatre {
       .sort((a, b) => (b.intensity ?? 0) - (a.intensity ?? 0))
       .slice(0, MAX_LAMPS);
     for (const l of lamps) this.addLamp(l.pos, l.color ?? '#ffa040', (l.intensity ?? 1) * (l.kind === 'fire' ? 7 : 4.6));
+    // the air of the place: embers over its fires, mist among the graves, dust in the light of a room
+    if (this.fx) {
+      for (const l of file.lights ?? []) if (l.kind === 'fire' || l.name?.startsWith('brazier')) this.fx.embers(l.pos[0], Math.max(0.3, l.pos[1] - 0.5), l.pos[2] + 0.25, true);
+      if (id === 'graveyard') this.fx.fog(0.85);
+      else if (id === 'camp') this.fx.fog(0.3);
+      if (file.kind === 'interior') this.fx.motes(true);
+    }
     console.log('SET', id, Object.keys(this.info.marks).length, 'marks', [...this.dynamics.keys()].join(',') || 'nothing moves', this.lamps.length, 'lamps');
     return this.info;
   }
@@ -610,6 +629,26 @@ export class Theatre {
     this.flash = 1;
   }
 
+  /** A storm breaks over the scene (or passes). Rain falls only under the sky; a room keeps it outside. */
+  storm(on: boolean): void {
+    this.raining = on;
+    this.fx?.rain(on && this.info.kind !== 'interior');
+  }
+
+  get storming(): boolean {
+    return this.raining;
+  }
+
+  /** Steel on steel, a puff from the boards, breaking glass, the paper at a reel's end. Places are in stage units. */
+  burst(kind: Burst, x = 0, y = 0, z = 0, amount = 1, drift = 0): void {
+    const fx = this.fx;
+    if (!fx) return;
+    if (kind === 'sparks') fx.sparks(x, y, z, Math.round(16 * amount));
+    else if (kind === 'dust') fx.dust(x, z, amount, drift);
+    else if (kind === 'shards') fx.shards(x, y, z);
+    else fx.confetti();
+  }
+
   /** How bright the lightning is right now, 0..1 (the room around the theatre flashes with it). */
   get flashLevel(): number {
     return this.flash;
@@ -674,6 +713,7 @@ export class Theatre {
     }
     // the road
     this.road?.update(dt, this.scroll * GALLOP_SPEED);
+    this.fx?.update(dt);
     // film colour: a faded print that every landed cue restores; each sound makes it bloom for a moment,
     // and the actors always keep more of theirs than the scenery
     this.colourNow = ease(this.colourNow, this.wantColour, 1.6);

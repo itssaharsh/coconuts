@@ -76,6 +76,15 @@ class FakeTheatre {
   lightning(): void {
     this.lightnings++;
   }
+  readonly bursts: string[] = [];
+  burst(kind: string): void {
+    this.bursts.push(kind);
+  }
+  storms: boolean[] = [];
+  storm(on: boolean): void {
+    this.storms.push(on);
+  }
+  doorOpen = false;
   async loadSet(): Promise<void> {}
   mark(): [number, number] {
     return [0, 0];
@@ -108,10 +117,11 @@ class FakeTheatre {
   }
   hideCue(): void {}
   setDoor(open: boolean): void {
-    this.doors.push(['door', open]);
+    this.setDynamic('door', open);
   }
   setDynamic(part: string, open: boolean): void {
     this.doors.push([part, open]);
+    if (part === 'door') this.doorOpen = open;
   }
   emote(a: FakeActor, emote: string): void {
     this.emotes.push([a.id, emote]);
@@ -596,5 +606,50 @@ describe('whole reels', () => {
     expect(rig.theatre.irises).toEqual([false, true]); // and the scene change closed and opened the picture
     expect(rig.ends).toHaveLength(1);
     expect(rig.player.stats).toMatchObject({ asked: 2, hits: 2 });
+  });
+});
+
+describe('what the stage throws up', () => {
+  it('a sword blow strikes sparks and a fall raises dust, each with its sound', async () => {
+    const rig = await boot([{ k: 'do', who: 'hero', verb: 'chop' }, { k: 'do', who: 'hero', verb: 'fall' }, door()]);
+    await advance(rig, 1); // the blow lands a moment into the swing
+    expect(rig.theatre.sounds).toEqual(expect.arrayContaining(['clang', 'thud']));
+    expect([...rig.theatre.bursts].sort()).toEqual(['dust', 'sparks']);
+  });
+
+  it('a door that slams shut raises dust; a door that was never open does not', async () => {
+    const rig = await boot([{ k: 'door', open: false }, { k: 'door', open: true }, { k: 'door', open: false }, door()]);
+    expect(rig.theatre.doors).toEqual([['door', false], ['door', true], ['door', false]]);
+    expect(rig.theatre.bursts).toEqual(['dust']);
+  });
+
+  it('a landed glass cue shatters; the reel ends under confetti', async () => {
+    const rig = await boot([{ k: 'cue', prop: 'glass', label: 'Smash', who: 'hero', hit: [flag('smashed')] }, door()]);
+    expect(rig.theatre.bursts).toEqual([]);
+    play(rig, 'glass');
+    await tick(rig);
+    expect(rig.theatre.bursts).toEqual(['shards']);
+    play(rig, 'door');
+    await until(rig, () => rig.ends.length === 1);
+    expect(rig.theatre.bursts).toEqual(['shards', 'confetti']);
+  });
+
+  it('a missed glass cue breaks nothing', async () => {
+    const rig = await boot([{ k: 'cue', prop: 'glass', label: 'Smash', who: 'hero', hold: 2, hit: [flag('smashed')] }]);
+    await until(rig, () => rig.ends.length === 1);
+    expect(rig.theatre.bursts).toEqual(['confetti']);
+  });
+
+  it('hooves kick up the road', async () => {
+    const rig = await boot([{ k: 'ride', who: 'hero', label: 'Clop', need: 3, secs: 4, hit: [], miss: [] }, door()], { cast: [{ id: 'hero', char: 'knight', at: 'centre', mounted: true }] });
+    play(rig, 'coconuts');
+    play(rig, 'coconuts');
+    await tick(rig, 0.1);
+    expect(rig.theatre.bursts).toEqual(['dust', 'dust']);
+  });
+
+  it('the rain beats start and stop the storm', async () => {
+    const rig = await boot([{ k: 'fx', fx: 'rain' }, { k: 'fx', fx: 'rainstop' }, door()]);
+    expect(rig.theatre.storms).toEqual([true, false]);
   });
 });

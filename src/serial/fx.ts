@@ -11,6 +11,7 @@ import {
   BufferAttribute,
   BufferGeometry,
   DataTexture,
+  DoubleSide,
   DynamicDrawUsage,
   Float32BufferAttribute,
   Group,
@@ -239,40 +240,29 @@ void main() {
   vec3 land = vec3(mix(-7.0, 7.0, xz.x), 0.0, mix(-3.7, 3.4, xz.y));
   // lighter rain is fewer drops, not fainter ones
   float on = step(fract(r * 7.31 + aSeed.x * 3.7), uAmount);
-  float scale = length(modelMatrix[0].xyz);
-  vec4 mv;
-  vec3 at;
-  if (t < fall) {
-    float y = TOP - speed * t;
-    vec3 head = land + vec3(SLANT * y, y, 0.0);
-    vec3 tail = head + vec3(SLANT, 1.0, 0.0) * speed * 0.045;
-    vec4 h = modelViewMatrix * vec4(head, 1.0);
-    vec4 tl = modelViewMatrix * vec4(tail, 1.0);
-    vec2 d = normalize(h.xy - tl.xy + vec2(0.0, -1e-5));
-    float ppu = pxPerUnit(h.z);
-    float wv = 0.024 * scale;
-    float least = 1.1 / ppu;
-    vAlpha = min(1.0, wv / least);
-    wv = max(wv, least);
-    float along = position.y + 0.5;
-    mv = mix(tl, h, along);
-    mv.xy += vec2(-d.y, d.x) * position.x * wv;
-    at = mix(tail, head, along);
-    vRing = 0.0;
-  } else {
-    float s = (t - fall) / splash;
-    float rad = 0.05 + 0.2 * sqrt(s);
-    at = land + vec3(position.x * 2.0 * rad, 0.04, position.y * 2.0 * rad);
-    mv = modelViewMatrix * vec4(at, 1.0);
-    vAlpha = 1.0 - s;
-    vRing = 1.0;
-  }
+  // both shapes are worked out and one is kept (no branches: cheaper on a tiled GPU, and the same on every driver)
+  float falling = step(t, fall);
+  float y = max(TOP - speed * t, 0.0);
+  vec3 head = land + vec3(SLANT * y, y, 0.0);
+  vec3 tail = head + vec3(SLANT, 1.0, 0.0) * (speed * 0.045);
+  vec3 streak = mix(tail, head, position.y + 0.5);
+  float s = clamp((t - fall) / splash, 0.0, 1.0);
+  float rad = 0.05 + 0.2 * sqrt(s);
+  vec3 ring = land + vec3(position.x * 2.0 * rad, 0.04, position.y * 2.0 * rad);
+  vec3 p = mix(ring, streak, falling);
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  // a streak is widened across its own direction on screen, and never drawn thinner than about a pixel
+  vec2 d = (modelViewMatrix * vec4(head - tail, 0.0)).xy;
+  d /= max(length(d), 1e-6);
+  float least = 1.1 / pxPerUnit(mv.z);
+  float wv = 0.024 * length(modelMatrix[0].xyz);
+  mv.xy += vec2(-d.y, d.x) * (position.x * max(wv, least) * falling);
+  vAlpha = mix(1.0 - s, min(1.0, wv / least), falling) * on * smoothstep(0.0, 0.6, uAmount);
+  vRing = 1.0 - falling;
   vUv = position.xy * 2.0;
-  vStage = (uStageInv * modelMatrix * vec4(at, 1.0)).xyz;
-  vAlpha *= smoothstep(0.0, 0.6, uAmount);
+  vStage = (uStageInv * modelMatrix * vec4(p, 1.0)).xyz;
   vColor = filmGrade(vec3(0.78, 0.84, 0.95), vStage, 0.6);
-  gl_Position = projectionMatrix * mv;
-  if (on < 0.5) gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
+  gl_Position = mix(vec4(0.0, 0.0, -2.0, 1.0), projectionMatrix * mv, on);
 }`;
 
 const RAIN_FRAG = `${CLIP}
@@ -285,7 +275,7 @@ void main() {
   float a;
   if (vRing > 0.5) {
     float d = length(vUv);
-    a = smoothstep(0.55, 0.82, d) * (1.0 - smoothstep(0.82, 1.0, d));
+    a = smoothstep(0.55, 0.82, d) * (1.0 - smoothstep(0.82, 1.0, d)) * 0.6;
   } else {
     a = (1.0 - abs(vUv.x)) * (0.2 + 0.8 * (vUv.y * 0.5 + 0.5)) * 0.55;
   }
@@ -303,7 +293,8 @@ varying float vLayer;
 varying vec3 vStage;
 void main() {
   vStage = (uStageInv * modelMatrix * vec4(position, 1.0)).xyz;
-  vColor = filmGrade(vec3(0.78, 0.8, 0.84), vStage, 1.0);
+  // mist holds a little light of its own (the moon's), or at night it would be a darker dark
+  vColor = filmGrade(vec3(0.8, 0.83, 0.9), vStage, 0.72);
   vUv = uv;
   vLayer = aLayer;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -323,8 +314,10 @@ void main() {
   float drift = uTime * (0.012 + 0.008 * vLayer) * (mod(vLayer, 2.0) < 0.5 ? 1.0 : -1.0);
   float n1 = texture2D(uNoise, vec2(vStage.x * 0.055 + drift + vLayer * 0.31, vUv.y * 0.22 + vLayer * 0.37)).r;
   float n2 = texture2D(uNoise, vec2(vStage.x * 0.13 - uTime * 0.017 + vLayer * 0.53, vUv.y * 0.45 - uTime * 0.006)).r;
-  float n = smoothstep(0.2, 0.85, n1 * 0.7 + n2 * 0.45);
-  gl_FragColor = vec4(vColor, uAmount * body * n * 0.6);
+  float n = smoothstep(0.12, 0.8, n1 * 0.7 + n2 * 0.45);
+  // it thins out toward the wings: the far sheets end inside the opening, and a sheet must not show its edge
+  float wing = 1.0 - smoothstep(uStageClip - 2.4, uStageClip - 0.2, abs(vStage.x));
+  gl_FragColor = vec4(vColor, uAmount * body * n * wing * 0.8);
   #include <colorspace_fragment>
 }`;
 
@@ -570,7 +563,7 @@ export class StageFx {
       uViewportHeight: this.viewport,
     });
     const mat = (vertexShader: string, fragmentShader: string, blending: Blending, extra: Record<string, { value: unknown }> = {}) =>
-      new ShaderMaterial({ vertexShader, fragmentShader, uniforms: { ...base(), ...extra }, transparent: true, depthWrite: false, blending, toneMapped: false });
+      new ShaderMaterial({ vertexShader, fragmentShader, uniforms: { ...base(), ...extra }, transparent: true, depthWrite: false, blending, toneMapped: false, side: DoubleSide });
 
     // glow: things that shine or catch the light, added to the picture; soft: things with a body, laid over it
     this.glow = new Batch(CAPS.sparks + CAPS.shards + CAPS.embers + CAPS.motes, mat(POINT_VERT, POINT_FRAG, AdditiveBlending), 'fx-glow');
@@ -663,8 +656,8 @@ export class StageFx {
     }
   }
 
-  /** A low puff at the floor: a fall, a slammed door, hooves. */
-  dust(x: number, z: number, amount = 1): void {
+  /** A low puff at the floor: a fall, a slammed door, hooves. `drift` carries it along x (the road under a horse). */
+  dust(x: number, z: number, amount = 1, drift = 0): void {
     const { pool } = this.dustK;
     const r = this.rand;
     const a = Math.max(0.2, Math.min(3, amount));
@@ -677,6 +670,7 @@ export class StageFx {
       pool.v.set([Math.cos(th) * sp, 0.3 + r() * 0.6, Math.sin(th) * sp * 0.6], i * 3);
       pool.s[i * 4] = (0.75 + r() * 0.5) * Math.sqrt(a);
       pool.s[i * 4 + 1] = 0.85 + r() * 0.3;
+      pool.s[i * 4 + 2] = drift;
     }
   }
 
@@ -776,7 +770,7 @@ export class StageFx {
     if (this.snowWant > 0) for (this.snowAcc += dt * 15; this.snowAcc >= 1; this.snowAcc--) this.flake(RAIN_TOP - 0.4 + r() * 0.8);
     if (this.moteWant > 0) for (this.moteAcc += dt * 12; this.moteAcc >= 1; this.moteAcc--) this.mote(false);
     for (const e of this.emitters) {
-      for (e.acc += dt * 9; e.acc >= 1; e.acc--) {
+      for (e.acc += dt * 12; e.acc >= 1; e.acc--) {
         const { pool } = this.emberK;
         const i = pool.spawn(1.3 + r() * 1.3);
         pool.p.set([e.x + (r() - 0.5) * 0.5, e.y + r() * 0.15, e.z + (r() - 0.5) * 0.35], i * 3);
@@ -905,13 +899,14 @@ export class StageFx {
     }
     // dust: thrown out low and fast, slowed by the air, settling
     {
-      const { p, v, life } = this.dustK.pool;
+      const { p, v, s, life } = this.dustK.pool;
       const drag = Math.exp(-3.2 * dt);
       for (let i = 0; i < life.length; i++) {
         if (life[i] <= 0) continue;
         const o = i * 3;
         v[o + 1] -= 0.25 * dt;
         for (let a = 0; a < 3; a++) p[o + a] += (v[o + a] *= drag) * dt;
+        p[o] += s[i * 4 + 2] * dt;
         p[o + 1] = Math.max(0.08, p[o + 1]);
       }
     }
@@ -950,14 +945,14 @@ export class StageFx {
     each(this.sparkK, (i, f) => {
       const v = this.sparkK.pool.v;
       // white-hot, cooling to orange
-      l.r = 1.6;
-      l.g = 1.45 - 0.85 * f;
-      l.b = 1.0 - 0.85 * f;
+      l.r = 1.7;
+      l.g = 1.4 - 0.85 * f;
+      l.b = 0.85 - 0.75 * f;
       l.a = 1 - f * f;
-      l.dx = v[i * 3] * 0.035;
-      l.dy = v[i * 3 + 1] * 0.035;
-      l.dz = v[i * 3 + 2] * 0.035;
-      l.width = 0.05;
+      l.dx = v[i * 3] * 0.05;
+      l.dy = v[i * 3 + 1] * 0.05;
+      l.dz = v[i * 3 + 2] * 0.05;
+      l.width = 0.075;
       l.soft = 0.3;
       l.taper = 1;
       l.lit = 0;
@@ -987,7 +982,7 @@ export class StageFx {
     each(this.emberK, (i, f) => {
       const { v, s } = this.emberK.pool;
       const flick = 0.75 + 0.25 * Math.sin(t * s[i * 4 + 1] + s[i * 4]);
-      const heat = (1.5 - f) * flick;
+      const heat = (2.1 - f) * flick;
       l.r = 1.0 * heat;
       l.g = (0.55 - 0.35 * f) * heat;
       l.b = (0.2 - 0.15 * f) * heat;
@@ -995,7 +990,7 @@ export class StageFx {
       l.dx = v[i * 3] * 0.05;
       l.dy = v[i * 3 + 1] * 0.05;
       l.dz = v[i * 3 + 2] * 0.05;
-      l.width = 0.07 * s[i * 4 + 2];
+      l.width = 0.1 * s[i * 4 + 2];
       l.soft = 0.6;
       l.taper = 0.5;
       l.lit = 0;
