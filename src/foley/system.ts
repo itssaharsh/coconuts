@@ -11,6 +11,7 @@ import { modelStats } from './models';
 import { Recorder, encodeTake } from './recorder';
 import { Replayer, schedule } from './replay';
 import * as sound from './sound';
+import * as voice from './voice';
 import { Stage, THEATRE_SMALL } from './stage';
 import { SCREEN_H } from './screen';
 import { TABLE_H } from './toys';
@@ -280,6 +281,8 @@ export class FoleySystem extends createSystem({
   private onSerialState(s: SerialState): void {
     const serial = this.serial;
     if (!serial) return;
+    // with a microphone allowed, the pitch card says a pitch can be spoken
+    serial.pitchFooter = voice.voiceReady() || voice.voiceWanted() ? 'Make its sound, or hold the megaphone and say your own' : 'Make its sound to choose';
     if (s === 'ready') {
       this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, 'Tap the clapper to roll', 0);
       // the marquee before the first reel: what this is and the one thing to do
@@ -451,6 +454,10 @@ export class FoleySystem extends createSystem({
       this.onTile(id);
       return;
     }
+    if (id === 'megaphone') {
+      this.megaphoneDown();
+      return;
+    }
     const prop = id as PropId;
     void sound.ensureAudio();
     if (GRABBABLE.includes(prop)) {
@@ -554,7 +561,48 @@ export class FoleySystem extends createSystem({
     this.returning.set(prop, 0);
   }
 
+  /** The megaphone is held: between reels, with a microphone, the player says what happens next. */
+  private megaphoneDown(): void {
+    const serial = this.serial;
+    if (!serial) return;
+    this.stage.flash('megaphone', 1);
+    if (serial.state !== 'pitch') {
+      this.slate.say('The megaphone is for between reels', 'Hold it then, and say what happens next', 4);
+      return;
+    }
+    if (!voice.voiceReady()) {
+      // no prompt has been answered yet (or it was refused): ask now, and let the player hold again
+      void voice.enableVoice().then((ok) => serial.pitchNote(ok ? 'Hold the megaphone and say what happens next' : 'No microphone. Make a sound to choose.'));
+      return;
+    }
+    if (voice.startListening(6000, () => void this.megaphoneUp())) {
+      serial.pitchNote('Listening… say what happens next, then let go');
+      console.log('VOICE listening');
+    }
+  }
+
+  private async megaphoneUp(): Promise<void> {
+    const serial = this.serial;
+    if (!serial || !voice.listening()) return;
+    const blob = await voice.stopListening();
+    if (!blob) return;
+    serial.pitchNote('The Director is listening…');
+    const text = await voice.transcribe(blob);
+    if (serial.state !== 'pitch') return; // a prop chose in the meantime
+    if (text) {
+      console.log('VOICE heard', text.split(' ').length, 'words');
+      void serial.choose({ text, spoken: true });
+    } else {
+      console.log('VOICE not heard');
+      serial.pitchNote('Not heard. Make a sound to choose.');
+    }
+  }
+
   private onPressEnd(id: string, heldMs: number): void {
+    if (id === 'megaphone') {
+      void this.megaphoneUp();
+      return;
+    }
     if (this.held.has(id)) return; // a held prop is let go by the pinch opening, not by the ray drifting off
     if (id !== 'door') return;
     const slam = heldMs >= SLAM_HOLD_MS;
@@ -828,6 +876,7 @@ export class FoleySystem extends createSystem({
           this.wantedPulse = 0.85;
           const props = this.wanted.prop ? [this.wanted.prop] : (this.wanted.options ?? PROP_IDS);
           for (const p of props) this.stage.flash(p, 0.85);
+          if (this.serial.state === 'pitch' && voice.voiceReady()) this.stage.flash('megaphone', 0.85);
         }
       }
     } else this.lane.update(this.stage.screen.currentTime);

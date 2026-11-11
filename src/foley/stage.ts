@@ -2,10 +2,10 @@
 import { CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, Quaternion, SRGBColorSpace, Vector3 } from 'three';
 import { dress, modelStats } from './models';
 import { Screen } from './screen';
-import { PALETTE, TABLE_D, TABLE_H, TABLE_W, buildClapper, buildProp, buildTable, buildTile, mat, nameHitBoxes } from './toys';
+import { PALETTE, TABLE_D, TABLE_H, TABLE_W, buildClapper, buildMegaphone, buildProp, buildTable, buildTile, mat, nameHitBoxes } from './toys';
 import { PROPS, type PropId } from './types';
 
-export type PieceId = PropId | 'clapper' | 'tile-pause' | 'tile-volume' | 'tile-redo' | 'tile-size' | 'tile-glasses' | 'tile-calm';
+export type PieceId = PropId | 'clapper' | 'megaphone' | 'tile-pause' | 'tile-volume' | 'tile-redo' | 'tile-size' | 'tile-glasses' | 'tile-calm';
 
 export interface PropPiece {
   id: PieceId;
@@ -84,13 +84,26 @@ export class Stage {
     clapper.rotation.y = 0.35;
     this.table.add(clapper);
     this.addPiece('clapper', clapper);
-    (serial ? [...TILES, SIZE_TILE] : TILES).forEach((t, i) => {
+    TILES.forEach((t, i) => {
       const tile = buildTile(t.label);
       tile.name = t.id;
       tile.position.set(TABLE_W / 2 - 0.03, TABLE_H, TABLE_D / 2 - 0.04 - i * 0.1); // 10 cm apart: wider than the gaze cone
       this.table.add(tile);
       this.addPiece(t.id, tile);
     });
+    if (serial) {
+      // the Serial's own things stand down the table's left edge, clear of the props: the size tile at the back,
+      // the Director's megaphone in the middle (the clapper is at the front)
+      const size = buildTile(SIZE_TILE.label);
+      size.name = SIZE_TILE.id;
+      size.position.set(-TABLE_W / 2 + 0.04, TABLE_H, -TABLE_D / 2 + 0.06);
+      this.table.add(size);
+      this.addPiece(SIZE_TILE.id, size);
+      const megaphone = buildMegaphone();
+      megaphone.position.set(-TABLE_W / 2 + 0.04, TABLE_H, -0.01);
+      this.table.add(megaphone);
+      this.addPiece('megaphone', megaphone);
+    }
     this.screen.group.position.set(0, TABLE_BELOW + SCREEN_LIFT, -(SCREEN_AHEAD - TABLE_AHEAD));
     this.screen.group.visible = !serial; // the theatre takes the film screen's place
     this.root.add(this.screen.group);

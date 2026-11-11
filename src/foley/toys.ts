@@ -1,18 +1,5 @@
 // Primitive builders for the table and the props (Blender GLBs replace them in T11 behind the same functions).
-import {
-  BoxGeometry,
-  CanvasTexture,
-  Color,
-  CylinderGeometry,
-  Group,
-  Mesh,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  PlaneGeometry,
-  SRGBColorSpace,
-  SphereGeometry,
-  TorusGeometry,
-} from 'three';
+import { BoxGeometry, CanvasTexture, Color, CylinderGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, SphereGeometry, SRGBColorSpace, TorusGeometry } from 'three';
 import type { PropId } from './types';
 
 export const TABLE_W = 0.7;
@@ -287,6 +274,34 @@ export function buildClapper(): Group {
   g.add(ring(0.055, PALETTE.accent));
   g.add(lampPool(0.16));
   g.add(hitBox(0.12, 0.1, 0.08));
+  return g;
+}
+
+/** The Director's megaphone: a brass cone on a little rest, its bell toward the stage. Hold it and speak. */
+export function buildMegaphone(): Group {
+  const g = new Group();
+  g.name = 'megaphone';
+  const rest = new Mesh(new BoxGeometry(0.03, 0.018, 0.05), mat(PALETTE.walnut, 0.7));
+  rest.position.y = 0.009;
+  g.add(rest);
+  const horn = new Group();
+  horn.position.y = 0.046;
+  horn.rotation.x = -(Math.PI / 2 - 0.42); // the cone's axis: away from the player and a little up
+  const brass = mat(PALETTE.brass, 0.35, 0.8);
+  brass.side = DoubleSide;
+  const cone = new Mesh(new CylinderGeometry(0.036, 0.011, 0.088, 24, 1, true), brass);
+  horn.add(cone);
+  const rim = new Mesh(new TorusGeometry(0.036, 0.003, 8, 28), mat(PALETTE.brass, 0.3, 0.85));
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.044;
+  horn.add(rim);
+  const mouth = new Mesh(new CylinderGeometry(0.012, 0.009, 0.016, 16), mat(PALETTE.ink, 0.6));
+  mouth.position.y = -0.05;
+  horn.add(mouth);
+  g.add(horn);
+  g.add(ring(0.045));
+  g.add(lampPool(0.13));
+  g.add(hitBox(0.1, 0.1, 0.1));
   return g;
 }
 

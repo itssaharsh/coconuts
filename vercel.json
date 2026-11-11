@@ -17,7 +17,7 @@
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "xr-spatial-tracking=(self), camera=(), microphone=()" }
+        { "key": "Permissions-Policy", "value": "xr-spatial-tracking=(self), camera=(), microphone=(self)" }
       ]
     }
   ]

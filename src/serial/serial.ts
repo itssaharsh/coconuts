@@ -49,6 +49,8 @@ export class Serial {
   /** What the finished reels were, for the Director. */
   private story: StoryLine[] = [];
   private pitches: Pitch[] = [];
+  /** The line under the pitches (whoever owns a microphone adds how to speak a pitch instead). */
+  pitchFooter = 'Make its sound to choose';
   private nextPitches: Pitch[] | null = null;
   private usedProps: PropId[] = [];
   /** How the Director is asked; replaced in tests and on the dev page. */
@@ -164,10 +166,20 @@ export class Serial {
     const fresh = (Object.keys(STOCK_PITCH) as PropId[]).filter((p) => !this.usedProps.slice(-3).includes(p));
     this.pitches = this.nextPitches ?? (this.story.length <= 1 ? PITCHES_2 : fresh.slice(0, 3).map((prop) => ({ prop, text: STOCK_PITCH[prop] })));
     this.nextPitches = null;
-    this.theatre.showChoice('What happens next?', this.pitches, 'Make its sound to choose');
+    this.theatre.showChoice('What happens next?', this.pitches, this.pitchFooter);
     this.setState('pitch');
     console.log('PITCH', this.pitches.map((p) => `${p.prop}: ${p.text}`).join(' | '));
     this.hooks.onWaiting?.({ kind: 'open', prop: null, label: 'What happens next?', options: this.pitches.map((p) => p.prop) });
+  }
+
+  /** The pitches on offer right now. */
+  get offer(): Pitch[] {
+    return this.pitches;
+  }
+
+  /** Change the line under the pitches while they are up (listening, not heard). */
+  pitchNote(footer: string): void {
+    if (this.state === 'pitch') this.theatre.showChoice('What happens next?', this.pitches, footer);
   }
 
   /** The player chose (by a prop, or in their own words): have the next reel written, then roll it. */
