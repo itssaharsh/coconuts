@@ -4,7 +4,7 @@ import type { PropId } from '../foley/types';
 import { Mount, Troupe } from './cast';
 import { CHAPTER_1 } from './chapter1';
 import { ReelPlayer, type PlayerHooks, type ReelStats, type Sound, type Waiting } from './player';
-import { type Reel, type SetInfo, validateReel } from './schema';
+import { type Reel, type SetInfo, type StageCue, validateReel } from './schema';
 import { Theatre } from './theatre';
 
 export type SerialState = 'boot' | 'loading' | 'ready' | 'playing' | 'between';
@@ -14,6 +14,8 @@ const setInfo = (id: string, marks: string[]): SetInfo => ({ id, marks: Object.f
 
 export interface SerialHooks extends PlayerHooks {
   onState?: (s: SerialState) => void;
+  /** The stage's own sounds, for whoever owns the audio. */
+  onStage?: (cue: StageCue) => void;
 }
 
 export class Serial {
@@ -39,6 +41,7 @@ export class Serial {
     private hooks: SerialHooks = {},
   ) {
     this.theatre = new Theatre(base);
+    this.theatre.onSound = (cue) => this.hooks.onStage?.(cue);
     this.troupe = new Troupe(base);
     this.mount = new Mount(base);
     this.player = new ReelPlayer(this.theatre, this.troupe, this.mount, {
@@ -73,6 +76,8 @@ export class Serial {
     }
     const soft = (what: string, p: Promise<unknown>) => p.catch((e) => console.warn('SERIAL', what, 'failed', e instanceof Error ? e.message : e));
     await Promise.all([
+      // the intertitles' face; a card drawn before it arrives would keep the fallback serif
+      soft('font', typeof document !== 'undefined' && document.fonts ? Promise.race([document.fonts.load('64px Limelight'), new Promise((r) => setTimeout(r, 2500))]) : Promise.resolve()),
       soft('frame', this.theatre.init(this.frameUrl)),
       soft('clips', this.troupe.load()),
       soft('horse', this.mount.load(seat)),

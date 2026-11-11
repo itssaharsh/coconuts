@@ -1,13 +1,18 @@
-// Every effect is synthesized here with Web Audio: no samples, no licences, and it plays offline.
+// Effects are recorded samples (public/audio) where they have loaded, and synthesized with Web Audio otherwise,
+// so the game still sounds right offline or when a fetch fails.
 import { automationRun, soundForced } from './env';
+import { HIT_BANKS, pickTake, type StageSound } from './samples';
 import type { HitEvent, PropId } from './types';
+
+export type { StageSound } from './samples';
+type SourceId = PropId | 'director' | 'stage';
 
 type Vec3Like = { x: number; y: number; z: number };
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let recDest: MediaStreamAudioDestinationNode | null = null;
-const panners = new Map<PropId | 'director', PannerNode>();
+const panners = new Map<SourceId, PannerNode>();
 const held = new Map<string, { stop: (t?: number) => void; set: (v: number) => void }>();
 let noiseBuffer: AudioBuffer | null = null;
 
@@ -33,12 +38,21 @@ export async function ensureAudio(): Promise<AudioContext | null> {
       ctx = new AC({ latencyHint: 'interactive' });
       master = ctx.createGain();
       master.gain.value = 0.9;
-      master.connect(ctx.destination);
+      // a limiter after the master: the samples are normalised near full scale, so overlapping takes would clip
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -4;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.002;
+      limiter.release.value = 0.12;
+      master.connect(limiter).connect(ctx.destination);
       recDest = ctx.createMediaStreamDestination();
-      master.connect(recDest);
+      limiter.connect(recDest);
       console.log('AUDIO ready', ctx.sampleRate);
     }
     if (ctx.state !== 'running') await ctx.resume();
+    startBank();
+    if (musicWanted) musicStart();
   } catch (err) {
     console.warn('AUDIO unavailable', err);
   }
@@ -63,7 +77,7 @@ function noise(): AudioBuffer {
   return noiseBuffer;
 }
 
-function pannerFor(id: PropId | 'director'): PannerNode {
+function pannerFor(id: SourceId): PannerNode {
   let p = panners.get(id);
   if (!p) {
     p = ctx!.createPanner();
@@ -78,7 +92,7 @@ function pannerFor(id: PropId | 'director'): PannerNode {
 }
 
 /** Keep each prop's sound where the prop is. */
-export function placeSource(id: PropId | 'director', pos: Vec3Like): void {
+export function placeSource(id: SourceId, pos: Vec3Like): void {
   if (!ctx) return;
   const p = pannerFor(id);
   const t = ctx.currentTime;
@@ -303,8 +317,204 @@ function crash(v = 1, at?: number): void {
   tone(out, t0, 140, amp * 0.5, 0.002, 0.1, 'sine', 60);
 }
 
+// ---- recorded samples ----
+
+interface Manifest {
+  foley?: Record<string, string[]>;
+  stage?: Record<string, string[]>;
+  music?: { file: string }[];
+}
+
+const foleyBank = new Map<string, AudioBuffer[]>();
+const stageBank = new Map<string, AudioBuffer[]>();
+const musicBank: (AudioBuffer | null)[] = [];
+const lastTake = new Map<string, number>();
+let manifest: Promise<Manifest | null> | null = null;
+let bankStarted = false;
+const stageLoading = new Set<string>();
+let musicWanted = false;
+let musicLoading = false;
+let musicRun: { gain: GainNode; src: AudioBufferSourceNode | null; next: number } | null = null;
+
+const assetUrl = (file: string): string => `${import.meta.env.BASE_URL}audio/${file}`;
+
+/** Fetch and decode one file; a failure is just a missing sample, never an error. */
+async function loadBuffer(file: string): Promise<AudioBuffer | null> {
+  try {
+    const c = ctx;
+    if (!c) return null;
+    const res = await fetch(assetUrl(file));
+    if (!res.ok) return null;
+    return await c.decodeAudioData(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+function loadManifest(): Promise<Manifest | null> {
+  manifest ??= fetch(assetUrl('manifest.json'))
+    .then((r) => (r.ok ? (r.json() as Promise<Manifest>) : null))
+    .catch(() => null);
+  return manifest;
+}
+
+/** Decode the foley takes in the background once the context exists. */
+function startBank(): void {
+  if (bankStarted) return;
+  bankStarted = true;
+  void (async () => {
+    const m = await loadManifest();
+    if (!m?.foley) return;
+    const jobs = Object.entries(m.foley).flatMap(([key, files]) => files.map((f) => ({ key, f })));
+    let n = 0;
+    await Promise.all(
+      jobs.map(async ({ key, f }) => {
+        const b = await loadBuffer(f);
+        if (!b) return;
+        n++;
+        const list = foleyBank.get(key) ?? [];
+        list.push(b);
+        foleyBank.set(key, list);
+      }),
+    );
+    console.log('SOUND samples', n, 'of', jobs.length);
+  })();
+}
+
+export function samplesReady(): { foley: number; stage: number; music: number } {
+  const count = (m: Map<string, AudioBuffer[]>): number => [...m.values()].reduce((a, l) => a + l.length, 0);
+  return { foley: count(foleyBank), stage: count(stageBank), music: musicBank.filter(Boolean).length };
+}
+
+function takeFor(bank: Map<string, AudioBuffer[]>, key: string): AudioBuffer | null {
+  const list = bank.get(key);
+  if (!list?.length) return null;
+  const i = pickTake(list.length, lastTake.get(key) ?? -1);
+  lastTake.set(key, i);
+  return list[i];
+}
+
+/** Play a decoded take through a spatial source (or straight into the master) and let it end by itself. */
+function playBuffer(buf: AudioBuffer, out: AudioNode, gain: number, rate = 1, at?: number): void {
+  const c = ctx!;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.playbackRate.value = rate;
+  const g = c.createGain();
+  g.gain.value = gain;
+  src.connect(g).connect(out);
+  src.start(at ?? c.currentTime);
+}
+
+const vary = (): number => 1 + (Math.random() * 2 - 1) * 0.04;
+
+function playSampledHit(hit: HitEvent, at?: number): boolean {
+  if (!ctx) return false;
+  for (const key of HIT_BANKS[hit.kind]) {
+    const buf = takeFor(foleyBank, key);
+    if (buf) {
+      playBuffer(buf, pannerFor(hit.prop), 0.8 * (0.6 + 0.4 * Math.max(0, Math.min(1, hit.v))), vary(), at);
+      return true;
+    }
+  }
+  return false;
+}
+
+/** A stage sound's takes decode on first use; until then the call finds nothing and is ignored. */
+function stageTake(name: StageSound): AudioBuffer | null {
+  const b = takeFor(stageBank, name);
+  if (b || stageBank.has(name) || stageLoading.has(name) || !ctx) return b;
+  stageLoading.add(name);
+  void (async () => {
+    const files = (await loadManifest())?.stage?.[name] ?? [];
+    const bufs = (await Promise.all(files.map(loadBuffer))).filter((x): x is AudioBuffer => !!x);
+    if (bufs.length) stageBank.set(name, bufs);
+    stageLoading.delete(name);
+    if (bufs.length && pendingStage.has(name)) {
+      pendingStage.delete(name);
+      playStage(name);
+    }
+  })();
+  return null;
+}
+const pendingStage = new Set<StageSound>();
+
+/** One stage sound from the theatre's position ('stage' source). Unknown or missing sounds are ignored. */
+export function playStage(name: StageSound, gain = 1): void {
+  if (!ctx) return;
+  const buf = stageTake(name);
+  if (!buf) {
+    if (stageLoading.has(name)) pendingStage.add(name); // first use: play as soon as it has decoded
+    return;
+  }
+  playBuffer(buf, pannerFor('stage'), gain, vary());
+}
+
+const MUSIC_GAIN = 0.16;
+
+function musicPlay(run: NonNullable<typeof musicRun>): void {
+  const c = ctx;
+  if (!c || musicRun !== run) return;
+  const buf = musicBank[run.next];
+  run.next = (run.next + 1) % Math.max(1, musicBank.length);
+  if (!buf) return;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.connect(run.gain);
+  src.onended = () => {
+    if (musicRun === run) musicPlay(run); // the next excerpt, round robin
+  };
+  run.src = src;
+  src.start();
+}
+
+/** Decode the music excerpts on first use, then start the run if it is still wanted. */
+function musicStart(): void {
+  if (!ctx || !master || musicRun || musicLoading) return;
+  if (musicBank.some(Boolean)) return beginMusic();
+  musicLoading = true;
+  void (async () => {
+    const files = (await loadManifest())?.music ?? [];
+    const bufs = await Promise.all(files.map((m) => loadBuffer(m.file)));
+    musicBank.length = 0;
+    musicBank.push(...bufs);
+    musicLoading = false;
+    if (musicWanted && !musicRun) beginMusic();
+  })();
+}
+
+function beginMusic(): void {
+  const c = ctx!;
+  if (!musicBank.some(Boolean)) return;
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(0.0001, c.currentTime);
+  gain.gain.linearRampToValueAtTime(MUSIC_GAIN, c.currentTime + 1.2);
+  gain.connect(master!);
+  const run = { gain, src: null as AudioBufferSourceNode | null, next: musicBank.findIndex(Boolean) };
+  musicRun = run;
+  musicPlay(run);
+}
+
+/** Loop the music excerpts quietly under everything; fades in over 1.2 s and out over 0.8 s. */
+export function setMusic(on: boolean): void {
+  if (on === musicWanted) return;
+  musicWanted = on;
+  if (!ctx) return; // ensureAudio starts it
+  if (on) return musicStart();
+  const run = musicRun;
+  if (!run) return;
+  musicRun = null;
+  const t = ctx.currentTime;
+  run.gain.gain.cancelScheduledValues(t);
+  run.gain.gain.setValueAtTime(run.gain.gain.value, t);
+  run.gain.gain.linearRampToValueAtTime(0.0001, t + 0.8);
+  run.src?.stop(t + 0.85);
+  window.setTimeout(() => run.gain.disconnect(), 1000);
+}
+
 /** Play a recorded or one-shot hit now (or at an absolute context time). */
 export function playHit(hit: HitEvent, at?: number): void {
+  if (playSampledHit(hit, at)) return;
   switch (hit.kind) {
     case 'clop':
       clop(hit.v, hit.hand === 'left' ? 1 : 0, at);
@@ -353,6 +563,9 @@ export async function playVoice(data: ArrayBuffer): Promise<void> {
 /** A soft click when a take is about to start, so the room feels alive before the first hit. */
 export function clapperSnap(at?: number): void {
   if (!ctx) return;
+  const clap = stageBank.get('clap')?.length ? takeFor(stageBank, 'clap') : null;
+  if (clap) return playBuffer(clap, pannerFor('director'), 0.8, 1, at);
+  stageTake('clap'); // start decoding for next time
   const t0 = at ?? ctx.currentTime;
   const out = pannerFor('director');
   burst(out, t0, 0.5, 0.001, 0.05, { type: 'bandpass', f: 2600, q: 1.5 });

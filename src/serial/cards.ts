@@ -11,6 +11,29 @@ function texture(c: HTMLCanvasElement): CanvasTexture {
   return t;
 }
 
+// Cards are kept once drawn: a card that shows again (a cue's pips, a sound word) costs no canvas work and no upload.
+// The big ones (intertitles) live in a small least-recently-used cache; whoever shows a card must not dispose it.
+const kept = new Map<string, CanvasTexture>();
+function keep(key: string, limit: number, make: () => CanvasTexture): CanvasTexture {
+  const hit = kept.get(key);
+  if (hit) {
+    kept.delete(key);
+    kept.set(key, hit);
+    return hit;
+  }
+  const t = make();
+  kept.set(key, t);
+  if (limit > 0) {
+    const prefix = key.slice(0, key.indexOf(':') + 1);
+    const same = [...kept.keys()].filter((k) => k.startsWith(prefix));
+    for (const k of same.slice(0, Math.max(0, same.length - limit))) {
+      kept.get(k)!.dispose();
+      kept.delete(k);
+    }
+  }
+  return t;
+}
+
 function fit(g: CanvasRenderingContext2D, text: string, maxWidth: number, size: number, font: string, weight = '400'): number {
   let s = size;
   for (; s > 18; s -= 4) {
@@ -37,6 +60,10 @@ function wrap(g: CanvasRenderingContext2D, text: string, maxWidth: number): stri
 
 /** A silent-film intertitle: white type on black with a thin ornamental border. 16:9. */
 export function titleCard(text: string, sub = ''): CanvasTexture {
+  return keep(`title:${text}|${sub}`, 8, () => drawTitle(text, sub));
+}
+
+function drawTitle(text: string, sub: string): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 1280;
   c.height = 720;
@@ -143,6 +170,10 @@ export function drawGlyph(g: CanvasRenderingContext2D, prop: PropId, x: number, 
 
 /** The cue card: which prop the scene is waiting for, and the action it will sound. */
 export function cueCard(prop: PropId | null, label: string): CanvasTexture {
+  return keep(`cue:${prop}|${label}`, 12, () => drawCue(prop, label));
+}
+
+function drawCue(prop: PropId | null, label: string): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 768;
   c.height = 192;
@@ -172,6 +203,10 @@ export const soundWordFor = (prop: PropId, kind?: string): string => (prop === '
 
 /** A comic sound word, so every sound is also seen. */
 export function wordCard(word: string): CanvasTexture {
+  return keep(`word:${word}`, 0, () => drawWord(word));
+}
+
+function drawWord(word: string): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 192;
@@ -191,6 +226,10 @@ export function wordCard(word: string): CanvasTexture {
 const EMOTE_TEXT: Record<string, string> = { '!': '!', '?': '?', zzz: 'Zzz', heart: '♥', skull: '☠', note: '♪', angry: '#!', sweat: '’’', idea: '✦' };
 
 export function emoteCard(emote: string): CanvasTexture {
+  return keep(`emote:${emote}`, 0, () => drawEmote(emote));
+}
+
+function drawEmote(emote: string): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = 160;
   const g = c.getContext('2d')!;

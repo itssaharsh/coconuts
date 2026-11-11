@@ -1,7 +1,7 @@
 // FoleySystem: places the stage, loads the clip, turns pinches, pokes and hand motion on props into hits,
 // records the take, replays it against the film, and runs the tiles and the Director's bubbles.
 import { Hovered, PokeInteractable, Pressed, RayInteractable, VisibilityState, createSystem, type Entity } from '@iwsdk/core';
-import { Object3D, Quaternion, Vector3 } from 'three';
+import { BackSide, Mesh, MeshBasicMaterial, Object3D, Quaternion, SphereGeometry, Vector3 } from 'three';
 import { Bubble } from './bubble';
 import { CueTracker, type Cue } from './cues';
 import { serialMode } from './env';
@@ -90,6 +90,8 @@ export class FoleySystem extends createSystem({
   private wanted: Waiting | null = null;
   private wantedPulse = 0;
   private lastWhistleToStage = -1;
+  /** The house lights: a dark dome round the seat that dims the room (the passthrough) while the curtain is up. */
+  private house: Mesh | null = null;
   private lastPerfLog = -100;
   private rootEntity!: Entity;
   private entityPiece = new Map<Entity, string>();
@@ -144,11 +146,21 @@ export class FoleySystem extends createSystem({
           this.wanted = w;
           this.wantedPulse = 0;
         },
+        onStage: (cue) => sound.playStage(cue),
       });
       this.serial.theatre.setSize(THEATRE_SIZE);
       this.stage.theatreMount.add(this.serial.theatre.group);
       this.director.group.position.set(-0.7, 0.36, 0.04);
       this.stage.theatreMount.add(this.director.group);
+      // drawn first and behind everything, so it darkens only what is not ours: the room
+      this.house = new Mesh(
+        new SphereGeometry(7, 24, 14),
+        new MeshBasicMaterial({ color: 0x06050b, transparent: true, opacity: 0, side: BackSide, depthWrite: false, toneMapped: false }),
+      );
+      this.house.name = 'house-lights';
+      this.house.renderOrder = -1000;
+      this.house.frustumCulled = false;
+      this.stage.root.add(this.house);
       void this.serial.init().catch((e) => console.warn('SERIAL init failed', e instanceof Error ? e.message : e));
     } else {
       this.lane.group.position.set(0, -(SCREEN_H / 2) - 0.105, 0.03); // just under the frame's footlights
@@ -239,7 +251,10 @@ export class FoleySystem extends createSystem({
     const serial = this.serial;
     if (!serial) return;
     if (s === 'ready') this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, 'Pinch the clapper to roll', 0);
-    else if (s === 'playing') this.slate.hide();
+    else if (s === 'playing') {
+      this.slate.hide();
+      sound.setMusic(true); // the house pianist plays from the first reel on
+    }
     else if (s === 'between') {
       const st = serial.last;
       this.slate.say(st ? `${st.hits} of ${st.asked} sounds landed` : 'End of the reel', 'Pinch the clapper for the next reel', 0);
@@ -256,6 +271,7 @@ export class FoleySystem extends createSystem({
     if (serial.state === 'playing') {
       const paused = serial.togglePause();
       this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
+      sound.setMusic(!paused);
       console.log(paused ? 'REEL pause' : 'REEL resume');
       return;
     }
@@ -705,6 +721,7 @@ export class FoleySystem extends createSystem({
         sound.placeSource(piece.id as PropId, piece.root.getWorldPosition(tmpP));
       }
       sound.placeSource('director', this.director.group.getWorldPosition(tmpP));
+      if (this.serial) sound.placeSource('stage', this.stage.theatreMount.getWorldPosition(tmpP));
     }
   }
 
@@ -738,6 +755,13 @@ export class FoleySystem extends createSystem({
     if (this.mode === 'replay' && this.replayer) this.replayer.tick(this.stage.screen.currentTime);
     if (this.serial) {
       this.serial.update(dt);
+      if (this.house) {
+        // down with the curtain's rise, up again between reels; lightning on the stage lights the room for an instant
+        const t = this.serial.theatre;
+        const want = (0.3 + 0.48 * t.curtainLevel) * (1 - 0.85 * t.flashLevel);
+        const m = this.house.material as MeshBasicMaterial;
+        m.opacity += (want - m.opacity) * Math.min(1, dt * 3);
+      }
       if (this.serial.state === 'playing' && time - this.lastPerfLog > 8) {
         this.lastPerfLog = time;
         const r = this.world.renderer.info.render;

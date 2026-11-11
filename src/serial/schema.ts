@@ -20,6 +20,9 @@ export const CHARACTERS = [
 ] as const;
 export type CharacterId = (typeof CHARACTERS)[number];
 
+/** Sounds the stage makes by itself (the player's props make the rest). */
+export type StageCue = 'curtain' | 'creak' | 'whinny' | 'clang' | 'applause' | 'boing' | 'thud' | 'step';
+
 export const TINT_NAMES = ['amber', 'blue', 'red', 'green', 'plain'] as const;
 export type Tint = (typeof TINT_NAMES)[number];
 

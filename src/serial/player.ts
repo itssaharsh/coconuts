@@ -2,7 +2,7 @@
 // Every moment that needs a sound WAITS for it, so the player's sound visibly causes the action.
 import type { PropId } from '../foley/types';
 import { type Actor, type Mount, type Troupe } from './cast';
-import type { Beat, CastEntry, Reel } from './schema';
+import type { Beat, CastEntry, Reel, Verb } from './schema';
 import { call, done, parallel, sequence, type Task, wait } from './tasks';
 import type { Theatre } from './theatre';
 
@@ -51,6 +51,9 @@ export interface PlayerHooks {
 const CUE_HOLD = 18; // seconds of silence a cue waits by default
 const OPEN_HOLD = 22;
 const NUDGE_AT = [6, 12];
+/** Verbs the stage gives a sound of its own: steel on steel, a body on the boards. */
+const CLANGS = new Set<Verb>(['chop', 'slash', 'stab']);
+const THUDS = new Set<Verb>(['fall', 'faint', 'collapse']);
 
 export class ReelPlayer {
   private actors = new Map<string, Actor>();
@@ -146,6 +149,7 @@ export class ReelPlayer {
       () => this.theatre.title(reel.title, '', 2.4),
       () => this.theatre.curtain(true),
       () => this.run(reel.beats),
+      () => call(() => this.theatre.onSound?.('applause')),
       () => wait(0.6),
       () => this.theatre.title('To be continued', reel.cliffhanger, 3.4),
       () => this.theatre.curtain(false),
@@ -271,6 +275,8 @@ export class ReelPlayer {
         const a = this.actors.get(b.who);
         if (!a) return done;
         if (b.face) this.turn(a, b.face);
+        if (CLANGS.has(b.verb)) this.side.push(sequence([() => wait(0.3), () => call(() => this.theatre.onSound?.('clang'))]));
+        else if (THUDS.has(b.verb)) this.side.push(sequence([() => wait(0.45), () => call(() => this.theatre.onSound?.('thud'))]));
         return a.perform(b.verb, b.secs);
       }
       case 'emote': {
@@ -444,6 +450,7 @@ export class ReelPlayer {
           this.stats.asked++;
           this.pending.length = 0;
           this.setWaiting(w);
+          this.theatre.onSound?.('whinny');
         }
         for (let i = recent.length - 1; i >= 0; i--) if ((recent[i] += dt) > 1.2) recent.splice(i, 1);
         let s: Sound | undefined;
@@ -464,6 +471,7 @@ export class ReelPlayer {
           // the hooves stopped: so does the horse, and the rider nearly goes over its neck
           moving = false;
           this.mount?.lurch();
+          this.theatre.onSound?.('boing');
           if (this.mounted) this.theatre.emote(this.mounted, '!');
         }
         w.progress = Math.min(1, clops / b.need);

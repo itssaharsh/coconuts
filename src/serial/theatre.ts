@@ -10,6 +10,7 @@ import {
   Group,
   Mesh,
   MeshBasicMaterial,
+  type MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
   Quaternion,
@@ -24,7 +25,7 @@ import { backdropTexture, cueCard, curtainTexture, emoteCard, glowTexture, sound
 import { type Actor, loadGLB } from './cast';
 import { film, filmify, MAX_LAMPS, setTint, type TintName } from './film';
 import { GALLOP_SPEED, Road, type RoadTheme } from './road';
-import type { Emote, SetInfo } from './schema';
+import type { Emote, SetInfo, StageCue } from './schema';
 import { type Task } from './tasks';
 
 export const STAGE_W = 1.0; // the opening, metres (before the group's scale)
@@ -162,6 +163,8 @@ export class Theatre {
   private tint: TintName = 'amber';
   /** How fast the road slides past, 0..1 of a full gallop. */
   scroll = 0;
+  /** The stage's own sounds (curtain, a door's creak): whoever owns the audio listens here. */
+  onSound: ((cue: StageCue) => void) | null = null;
 
   constructor(private base: string) {
     this.group.name = 'theatre';
@@ -271,6 +274,15 @@ export class Theatre {
       frame.scale.setScalar(FRAME_SCALE);
       // the model's opening starts 0.055 above its base and its back face sits 0.015 behind its origin
       frame.position.set(0, -0.055 * FRAME_SCALE, 0.03);
+      // the frame is lit by whatever room it stands in; a little light of its own keeps its wood readable in a dark one
+      frame.traverse((o) => {
+        const m = (o as Mesh).material as MeshStandardMaterial | undefined;
+        if (!(o as Mesh).isMesh || !m || !('emissive' in m)) return;
+        const lit = m.clone();
+        lit.emissive.copy(lit.map ? WHITE : lit.color).multiplyScalar(0.42);
+        lit.emissiveMap = lit.map;
+        (o as Mesh).material = lit;
+      });
       this.group.add(frame);
       const box = new Box3().setFromObject(frame);
       console.log('FRAME', [box.min.x, box.max.x, box.min.y, box.max.y, box.min.z, box.max.z].map((v) => v.toFixed(3)).join(' '));
@@ -412,6 +424,7 @@ export class Theatre {
   curtain(open: boolean): Task {
     return {
       update: () => {
+        if (this.wantCurtain !== (open ? 1 : 0)) this.onSound?.('curtain');
         this.wantCurtain = open ? 1 : 0;
         return Math.abs(this.curtainOpen - this.wantCurtain) < 0.02;
       },
@@ -431,7 +444,6 @@ export class Theatre {
         if (!started) {
           started = true;
           const m = this.titleMesh.material as MeshBasicMaterial;
-          m.map?.dispose();
           m.map = titleCard(text, sub);
           m.needsUpdate = true;
           this.wantTitle = 1;
@@ -452,7 +464,6 @@ export class Theatre {
 
   showCue(prop: PropId | null, label: string, pips = ''): void {
     const m = this.cueMesh.material as MeshBasicMaterial;
-    m.map?.dispose();
     m.map = cueCard(prop, pips ? `${label}  ${pips}` : label);
     m.needsUpdate = true;
     this.wantCue = 1;
@@ -467,6 +478,7 @@ export class Theatre {
     const d = this.dynamics.get(name);
     if (!d) return;
     if (open && name === 'door') d.open = (toward ? -1 : 1) * Math.abs(d.open);
+    if (open && d.want === 0) this.onSound?.('creak');
     d.want = open ? 1 : 0;
   }
 
@@ -490,6 +502,16 @@ export class Theatre {
 
   lightning(): void {
     this.flash = 1;
+  }
+
+  /** How bright the lightning is right now, 0..1 (the room around the theatre flashes with it). */
+  get flashLevel(): number {
+    return this.flash;
+  }
+
+  /** 0 with the curtain shut, 1 with it open. */
+  get curtainLevel(): number {
+    return this.curtainOpen;
   }
 
   quake(): void {
@@ -587,8 +609,7 @@ export class Theatre {
       f.sprite.position.y += f.rise * dt;
       if (f.life <= 0) {
         this.stage.remove(f.sprite);
-        m.map?.dispose();
-        m.dispose();
+        m.dispose(); // the card's texture is kept for the next time
         this.floaters.splice(i, 1);
       }
     }
