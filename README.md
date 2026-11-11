@@ -6,8 +6,11 @@ Quest and Meta VR Glasses, hands only, seated, in the headset's browser (Meta's 
 Six foley props sit on a small table in front of you: coconut shells, a little door, a desk bell, a thunder
 sheet, a slide whistle and a bag of glass. The stage waits for you. The knight raises his fist at the castle
 gate and nothing happens until you knock; his horse runs only as fast as you clop; the sleeping thief wakes
-differently for every sound. When a reel ends a card asks "What happens next?", you answer with a sound (or by
-holding the megaphone and saying it), and an AI Director writes the next reel around your answer.
+differently for every sound. Your thunder bursts the toy theatre open to the size of your wall, and at the end of
+the first reel your crash of glass breaks the picture itself: the thief jumps out of the theatre onto your desk,
+runs between your props, and waits at the table's edge for your slide whistle. When a reel ends a card asks
+"What happens next?", you answer with a sound (or by holding the megaphone and saying it), and an AI Director
+writes the next reel around your answer.
 
 Live: https://coconuts-foley.vercel.app (open it in the Quest browser; without a headset the page itself plays:
 click the props, or use the keys C D B T W G and the space bar).
@@ -22,6 +25,8 @@ Experience division.
 |---|---|
 | The theatre: six 3D sets, an endless road, nine rigged characters, a horse, its own lighting and film look | real, in the build; CC0 kits baked by the scripts in `tools/serial/` |
 | Reel one (the gate, the ride, the robbers' den) | written by hand; every moment waits for the player's sound |
+| The film leaves its frame | at the end of reel one the thief steps out of the picture, lands on the player's own desk at toy size, runs between the props to the table's edge, and the slide whistle sends him over it (`src/serial/desk.ts`) |
+| Weather and debris | rain that starts on the player's thunder, ground mist, embers over fires, sparks where steel meets, dust, broken glass, confetti: four draw calls in all, lit and graded by the film's own shader (`src/serial/fx.ts`) |
 | The reels after it | planned by the Director (Claude) from the player's pitch and what their sounds did so far, then assembled from hand-staged pieces and checked; a written reel for every prop plays whenever the model is slow, wrong or absent |
 | The six props | hand interactions: a pat, a pinch from afar, gaze and pinch, or pick up and shake; recorded CC0 sounds with a synthesised fallback |
 | Speaking a pitch | optional: hold the megaphone, speech-to-text by AssemblyAI; off without a microphone or the key, and the pitch cards always work |
@@ -35,8 +40,9 @@ Experience division.
 2. **Reel one.** "A knight. A door." He walks to the gate and waits. Knock three times on the little door and
    the gate opens. "His horse runs on your hooves": clop the coconuts and the road slides by; stop, and the
    knight nearly goes over the horse's neck. In the robbers' den the thief sleeps on his loot: whatever you
-   sound wakes him in its own way. Thunder, a slammed door, a duel that rings on your bell, a leap through
-   the window on your crash of glass.
+   sound wakes him in its own way. Your thunder bursts the theatre to the size of the wall; a slammed door, a
+   duel that rings on your bell. Then your crash of glass breaks the picture: the thief jumps down onto your
+   desk, runs between your props, and stands at the edge until your slide whistle sends him over.
 3. **What happens next?** Three pitches, each on a prop. Sound one, or hold the megaphone and say your own.
    The Director writes the reel; it rolls by itself.
 4. **Come back.** The serial keeps its place in the browser: next time the marquee says "Previously…" and the
@@ -59,6 +65,7 @@ and the words on the cards, plus three pitches for the reel after and one line t
   staged once by hand in `src/serial/pieces.ts` and each waiting for one kind of sound.
 - The plan is checked twice (`checkPlan` on the server and again in the browser, then the assembled reel
   against the set's marks). One repair turn; after that, or after 9 seconds, a written reel plays.
+- The Director's one line to the player (what their sounds did) is shown on the stage's own card before its reel.
 - Claude (`claude-opus-5-5`, one structured-output call, low effort, cached system prompt) is tried first,
   Gemini second, the written reels last. A per-IP limit and a daily cap bound the cost.
 - The player's spoken pitch is story material, never instructions: it is cleaned, kept out of the system
@@ -101,10 +108,11 @@ node tools/xr/run-props.mjs                                                # eve
 - `src/serial/`: the stage, in plain three.js with no engine dependency.
   `theatre.ts` (proscenium, curtain, sets, lamps, cards), `film.ts` (one shader for the stage: its own light in
   stage space, the faded print that every landed cue restores, and the wings, so it looks the same in any room
-  and costs the same), `cast.ts` (nine characters on one rig, the horse), `player.ts` (beats into tasks; cues,
-  rides and open moments that wait for sound), `pieces.ts` (plans into reels), `serial.ts` (reels, pitches,
-  the Director, the saved place), `tasks.ts` (a cooperative scheduler: no timers, so a reel can be stepped
-  and tested).
+  and costs the same), `cast.ts` (nine characters on one rig, the horse, six beasts), `fx.ts` (weather and
+  debris in four draws), `desk.ts` (a character out of the picture, on the player's table), `player.ts` (beats
+  into tasks; cues, rides and open moments that wait for sound), `pieces.ts` (plans into reels), `serial.ts`
+  (reels, pitches, the Director, the saved place), `tasks.ts` (a cooperative scheduler: no timers, so a reel
+  can be stepped and tested).
 - `src/foley/`: the table, the props and the hands. `system.ts` is the one ECS system: it places the stage for
   the player's eyes, turns pats, pinches and hand motion into sounds, and feeds them to the stage.
 - `api/`: the Director (`reel.ts`), hearing (`hear.ts`), the classic mode's reviewer and voice.
@@ -116,10 +124,12 @@ Hands only, no controllers. Seated, everything inside a two-foot radius.
 ## Accessibility
 
 - One hand is enough, and no grip is needed: a pat or a far pinch sounds every prop; the clapper and the tiles
-  answer a touch.
+  answer a touch. A hand that only rests or drifts over the table is not a pat: a touch counts when the finger
+  came there on purpose, and the tile that starts a reel again asks twice.
 - Eyes do the aiming on Meta VR Glasses: look at a prop and pinch once with either hand.
 - Nothing is timed: the stage waits, asks again, then goes on. Every sound is also seen (a sound word on the
-  stage, a card that names what it did).
+  stage, a card that names what it did). When the headset comes off or the system menu opens, the reel holds.
+- Lightning is one flash that dies away, never a flicker.
 - The volume tile mutes in three steps; the pause tile holds the reel; the size tile keeps the stage small.
 - The page plays without a headset, by mouse or keyboard.
 
