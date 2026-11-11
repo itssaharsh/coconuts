@@ -14,18 +14,18 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const args = process.argv.slice(2);
 const port = Number(args[args.indexOf('--port') + 1]) || 8796;
 
-for (const name of ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GEMINI_API_KEYS']) delete process.env[name];
+for (const name of ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GEMINI_API_KEYS', 'ASSEMBLYAI_API_KEY']) delete process.env[name];
 const envFile = join(ROOT, '.env.local');
 if (existsSync(envFile)) {
   for (const line of readFileSync(envFile, 'utf8').split('\n')) {
-    const m = /^(ANTHROPIC_API_KEY|GEMINI_API_KEY|GEMINI_API_KEYS|REEL_MODEL|REEL_FAST|REEL_DAILY_CAP|REEL_DISABLED)=(.*)$/.exec(line.trim());
+    const m = /^(ANTHROPIC_API_KEY|GEMINI_API_KEY|GEMINI_API_KEYS|ASSEMBLYAI_API_KEY|REEL_MODEL|REEL_FAST|REEL_DAILY_CAP|REEL_DISABLED)=(.*)$/.exec(line.trim());
     if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '').trim();
   }
 }
-console.log('keys:', ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GEMINI_API_KEYS'].filter((k) => process.env[k]).join(', ') || 'none (written reels only)');
+console.log('keys:', ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GEMINI_API_KEYS', 'ASSEMBLYAI_API_KEY'].filter((k) => process.env[k]).join(', ') || 'none (written reels only)');
 
 const routes = {};
-for (const name of ['reel', 'director', 'health']) {
+for (const name of ['reel', 'hear', 'director', 'health']) {
   try {
     routes[`/api/${name}`] = (await runnerImport(join(ROOT, 'api', `${name}.ts`))).module;
   } catch (e) {
