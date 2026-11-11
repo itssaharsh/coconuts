@@ -292,7 +292,10 @@ export class FoleySystem extends createSystem({
     if (s === 'ready') {
       this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, 'Tap the clapper to roll', 0);
       // the marquee before the first reel: what this is and the one thing to do
-      if (serial.reelNumber === 1) serial.theatre.showCard('Coconuts: the Serial', 'You make every sound. Try the props, then tap the clapper.');
+      if (serial.resuming) {
+        this.slate.say('Welcome back', 'Tap the clapper to go on. Redo starts the serial again.', 0);
+        serial.theatre.showCard('Previously…', serial.previously || 'The story goes on.');
+      } else if (serial.reelNumber === 1) serial.theatre.showCard('Coconuts: the Serial', 'You make every sound. Try the props, then tap the clapper.');
     }
     else if (s === 'playing') {
       this.slate.hide();
@@ -403,6 +406,9 @@ export class FoleySystem extends createSystem({
         const paused = this.serial.togglePause();
         this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
         console.log(paused ? 'REEL pause' : 'REEL resume');
+      } else if (id === 'tile-redo' && this.serial.state === 'ready' && this.serial.resuming) {
+        console.log('SERIAL start over');
+        void this.serial.startOver();
       } else if (id === 'tile-redo' && (this.serial.state === 'playing' || this.serial.state === 'pitch')) {
         console.log('REEL redo');
         void this.serial.restart();

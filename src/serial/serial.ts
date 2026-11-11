@@ -17,6 +17,25 @@ export type SerialState = 'boot' | 'loading' | 'ready' | 'playing' | 'pitch' | '
 const ROAD_MARK_NAMES = ['centre', 'left', 'right', 'wings_left', 'wings_right', ...DERIVED_MARKS];
 const setInfo = (id: string, marks: string[]): SetInfo => ({ id, marks: Object.fromEntries(marks.map((m) => [m, [0, 0] as [number, number]])) });
 
+/** Where the serial keeps its place between visits: how many reels this player has seen and what happened in them. */
+const SAVE_KEY = 'coconuts.serial';
+interface Saved {
+  v: 1;
+  done: number;
+  story: StoryLine[];
+  used: PropId[];
+  pitches: Pitch[] | null;
+}
+
+function readSave(): Saved | null {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null') as Saved | null;
+    return s && s.v === 1 && s.done >= 1 && Array.isArray(s.story) && s.story.length ? s : null;
+  } catch {
+    return null;
+  }
+}
+
 /** A way on for every prop, for the reels the Director did not pitch. */
 const STOCK_PITCH: Record<PropId, string> = {
   coconuts: 'Ride after the thief',
@@ -53,6 +72,10 @@ export class Serial {
   pitchFooter = 'Make its sound to choose';
   private nextPitches: Pitch[] | null = null;
   private usedProps: PropId[] = [];
+  /** Reels this player has finished, over every visit; the next reel's number is one more. */
+  private done = 0;
+  /** A returning player: the clapper goes on with the story instead of playing reel one again. */
+  resuming = false;
   /** How the Director is asked; replaced in tests and on the dev page. */
   ask: (req: ReelRequest) => Promise<ReelAnswer | null> = (req) => requestReel(req);
   /** Every set a reel may ask for, with the names of its marks (for checking reels before they play). */
@@ -80,6 +103,7 @@ export class Serial {
         this.last = stats;
         this.story.push({ title: this.reel.title, wrote: stats.wrote.slice(0, 12), flags: stats.flags.slice(0, 12), cliffhanger: this.reel.cliffhanger });
         if (this.story.length > 4) this.story.shift();
+        this.done++;
         this.hooks.onReelEnd?.(stats);
         this.offerPitches();
       },
@@ -113,15 +137,56 @@ export class Serial {
       soft('clips', this.troupe.load()),
       soft('horse', this.mount.load(seat)),
     ]);
+    const saved = readSave();
+    if (saved) {
+      this.story = saved.story.slice(-4);
+      this.usedProps = saved.used ?? [];
+      this.nextPitches = saved.pitches?.length === 3 ? saved.pitches : null;
+      this.done = saved.done;
+      this.resuming = true;
+      console.log('SERIAL resuming after reel', saved.done);
+    }
     await this.prepare(0);
+  }
+
+  /** The cliffhanger the last visit ended on, for the marquee. */
+  get previously(): string {
+    return this.story[this.story.length - 1]?.cliffhanger ?? '';
+  }
+
+  private save(): void {
+    try {
+      const s: Saved = { v: 1, done: this.done, story: this.story, used: this.usedProps.slice(-6), pitches: this.pitches.length === 3 ? this.pitches : null };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+    } catch {
+      // no storage: the serial simply starts from reel one next time
+    }
+  }
+
+  /** Forget the story so far and play reel one. */
+  async startOver(): Promise<void> {
+    try {
+      localStorage.removeItem(SAVE_KEY);
+    } catch {
+      // nothing was saved
+    }
+    this.resuming = false;
+    this.story = [];
+    this.usedProps = [];
+    this.nextPitches = null;
+    this.done = 0;
+    this.reels = [...CHAPTER_1];
+    await this.prepare(0);
+    await this.roll();
   }
 
   get reel(): Reel {
     return this.reels[this.index];
   }
 
+  /** The number of the reel on the stage, counted over every visit. */
   get reelNumber(): number {
-    return this.index + 1;
+    return this.state === 'pitch' || this.state === 'writing' ? this.done : this.done + 1;
   }
 
   async prepare(i: number): Promise<void> {
@@ -142,13 +207,23 @@ export class Serial {
 
   /** Start the current reel again from its title. */
   async restart(): Promise<void> {
+    if (this.state === 'pitch') {
+      // the reel had ended: it is played again, not counted twice
+      this.done = Math.max(0, this.done - 1);
+      this.story.pop();
+    }
     await this.prepare(this.index);
     await this.roll();
   }
 
-  /** The clapper: roll the reel that is ready. */
+  /** The clapper: roll the reel that is ready (a returning player goes straight to what happens next). */
   async roll(): Promise<void> {
     if (this.state !== 'ready') return;
+    if (this.resuming) {
+      this.resuming = false;
+      this.offerPitches();
+      return;
+    }
     this.theatre.hideCard();
     this.player.start();
     this.setState('playing');
@@ -167,6 +242,7 @@ export class Serial {
     this.pitches = this.nextPitches ?? (this.story.length <= 1 ? PITCHES_2 : fresh.slice(0, 3).map((prop) => ({ prop, text: STOCK_PITCH[prop] })));
     this.nextPitches = null;
     this.theatre.showChoice('What happens next?', this.pitches, this.pitchFooter);
+    this.save();
     this.setState('pitch');
     console.log('PITCH', this.pitches.map((p) => `${p.prop}: ${p.text}`).join(' | '));
     this.hooks.onWaiting?.({ kind: 'open', prop: null, label: 'What happens next?', options: this.pitches.map((p) => p.prop) });
@@ -188,7 +264,7 @@ export class Serial {
     this.setState('writing');
     this.hooks.onWaiting?.(null);
     this.theatre.showCard(`“${pitch.text}”`, 'The Director is writing the next reel…');
-    const number = this.reels.length + 1;
+    const number = this.done + 1;
     console.log('PITCH chosen', pitch.prop ?? 'spoken', pitch.text);
     let answer: ReelAnswer | null = null;
     try {

@@ -91,6 +91,12 @@ async function pinch(prop) {
 async function main() {
   await waitReady();
   try {
+    // the Serial remembers its place between visits: a test starts from reel one
+    iw(['browser', 'run', 'tools/xr/clear-save.mjs']);
+  } catch (e) {
+    log('could not clear the saved place:', String(e.message).split('\n')[0]);
+  }
+  try {
     iw(['browser', 'reload']);
     await sleep(4000);
     await waitReady();
