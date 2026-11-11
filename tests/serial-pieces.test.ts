@@ -38,6 +38,33 @@ describe('pieces', () => {
     for (const p of PITCHES_2) expect(WRITTEN[p.prop]).toBeDefined();
   });
 
+  it('stages a wolf chase and a monster, and keeps place names for places', () => {
+    const plan: ReelPlan = {
+      title: 'Teeth and Legs',
+      scenes: [
+        { set: 'road-forest', cast: [{ id: 'knight', char: 'knight' }], pieces: [{ piece: 'ride', who: 'knight', wolves: true, clops: 12 }] },
+        { set: 'graveyard', cast: [{ id: 'knight', char: 'knight' }, { id: 'sage', char: 'mage' }], pieces: [{ piece: 'arrive', who: 'sage' }, { piece: 'boss', hero: 'knight', beast: 'spider' }] },
+      ],
+      cliffhanger: 'It was only the small one.',
+    };
+    expect(checkPlan(plan)).toEqual([]);
+    const reel = assemble(plan, 'beasts');
+    expect(validateReel(reel, sets)).toEqual([]);
+    // the pack runs in the ride, the monster is in the second scene's cast
+    const ride = reel.beats.find((b) => b.k === 'ride');
+    expect(ride && ride.k === 'ride' ? ride.pursuers : []).toEqual(['wolf_a', 'wolf_b']);
+    expect(reel.cast.map((c) => c.char)).toContain('wolf');
+    const scene = reel.beats.find((b) => b.k === 'scene');
+    expect(scene && scene.k === 'scene' ? scene.cast?.map((c) => c.id) : []).toContain('monster');
+    // an actor may not take a place's name, or the monster's
+    for (const id of ['door', 'left', 'centre', 'lair', 'monster']) {
+      const bad = JSON.parse(JSON.stringify(plan)) as ReelPlan;
+      bad.scenes[1].cast[1].id = id;
+      (bad.scenes[1].pieces[0] as { who: string }).who = id;
+      expect(checkPlan(bad), id).not.toEqual([]);
+    }
+  });
+
   it('rejects what a model might get wrong', () => {
     const good = WRITTEN.thunder;
     const bad = (change: (p: ReelPlan) => void): string[] => {
