@@ -553,6 +553,36 @@ export class Theatre {
     ]);
   }
 
+  /**
+   * An actor who went over the desk's edge comes back: up over the edge, across the table, and with one leap through
+   * the closed curtain into the picture again. (Play it before the curtain rises.) With no desk, nothing happens.
+   */
+  climbBack(a: Actor): Task {
+    const desk = this.desk;
+    if (!desk) return call(() => undefined);
+    const target = new Vector3();
+    return sequence([
+      () => ({ update: () => !this.bigNow && this.size < 1.6 }),
+      () =>
+        call(() => {
+          a.onStage = false;
+          this.onSound?.('whoosh');
+          this.react('gasp', 4);
+        }),
+      () => {
+        const [x, z] = this.mark('footlights');
+        this.stage.updateWorldMatrix(true, false);
+        this.stage.localToWorld(target.set(x, 0.2, z));
+        return desk.comeBack(a, target, this.stage.getWorldScale(tmpV).x, () => this.onSound?.('whoosh'));
+      },
+      () =>
+        call(() => {
+          this.removeActor(a);
+          this.react('laugh', 3);
+        }),
+    ]);
+  }
+
   /** An actor on the desk goes over its edge and is gone. */
   dropOff(a: Actor): Task {
     const desk = this.desk;
@@ -870,4 +900,5 @@ export class Theatre {
 
 const tmpQ = new Quaternion();
 const tmpC = new Color();
+const tmpV = new Vector3();
 const WHITE = new Color(1, 1, 1);

@@ -3,7 +3,7 @@
 // every reel the player picks what happens next and the Director writes the next reel (a written one stands in
 // whenever the Director is slow, wrong or away).
 import type { PropId } from '../foley/types';
-import { Mount, Troupe } from './cast';
+import { type Actor, Mount, Troupe } from './cast';
 import { CHAPTER_1 } from './chapter1';
 import { type ReelAnswer, type ReelRequest, requestReel, type StoryLine } from './director';
 import { assemble, checkPlan, type Pitch, PITCHES_2, type ReelPlan, WRITTEN, WRITTEN_MORE } from './pieces';
@@ -59,6 +59,8 @@ export interface SerialHooks extends PlayerHooks {
 export class Serial {
   readonly theatre: Theatre;
   readonly troupe: Troupe;
+  /** An actor who left the picture last reel and is about to climb back into it. */
+  private returning: Actor | null = null;
   readonly mount: Mount;
   readonly player: ReelPlayer;
   private reels: Reel[] = [...CHAPTER_1];
@@ -225,7 +227,9 @@ export class Serial {
       return;
     }
     this.theatre.hideCard();
-    this.player.start();
+    const back = this.returning;
+    this.returning = null;
+    this.player.start(back ? () => this.theatre.climbBack(back) : undefined);
     this.setState('playing');
   }
 
@@ -286,6 +290,10 @@ export class Serial {
     this.usedProps.push(prop);
     this.reels.push(reel);
     await this.prepare(this.reels.length - 1);
+    // whoever went over the edge of the desk last reel climbs back into the picture before this one
+    if (this.story[this.story.length - 1]?.flags.includes('thief_out') && this.theatre.hasDesk) {
+      this.returning = await this.troupe.spawn('returning', 'rogue_hooded').catch(() => null);
+    }
     const note = answer && reel.title === answer.plan.title ? answer.note : '';
     if (note && (this.state as SerialState) === 'ready') {
       // the Director's line to the player, on the stage's own card (where it can be read), before the reel rolls;

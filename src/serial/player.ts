@@ -162,12 +162,14 @@ export class ReelPlayer {
     }
   }
 
-  start(): void {
+  /** Roll the reel. `before` plays first, in front of the closed curtain (somebody climbing back into the picture). */
+  start(before?: () => Task): void {
     if (!this.reel) return;
     const reel = this.reel;
     this.playing = true;
     this.paused = false;
     this.root = sequence([
+      ...(before ? [before] : []),
       () => this.theatre.title(reel.title, '', 2.4),
       () => this.theatre.curtain(true),
       () => this.run(reel.beats),

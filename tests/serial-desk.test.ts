@@ -19,6 +19,10 @@ class Walker {
   faceAudience(): void {
     this.calls.push('face:audience');
   }
+  place(x: number, z: number, facing = 0): void {
+    this.root.position.set(x, 0, z);
+    this.root.rotation.y = facing;
+  }
   perform(verb: string): Task {
     this.calls.push(`perform:${verb}`);
     return wait(0.2);
@@ -120,6 +124,25 @@ describe('the desk: a character leaves the picture', () => {
     expect(p.y).toBeLessThan(-0.8);
     expect(p.z).toBeGreaterThan(0.27); // it fell beyond the table, toward the player
     expect(secs).toBeLessThan(3);
+  });
+
+  it('the way back: up over the edge, across the table, and one leap to a point in the world at its size there', () => {
+    const { world, stage, desk, a } = rig();
+    stage.remove(a.root); // it fell off the table last reel: it belongs to nobody now
+    const target = stage.localToWorld(new Vector3(-0.5, 0.2, 3.3));
+    let leaps = 0;
+    const task = desk.comeBack(a as unknown as Actor, target, 0.5, () => leaps++);
+    task.update(0);
+    world.updateMatrixWorld(true);
+    expect(desk.holds(a as unknown as Actor)).toBe(true);
+    expect(a.free).toBe(true);
+    expect(a.root.getWorldPosition(new Vector3()).y).toBeLessThan(-0.2); // it starts below the table top
+    run(task, world);
+    expect(leaps).toBe(1);
+    world.updateMatrixWorld(true);
+    expect(a.root.getWorldPosition(new Vector3()).distanceTo(target)).toBeLessThan(1e-4);
+    expect(a.root.getWorldScale(new Vector3()).x).toBeCloseTo(0.5, 5);
+    expect(a.calls).toContain('perform:cheer');
   });
 
   it('dispose takes the desk away', () => {

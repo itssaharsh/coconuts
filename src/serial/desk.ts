@@ -92,6 +92,72 @@ export class Desk {
     return sequence([() => leap, ...run, () => call(() => a.faceAudience()), () => a.perform('cheer')]);
   }
 
+  /**
+   * The way back: up over the table's edge from below, a wave at the player, the route run the other way, and a
+   * leap up to `target` (a point in the world, where the figure is `targetSize` big): back into the picture.
+   */
+  comeBack(a: Actor, target: Vector3, targetSize: number, onLeap?: () => void): Task {
+    const path = this.route.path;
+    const edge = new Vector3();
+    const below = new Vector3();
+    const start = new Vector3();
+    const end = new Vector3();
+    let t = -1;
+    const climb: Task = {
+      update: (dt) => {
+        if (t < 0) {
+          t = 0;
+          this.point(path[path.length - 1], edge);
+          this.point(this.route.off, below).setY(-7);
+          this.root.add(a.root);
+          a.setFree(true);
+          a.root.scale.setScalar(1);
+          a.root.position.copy(below);
+          a.place(below.x, below.z, Math.PI); // its back to the player as it comes up, like someone climbing a wall
+          a.root.position.y = below.y;
+          a.play('jump');
+        }
+        t += dt;
+        const e = Math.min(1, t / 0.7);
+        a.root.position.lerpVectors(below, edge, e);
+        a.root.position.y += 3 * 4 * e * (1 - e) * 0.5;
+        if (e < 1) return false;
+        a.root.position.copy(edge);
+        a.play('idle');
+        return true;
+      },
+    };
+    let u = -1;
+    let size = 1;
+    const leap: Task = {
+      update: (dt) => {
+        if (u < 0) {
+          u = 0;
+          start.copy(a.root.position);
+          this.root.updateWorldMatrix(true, false);
+          this.root.worldToLocal(end.copy(target));
+          size = targetSize / this.root.getWorldScale(tmp).x;
+          a.play('jump');
+          onLeap?.();
+        }
+        u += dt;
+        const e = Math.min(1, u / LEAP_SECS);
+        a.root.position.lerpVectors(start, end, e);
+        a.root.position.y += LEAP_RISE * 4 * e * (1 - e);
+        a.root.scale.setScalar(1 + (size - 1) * e);
+        return e >= 1;
+      },
+    };
+    const back = path
+      .slice(0, -1)
+      .reverse()
+      .map((p) => () => {
+        this.point(p, to);
+        return a.goTo(to.x, to.z, 'run');
+      });
+    return sequence([() => climb, () => call(() => a.faceAudience()), () => a.perform('cheer'), ...back, () => leap]);
+  }
+
   /** Off the edge: a hop out over it and a long fall out of sight. */
   leave(a: Actor): Task {
     let t = -1;

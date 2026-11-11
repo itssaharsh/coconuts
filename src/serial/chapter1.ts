@@ -225,6 +225,8 @@ export const REEL_1: Reel = {
       hit: [{ k: 'drop', who: 'thief' }, { k: 'do', who: 'knight', verb: 'cheer', face: 'audience' }],
       miss: [{ k: 'title', text: 'He climbs down by himself.', secs: 1.8 }, { k: 'drop', who: 'thief' }],
     },
+    // (the next reel begins with him climbing back into the picture)
+    { k: 'flag', set: 'thief_out' },
     { k: 'fx', fx: 'lightning' },
   ],
   cliffhanger: 'The thief is loose in your room.',

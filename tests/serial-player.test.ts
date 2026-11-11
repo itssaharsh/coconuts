@@ -77,6 +77,10 @@ class FakeTheatre {
   lightning(): void {
     this.lightnings++;
   }
+  climbBack(a: FakeActor): Task {
+    this.left.push(`back:${a.id}`);
+    return wait(0.5);
+  }
   readonly reactions: string[] = [];
   react(kind: string): void {
     this.reactions.push(kind);
@@ -596,7 +600,8 @@ describe('whole reels', () => {
     expect(s.hits).toBe(0);
     expect(s.missed).toBe(s.asked);
     expect(s.asked).toBeGreaterThan(0);
-    expect(s.flags).toEqual([]);
+    expect(s.flags).toEqual(['thief_out']); // he leaves the picture whether or not anybody plays
+
   });
 
   it('a character that fails to load is skipped: the picture still opens and the reel still ends', async () => {
@@ -692,5 +697,25 @@ describe('out of the picture', () => {
     expect(flat.indexOf('"k":"leap","who":"thief"')).toBeGreaterThan(0);
     expect(flat.indexOf('"k":"drop","who":"thief"')).toBeGreaterThan(flat.indexOf('"k":"leap","who":"thief"'));
     expect(REEL_1.cliffhanger).toMatch(/your room/);
+  });
+});
+
+describe('before the curtain', () => {
+  it('a reel can open with something that plays in front of the closed curtain', async () => {
+    const rig = makeRig();
+    await rig.player.load(reelOf([door()]));
+    let ran = 0;
+    rig.player.start(() => ({ update: () => ++ran >= 3 }));
+    await tick(rig, 0.1);
+    await tick(rig, 0.1);
+    expect(rig.theatre.titles).toEqual([]); // the title waits for it
+    expect(rig.theatre.curtains).toEqual([]);
+    await until(rig, () => rig.player.waiting !== null);
+    expect(ran).toBe(3);
+    expect(rig.theatre.curtains).toEqual([true]);
+  });
+
+  it('reel one flags the thief as out, for the next reel to bring him back', async () => {
+    expect(JSON.stringify(REEL_1.beats)).toContain('"k":"flag","set":"thief_out"');
   });
 });
