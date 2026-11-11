@@ -106,7 +106,14 @@ export class ReelPlayer {
     if (this.mount) this.theatre.stage.remove(this.mount.root);
     await this.theatre.loadSet(set);
     for (const c of cast) {
-      const a = await this.troupe.spawn(c.id, c.char);
+      let a: Actor;
+      try {
+        a = await this.troupe.spawn(c.id, c.char);
+      } catch (e) {
+        // the scene plays without this actor; beats that name them do nothing
+        console.warn('CAST failed', c.id, c.char, e instanceof Error ? e.message : e);
+        continue;
+      }
       this.actors.set(c.id, a);
       for (const item of c.items ?? (c.item ? [c.item] : [])) await a.hold(this.troupe.base, item);
       if (c.mounted && this.mount) {
@@ -165,6 +172,7 @@ export class ReelPlayer {
     if (w) {
       const pips = w.need && w.need > 1 ? '●'.repeat(w.got ?? 0) + '○'.repeat(w.need - (w.got ?? 0)) : '';
       this.theatre.showCue(w.prop, w.label, pips);
+      console.log('WAIT', w.kind, w.prop ?? 'any', `${w.got ?? 0}/${w.need ?? 1}`, w.label);
     } else this.theatre.hideCue();
     this.hooks.onWaiting?.(w);
   }
@@ -305,10 +313,12 @@ export class ReelPlayer {
     return sequence([
       () => this.theatre.curtain(false),
       () => {
-        void this.changeScene(set, cast ?? this.reel?.cast ?? []).then(() => {
-          if (tint) this.theatre.setTint(tint);
-          loaded = true;
-        });
+        this.changeScene(set, cast ?? this.reel?.cast ?? [])
+          .catch((e) => console.warn('SCENE failed', set, e instanceof Error ? e.message : e))
+          .then(() => {
+            if (tint) this.theatre.setTint(tint);
+            loaded = true;
+          });
         return { update: () => loaded };
       },
       () => this.theatre.curtain(true),
@@ -368,7 +378,10 @@ export class ReelPlayer {
         const s = this.pending.shift();
         if (s) {
           quiet = 0;
-          if (s.prop === b.prop) {
+          // a stage that has asked twice (or once, on a short cue) takes any sound as the one it wanted
+          const lenient = (w.nudge ?? 0) >= (hold <= 10 ? 1 : 2);
+          if (s.prop === b.prop || (lenient && !b.wrong?.[s.prop])) {
+            if (s.prop !== b.prop) console.log('CUE lenient', b.prop, '<-', s.prop);
             w.got = (w.got ?? 0) + 1;
             if (w.got >= times) {
               this.setWaiting(null);
@@ -435,7 +448,8 @@ export class ReelPlayer {
         for (let i = recent.length - 1; i >= 0; i--) if ((recent[i] += dt) > 1.2) recent.splice(i, 1);
         let s: Sound | undefined;
         while ((s = this.pending.shift())) {
-          if (s.prop === 'coconuts') {
+          if (s.prop === 'coconuts' || (w.nudge ?? 0) >= 2) {
+            // (a rider kept waiting long enough goes on any sound)
             clops++;
             recent.push(0);
             quiet = 0;

@@ -170,7 +170,7 @@ export class Theatre {
     const tb = TOP_BACK;
     const back = zt(BOX_BACK);
     // the sky: the back of the box, its sides and its roof, so no edge of it shows from any seat
-    this.cyc = new MeshBasicMaterial({ map: this.sky('night') });
+    this.cyc = new MeshBasicMaterial({ toneMapped: false, map: this.sky('night') });
     {
       const pos: number[] = [];
       const uv: number[] = [];
@@ -193,7 +193,7 @@ export class Theatre {
       quad(pos, uv, [hw + o, -0.06, z0], [hw + o, -0.06, back - o], [hw + o, tb + o, back - o], [hw + o, tf + o, z0], zero); // right
       quad(pos, uv, [hw + o, -0.06, back - o], [-hw - o, -0.06, back - o], [-hw - o, tb + o, back - o], [hw + o, tb + o, back - o], zero); // back
       quad(pos, uv, [-hw - o, tf + o, z0], [hw + o, tf + o, z0], [hw + o, tb + o, back - o], [-hw - o, tb + o, back - o], zero); // roof
-      this.group.add(mesh(pos, uv, new MeshBasicMaterial({ color: 0x17110d }), 'box'));
+      this.group.add(mesh(pos, uv, new MeshBasicMaterial({ toneMapped: false, color: 0x17110d }), 'box'));
     }
 
     // the stage is raked: its floor rises toward the back, as in a real theatre, so the upstage action is seen
@@ -210,7 +210,7 @@ export class Theatre {
     for (const side of [-1, 1]) {
       const geo = new PlaneGeometry(STAGE_W / 2 + 0.004, STAGE_H + 0.01);
       geo.translate((-side * (STAGE_W / 2 + 0.004)) / 2, 0, 0); // pivot on the outer edge
-      const m = new Mesh(geo, new MeshBasicMaterial({ map: velvet }));
+      const m = new Mesh(geo, new MeshBasicMaterial({ toneMapped: false, map: velvet }));
       m.position.set((side * STAGE_W) / 2, STAGE_H / 2, 0.004);
       m.name = side < 0 ? 'curtain-left' : 'curtain-right';
       m.renderOrder = 3;
@@ -218,7 +218,7 @@ export class Theatre {
       this.group.add(m);
     }
     // the pelmet across the top hides the roof of the box from a low seat
-    const pelmet = new Mesh(new PlaneGeometry(STAGE_W + 0.01, 0.105), new MeshBasicMaterial({ map: valanceTexture(), alphaTest: 0.5 }));
+    const pelmet = new Mesh(new PlaneGeometry(STAGE_W + 0.01, 0.105), new MeshBasicMaterial({ toneMapped: false, map: valanceTexture(), alphaTest: 0.5 }));
     pelmet.position.set(0, STAGE_H - 0.105 / 2 + 0.004, 0.008);
     pelmet.renderOrder = 4;
     pelmet.name = 'pelmet';
@@ -226,14 +226,14 @@ export class Theatre {
 
     this.titleMesh = new Mesh(
       new PlaneGeometry(STAGE_W * 0.96, STAGE_H * 0.96),
-      new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+      new MeshBasicMaterial({ toneMapped: false, transparent: true, opacity: 0, depthWrite: false }),
     );
     this.titleMesh.position.set(0, STAGE_H / 2, 0.016);
     this.titleMesh.renderOrder = 40;
     this.titleMesh.visible = false;
     this.titleMesh.name = 'title-card';
 
-    this.cueMesh = new Mesh(new PlaneGeometry(0.4, 0.1), new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, depthTest: false }));
+    this.cueMesh = new Mesh(new PlaneGeometry(0.4, 0.1), new MeshBasicMaterial({ toneMapped: false, transparent: true, opacity: 0, depthWrite: false, depthTest: false }));
     this.cueMesh.position.set(0, -0.05, 0.12);
     this.cueMesh.rotation.x = -0.25;
     this.cueMesh.renderOrder = 42;
@@ -242,7 +242,7 @@ export class Theatre {
 
     this.flashMesh = new Mesh(
       new PlaneGeometry(STAGE_W, STAGE_H),
-      new MeshBasicMaterial({ color: 0xdfe8ff, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false }),
+      new MeshBasicMaterial({ toneMapped: false, color: 0xdfe8ff, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false }),
     );
     this.flashMesh.position.set(0, STAGE_H / 2, 0.002);
     this.flashMesh.renderOrder = 2;
@@ -374,7 +374,7 @@ export class Theatre {
   private addLamp(pos: [number, number, number], color: string, power: number): void {
     const colour = new Color(color).lerp(WHITE, 0.25); // the kit's lamp colours are very saturated
     if (!this.glowMap) this.glowMap = glowTexture();
-    const glow = new Sprite(new SpriteMaterial({ map: this.glowMap, color: colour, transparent: true, blending: AdditiveBlending, depthWrite: false }));
+    const glow = new Sprite(new SpriteMaterial({ toneMapped: false, map: this.glowMap, color: colour, transparent: true, blending: AdditiveBlending, depthWrite: false }));
     glow.position.set(pos[0], pos[1] + 0.25, pos[2] + 0.35);
     glow.scale.setScalar(1.7);
     glow.renderOrder = 1;
@@ -497,7 +497,7 @@ export class Theatre {
   }
 
   emote(actor: Actor, emote: Emote): void {
-    const s = new Sprite(new SpriteMaterial({ map: emoteCard(emote), transparent: true, depthWrite: false }));
+    const s = new Sprite(new SpriteMaterial({ toneMapped: false, map: emoteCard(emote), transparent: true, depthWrite: false }));
     actor.head(s.position);
     s.scale.setScalar(1.5);
     s.renderOrder = 8;
@@ -507,7 +507,7 @@ export class Theatre {
 
   /** Every sound is seen as well as heard: a comic word bursts at the foot of the stage. */
   soundWord(prop: PropId, kind?: string): void {
-    const s = new Sprite(new SpriteMaterial({ map: wordCard(soundWordFor(prop, kind)), transparent: true, depthWrite: false, depthTest: false }));
+    const s = new Sprite(new SpriteMaterial({ toneMapped: false, map: wordCard(soundWordFor(prop, kind)), transparent: true, depthWrite: false, depthTest: false }));
     const side = this.floaters.length % 2 ? 1 : -1;
     s.position.set(side * (3.3 + Math.random() * 1.4), 0.7 + Math.random() * 0.9, FRONT_Z + 0.3);
     s.scale.set(3.0, 1.15, 1);

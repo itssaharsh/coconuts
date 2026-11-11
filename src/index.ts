@@ -1,4 +1,4 @@
-import { automationRun, soundForced } from './foley/env';
+import { automationRun, serialMode, soundForced } from './foley/env';
 import { ensureAudio, recordStream } from './foley/sound';
 import { VisibilityState, World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
@@ -133,6 +133,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
     launchXR: () => world.launchXR(),
     loadClip: async (id) => {
       const a = await ready;
+      if (serialMode()) return null; // the Serial brings its own reels
       const [url, meta] = await Promise.all([clipUrl(id), clipMeta(id)]);
       console.log('CUES', id, meta?.cues.length ?? 0);
       currentClip = meta;
@@ -145,7 +146,8 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
     },
     startTake: async () => {
       const a = await ready;
-      await a.startTake();
+      if (a.serial()) await a.roll();
+      else await a.startTake();
     },
     screenPositionOf: (propId) => {
       if (!api || !api.placed()) return null; // before placement the props sit at the origin and the glove would point at nothing

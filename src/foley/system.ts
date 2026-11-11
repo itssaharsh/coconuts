@@ -4,6 +4,7 @@ import { Hovered, PokeInteractable, Pressed, RayInteractable, VisibilityState, c
 import { Object3D, Quaternion, Vector3 } from 'three';
 import { Bubble } from './bubble';
 import { CueTracker, type Cue } from './cues';
+import { serialMode } from './env';
 import { Lane } from './lane';
 import { modelStats } from './models';
 import { Recorder, encodeTake } from './recorder';
@@ -14,6 +15,9 @@ import { SCREEN_H } from './screen';
 import { TABLE_H } from './toys';
 import { ShakeMeter, SlideTracker, StrikeDetector, isDrop } from './triggers';
 import type { HitEvent, PropId, Take } from './types';
+import { PROP_IDS } from './types';
+import { Serial, type SerialState } from '../serial/serial';
+import type { Waiting } from '../serial/player';
 
 const tmpP = new Vector3();
 const tmpQ = new Quaternion();
@@ -36,6 +40,9 @@ export interface FoleyApi {
   /** The Director speaks: a bubble over the theatre, optionally for a set time. */
   say: (text: string, caption?: string, seconds?: number) => void;
   log: (...a: unknown[]) => void;
+  /** The Serial, when that is the show: the clapper rolls its reels. */
+  serial: () => Serial | null;
+  roll: () => Promise<void>;
 }
 
 export interface FoleyHooks {
@@ -69,12 +76,21 @@ const NEAR_GRAB_M = 0.18;
 type Hand = 'left' | 'right';
 const HANDS: Hand[] = ['right', 'left'];
 const VOLUME_STEPS = [1, 0.6, 0.25, 0];
+/** The toy theatre is a little larger than its model: the characters read at this size from a seat. */
+const THEATRE_SIZE = 1.1;
 
 export class FoleySystem extends createSystem({
   pressed: { required: [RayInteractable, Pressed] },
   hovered: { required: [RayInteractable, Hovered] },
 }) {
-  private stage = new Stage();
+  private serialOn = serialMode();
+  private stage = new Stage(this.serialOn);
+  private serial: Serial | null = null;
+  /** What the stage is waiting for, so its prop can glow on the table. */
+  private wanted: Waiting | null = null;
+  private wantedPulse = 0;
+  private lastWhistleToStage = -1;
+  private lastPerfLog = -100;
   private rootEntity!: Entity;
   private entityPiece = new Map<Entity, string>();
   private pieceEntity = new Map<string, Entity>();
@@ -119,12 +135,29 @@ export class FoleySystem extends createSystem({
   private pressNext = new Set<string>();
 
   init(): void {
-    this.lane.group.position.set(0, -(SCREEN_H / 2) - 0.105, 0.03); // just under the frame's footlights
-    this.lane.group.rotation.x = -0.28;
-    this.stage.screen.group.add(this.lane.group);
-    // the Director's tag hangs beside the theatre's left pillar; the slate sits at the table's far edge
-    this.director.group.position.set(-0.5, 0.05, 0.02); // inside the glasses' view with room for its width
-    this.stage.screen.group.add(this.director.group);
+    if (this.serialOn) {
+      // the Serial: the toy theatre stands where the film screen would; the Director's tag hangs by its left pillar
+      const base = import.meta.env.BASE_URL;
+      this.serial = new Serial(`${base}serial/`, `${base}models/screen_frame.glb`, {
+        onState: (s) => this.onSerialState(s),
+        onWaiting: (w) => {
+          this.wanted = w;
+          this.wantedPulse = 0;
+        },
+      });
+      this.serial.theatre.setSize(THEATRE_SIZE);
+      this.stage.theatreMount.add(this.serial.theatre.group);
+      this.director.group.position.set(-0.7, 0.36, 0.04);
+      this.stage.theatreMount.add(this.director.group);
+      void this.serial.init().catch((e) => console.warn('SERIAL init failed', e instanceof Error ? e.message : e));
+    } else {
+      this.lane.group.position.set(0, -(SCREEN_H / 2) - 0.105, 0.03); // just under the frame's footlights
+      this.lane.group.rotation.x = -0.28;
+      this.stage.screen.group.add(this.lane.group);
+      // the Director's tag hangs beside the theatre's left pillar; the slate sits at the table's far edge
+      this.director.group.position.set(-0.5, 0.05, 0.02); // inside the glasses' view with room for its width
+      this.stage.screen.group.add(this.director.group);
+    }
     this.slate.group.position.set(0.0, TABLE_H + 0.02, -0.14);
     this.stage.table.add(this.slate.group);
 
@@ -161,6 +194,8 @@ export class FoleySystem extends createSystem({
       placed: () => this.placed,
       say: (text, caption = '', seconds = 6) => this.director.say(text, caption, seconds),
       log: (...a) => console.log(...a),
+      serial: () => this.serial,
+      roll: () => this.rollSerial(),
     };
     let lastVis = this.world.visibilityState.value;
     this.cleanupFuncs.push(
@@ -197,6 +232,34 @@ export class FoleySystem extends createSystem({
       // not every runtime supports it
     }
     this.world.renderer.xr.getReferenceSpace()?.addEventListener('reset', () => this.reposition());
+  }
+
+  /** The slate at the table's edge says what the clapper will do next. */
+  private onSerialState(s: SerialState): void {
+    const serial = this.serial;
+    if (!serial) return;
+    if (s === 'ready') this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, 'Pinch the clapper to roll', 0);
+    else if (s === 'playing') this.slate.hide();
+    else if (s === 'between') {
+      const st = serial.last;
+      this.slate.say(st ? `${st.hits} of ${st.asked} sounds landed` : 'End of the reel', 'Pinch the clapper for the next reel', 0);
+    }
+  }
+
+  /** The clapper in the Serial: roll the reel that is ready (or the next one); during a reel, pause and resume. */
+  private async rollSerial(): Promise<void> {
+    const serial = this.serial;
+    if (!serial) return;
+    await sound.ensureAudio();
+    sound.clapperSnap();
+    this.stage.snapClapper();
+    if (serial.state === 'playing') {
+      const paused = serial.togglePause();
+      this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
+      console.log(paused ? 'REEL pause' : 'REEL resume');
+      return;
+    }
+    await serial.roll();
   }
 
   private async loadClip(id: string, url: string, cues: Cue[] = [], posterUrl?: string): Promise<void> {
@@ -275,6 +338,17 @@ export class FoleySystem extends createSystem({
   }
 
   private onTile(id: string): void {
+    if (this.serial && id !== 'tile-volume') {
+      if (id === 'tile-pause' && this.serial.state === 'playing') {
+        const paused = this.serial.togglePause();
+        this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
+        console.log(paused ? 'REEL pause' : 'REEL resume');
+      } else if (id === 'tile-redo' && (this.serial.state === 'playing' || this.serial.state === 'between')) {
+        console.log('REEL redo');
+        void this.serial.restart();
+      }
+      return;
+    }
     switch (id) {
       case 'tile-pause':
         if (this.mode === 'take' || this.mode === 'replay') {
@@ -303,7 +377,11 @@ export class FoleySystem extends createSystem({
 
   private onPressStart(id: string, entity: Entity): void {
     if (id === 'clapper') {
-      console.log('PICK clapper', this.mode);
+      console.log('PICK clapper', this.serial ? this.serial.state : this.mode);
+      if (this.serial) {
+        void this.rollSerial();
+        return;
+      }
       if (this.mode === 'take' || this.mode === 'replay') {
         if (this.stage.screen.playing) {
           this.stage.screen.pause();
@@ -449,6 +527,7 @@ export class FoleySystem extends createSystem({
       if (landed) console.log('CUE hit', landed.cue.label, (landed.offset ?? 0).toFixed(2));
     }
     console.log('HIT', hit.prop, hit.kind, hit.t.toFixed(2), hit.v.toFixed(2));
+    this.serial?.sound(hit.prop, hit.kind, hit.v);
     hooks.onHit(hit, this.api);
   }
 
@@ -515,6 +594,7 @@ export class FoleySystem extends createSystem({
               if (landed) console.log('CUE hit', landed.cue.label);
             }
             console.log('HIT thunder rumble', ev.t.toFixed(2), level.toFixed(2));
+            this.serial?.sound('thunder', 'rumble', level);
           }
           break;
         }
@@ -531,6 +611,11 @@ export class FoleySystem extends createSystem({
               if (landed) console.log('CUE hit', landed.cue.label);
             }
             console.log('HIT whistle slide', ev.t.toFixed(2), pitch.toFixed(2));
+            // the stage hears the held whistle about once a second, not at every mark
+            if (now - this.lastWhistleToStage > 0.9) {
+              this.lastWhistleToStage = now;
+              this.serial?.sound('whistle', 'whistle', pitch);
+            }
           }
           break;
         }
@@ -651,7 +736,23 @@ export class FoleySystem extends createSystem({
     this.trackHeld(time, dt);
     this.easeHome(dt);
     if (this.mode === 'replay' && this.replayer) this.replayer.tick(this.stage.screen.currentTime);
-    this.lane.update(this.stage.screen.currentTime);
+    if (this.serial) {
+      this.serial.update(dt);
+      if (this.serial.state === 'playing' && time - this.lastPerfLog > 8) {
+        this.lastPerfLog = time;
+        const r = this.world.renderer.info.render;
+        console.log('PERF serial calls', r.calls, 'triangles', r.triangles, 'dt', dt.toFixed(3));
+      }
+      // the prop the stage is waiting for glows on the table; at an open moment they all do, in turn
+      if (this.wanted) {
+        this.wantedPulse -= dt;
+        if (this.wantedPulse <= 0) {
+          this.wantedPulse = 0.85;
+          const props = this.wanted.prop ? [this.wanted.prop] : (this.wanted.options ?? PROP_IDS);
+          for (const p of props) this.stage.flash(p, 0.85);
+        }
+      }
+    } else this.lane.update(this.stage.screen.currentTime);
     const viewer: Object3D = inXR ? this.player.head : this.world.camera;
     this.director.update(dt, viewer);
     this.slate.update(dt, viewer);

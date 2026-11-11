@@ -71,11 +71,12 @@ export class Serial {
     } catch {
       // the mount's own default
     }
+    const soft = (what: string, p: Promise<unknown>) => p.catch((e) => console.warn('SERIAL', what, 'failed', e instanceof Error ? e.message : e));
     await Promise.all([
-      this.theatre.init(this.frameUrl),
-      this.troupe.load(),
-      this.mount.load(seat).catch((e) => console.warn('SERIAL horse failed', e instanceof Error ? e.message : e)),
-      this.loadChapter('chapter1'),
+      soft('frame', this.theatre.init(this.frameUrl)),
+      soft('clips', this.troupe.load()),
+      soft('horse', this.mount.load(seat)),
+      soft('chapter', this.loadChapter('chapter1')),
     ]);
     await this.prepare(0);
   }
@@ -103,10 +104,21 @@ export class Serial {
   async prepare(i: number): Promise<void> {
     this.index = ((i % this.reels.length) + this.reels.length) % this.reels.length;
     this.setState('loading');
-    await this.player.load(this.reel);
-    const errs = validateReel(this.reel, { ...this.catalogue, [this.theatre.set.id]: this.theatre.set });
-    if (errs.length) console.warn('REEL check', this.reel.id, errs.slice(0, 4).join(' | '));
+    try {
+      await this.player.load(this.reel);
+      const errs = validateReel(this.reel, { ...this.catalogue, [this.theatre.set.id]: this.theatre.set });
+      if (errs.length) console.warn('REEL check', this.reel.id, errs.slice(0, 4).join(' | '));
+    } catch (e) {
+      // a reel that will not load still rolls: its titles and whatever did load play, and the story goes on
+      console.warn('SERIAL prepare failed', this.reel.id, e instanceof Error ? e.message : e);
+    }
     this.setState('ready');
+  }
+
+  /** Start the current reel again from its title. */
+  async restart(): Promise<void> {
+    await this.prepare(this.index);
+    await this.roll();
   }
 
   /** The clapper: roll the reel that is ready, or move on to the next one. */

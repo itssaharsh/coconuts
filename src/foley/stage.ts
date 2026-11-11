@@ -22,6 +22,12 @@ const SCREEN_AHEAD = 1.3;
 const SCREEN_LIFT = 0.15; // screen centre 15 cm above eye height, so the lane under it clears most props
 const TABLE_AHEAD = 0.75;
 const TABLE_BELOW = 0.25;
+// The Serial's seating: the table nearer and at desk height, so every prop is inside a seated reach and none of them
+// stands in front of the stage; the theatre behind it, its floor a hand's breadth below the eye line.
+const SERIAL_TABLE_AHEAD = 0.46;
+const SERIAL_TABLE_BELOW = 0.38;
+const THEATRE_AHEAD = 0.88;
+const THEATRE_FLOOR_BELOW = 0.24;
 
 const TILES: { id: PieceId; label: string }[] = [
   { id: 'tile-pause', label: 'Pause' },
@@ -42,9 +48,18 @@ export class Stage {
   private thunderPhase = 0;
   /** True once every Blender model is in (or has failed): the stage's final shape. */
   dressed = false;
+  /** Where the toy theatre stands (the Serial); its origin is the centre of the opening's bottom edge. */
+  readonly theatreMount = new Group();
+  private ahead: number;
+  private below: number;
 
-  constructor() {
+  constructor(readonly serial = false) {
+    this.ahead = serial ? SERIAL_TABLE_AHEAD : TABLE_AHEAD;
+    this.below = serial ? SERIAL_TABLE_BELOW : TABLE_BELOW;
     this.root.name = 'coconuts-stage';
+    this.theatreMount.name = 'theatre-mount';
+    this.theatreMount.position.set(0, this.below - THEATRE_FLOOR_BELOW, -(THEATRE_AHEAD - this.ahead));
+    this.root.add(this.theatreMount);
     this.table = buildTable();
     this.root.add(this.table);
     for (const spec of PROPS) {
@@ -67,6 +82,7 @@ export class Stage {
       this.addPiece(t.id, tile);
     });
     this.screen.group.position.set(0, TABLE_BELOW + SCREEN_LIFT, -(SCREEN_AHEAD - TABLE_AHEAD));
+    this.screen.group.visible = !serial; // the theatre takes the film screen's place
     this.root.add(this.screen.group);
     void this.dressAll();
   }
@@ -124,14 +140,14 @@ export class Stage {
     return undefined;
   }
 
-  /** Place the stage relative to the viewer: the table 0.75 m ahead and 0.25 m below the eyes, facing them. */
+  /** Place the stage relative to the viewer: the table ahead of and below the eyes (how far depends on the show), facing them. */
   placeFrom(eye: Vector3, forward: Vector3): void {
     const fwd = forward.clone();
     fwd.y = 0;
     if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1);
     fwd.normalize();
-    this.root.position.copy(eye).addScaledVector(fwd, TABLE_AHEAD);
-    this.root.position.y = eye.y - TABLE_BELOW;
+    this.root.position.copy(eye).addScaledVector(fwd, this.ahead);
+    this.root.position.y = eye.y - this.below;
     this.root.rotation.set(0, Math.atan2(fwd.x, fwd.z) + Math.PI, 0);
   }
 

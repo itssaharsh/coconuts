@@ -103,6 +103,7 @@ export function filmMaterial(src: Material, actor = false): MeshBasicMaterial {
     alphaTest: s.alphaTest,
     side: s.side,
     vertexColors: s.vertexColors,
+    toneMapped: false,
   });
   m.name = src.name;
   m.onBeforeCompile = (shader) => {

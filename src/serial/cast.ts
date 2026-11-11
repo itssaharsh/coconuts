@@ -73,7 +73,7 @@ let blobGeo: CircleGeometry | null = null;
 let blobMat: MeshBasicMaterial | null = null;
 function blob(rx: number, rz: number): Mesh {
   blobGeo ??= new CircleGeometry(1, 20).rotateX(-Math.PI / 2);
-  blobMat ??= new MeshBasicMaterial({ map: glowTexture(), color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false });
+  blobMat ??= new MeshBasicMaterial({ toneMapped: false, map: glowTexture(), color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false });
   const m = new Mesh(blobGeo, blobMat);
   m.scale.set(rx, 1, rz);
   m.position.y = 0.05;
