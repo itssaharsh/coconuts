@@ -160,5 +160,6 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
       return { x: rect.left + ((tmp.x + 1) / 2) * rect.width, y: rect.top + ((1 - tmp.y) / 2) * rect.height };
     },
     onTakeEnd: (cb) => takeEndListeners.push(cb),
+    serialState: () => api?.serial()?.state ?? null,
   });
 });

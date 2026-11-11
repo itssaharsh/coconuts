@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { REEL_1 } from '../src/serial/chapter1';
-import { type Beat, type CastEntry, type Reel, type SetInfo, validateReel } from '../src/serial/schema';
+import { DERIVED_MARKS, type Beat, type CastEntry, type Reel, type SetInfo, validateReel } from '../src/serial/schema';
 
 const SET_IDS = ['camp', 'gate', 'graveyard', 'hall', 'inn', 'vault'];
-const ROAD_MARKS = ['centre', 'left', 'right', 'wings_left', 'wings_right'];
+const ROAD_MARKS = ['centre', 'left', 'right', 'wings_left', 'wings_right', ...DERIVED_MARKS];
 
 const info = (id: string, marks: string[]): SetInfo => ({ id, marks: Object.fromEntries(marks.map((m) => [m, [0, 0] as [number, number]])) });
 
@@ -13,7 +13,7 @@ function catalogue(): Record<string, SetInfo> {
   const cat: Record<string, SetInfo> = {};
   for (const id of SET_IDS) {
     const json = JSON.parse(readFileSync(`public/serial/sets/${id}.json`, 'utf8')) as { marks: Record<string, [number, number]> };
-    cat[id] = info(id, [...Object.keys(json.marks), 'door_side']);
+    cat[id] = info(id, [...Object.keys(json.marks), ...DERIVED_MARKS]);
   }
   for (const id of ['road', 'road-forest', 'road-village']) cat[id] = info(id, ROAD_MARKS);
   return cat;

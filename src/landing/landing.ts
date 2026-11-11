@@ -1,10 +1,13 @@
 // The landing overlay: wires the buttons and chips to the engine and keeps the result card and the glove in step.
+// The Serial (the default show) has its own page in serial-landing.ts; this file's films page runs with `?films`.
 import './landing.css';
 import { CueTracker, type Cue } from '../foley/cues';
 import { directorLine } from '../foley/director';
+import { serialMode } from '../foley/env';
 import { decodeTake, encodeTake } from '../foley/recorder';
 import { ensureAudio } from '../foley/sound';
 import type { Take } from '../foley/types';
+import { mountSerialLanding } from './serial-landing';
 
 export interface ClipMeta {
   id: string;
@@ -23,6 +26,8 @@ export interface EngineBridge {
   /** Screen-space position of a prop, in CSS pixels, or null when off screen. */
   screenPositionOf: (propId: string) => { x: number; y: number } | null;
   onTakeEnd: (cb: (take: Take, summary: string, line: string) => void) => void;
+  /** The Serial's state (boot | loading | ready | playing | pitch | writing), or null before it exists and in the films show. */
+  serialState: () => string | null;
 }
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -44,6 +49,14 @@ async function loadDemoTake(id: string): Promise<Take | null> {
 }
 
 export function mountLanding(engine: EngineBridge): void {
+  const serial = serialMode();
+  document.documentElement.classList.toggle('show-serial', serial);
+  document.documentElement.classList.toggle('show-films', !serial);
+  if (serial) {
+    mountSerialLanding(engine);
+    return;
+  }
+  document.title = 'Coconuts: be the sound of a silent movie'; // the head names the Serial, the default show
   const params = new URLSearchParams(location.search);
   const state = params.get('state');
   const enter = $<HTMLButtonElement>('enter');

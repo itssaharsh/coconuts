@@ -4,7 +4,7 @@ import { Hovered, PokeInteractable, Pressed, RayInteractable, VisibilityState, c
 import { BackSide, Mesh, MeshBasicMaterial, Object3D, Quaternion, SphereGeometry, Vector3 } from 'three';
 import { Bubble } from './bubble';
 import { CueTracker, type Cue } from './cues';
-import { serialMode } from './env';
+import { automationRun, serialMode } from './env';
 import { frameSerial } from '../landing/framing';
 import { Lane } from './lane';
 import { modelStats } from './models';
@@ -92,6 +92,12 @@ export class FoleySystem extends createSystem({
   private lastWhistleToStage = -1;
   /** The house lights: a dark dome round the seat that dims the room (the passthrough) while the curtain is up. */
   private house: Mesh | null = null;
+  /** Where the eyes were when the stage was placed; a player who then sits down (or moves seat) gets it placed again. */
+  private placedEye = new Vector3();
+  private movedFor = 0;
+  /** A slow headset at wall size: the stage goes back to the desk and stays there. */
+  private frameAvg = 0.014;
+  private slowFor = 0;
   private lastPerfLog = -100;
   private rootEntity!: Entity;
   private entityPiece = new Map<Entity, string>();
@@ -766,6 +772,8 @@ export class FoleySystem extends createSystem({
     if (this.placeTimer < 0.75) return; // let the tracked pose settle
     tmpF.set(0, 0, -1).applyQuaternion(src.getWorldQuaternion(tmpQ));
     this.stage.placeFrom(tmpP, tmpF);
+    this.placedEye.copy(tmpP);
+    this.movedFor = 0;
     this.placed = true;
     console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'yaw', +this.stage.root.rotation.y.toFixed(2), 'xr');
   }
@@ -773,6 +781,36 @@ export class FoleySystem extends createSystem({
   reposition(): void {
     this.placed = false;
     this.placeTimer = 0;
+  }
+
+  /**
+   * People press Enter standing and then sit down: when the head has settled well away from where the stage was
+   * placed for (a different height, or another seat), the stage is placed again. Leaning in to reach a prop is not that.
+   * The same watch sends a wall-size stage back to the desk for good when the headset cannot keep its frame rate.
+   */
+  private watchSeat(dt: number): void {
+    const head: Object3D = this.player.head;
+    head.getWorldPosition(tmpP);
+    const dy = Math.abs(tmpP.y - this.placedEye.y);
+    const dxz = Math.hypot(tmpP.x - this.placedEye.x, tmpP.z - this.placedEye.z);
+    const away = tmpP.y > 0.3 && (dy > 0.28 || dxz > 0.9) && this.held.size === 0;
+    this.movedFor = away ? this.movedFor + dt : 0;
+    if (this.movedFor > 1.6) {
+      console.log('STAGE placing again: the seat moved', dy.toFixed(2), dxz.toFixed(2));
+      this.reposition();
+      this.placeTimer = 1; // the pose is already tracked: no need to wait for it to settle again
+    }
+    if (this.serial && !automationRun()) {
+      this.frameAvg += (Math.min(dt, 0.1) - this.frameAvg) * 0.04;
+      const slow = this.stage.theatreBig && this.frameAvg > 0.024; // under about 42 frames a second
+      this.slowFor = slow ? this.slowFor + dt : 0;
+      if (this.slowFor > 4) {
+        this.slowFor = 0;
+        this.serial.theatre.allowBig = false;
+        this.serial.theatre.grow(false);
+        console.log('STAGE kept at desk size: the frame rate fell at wall size', (1 / this.frameAvg).toFixed(0));
+      }
+    }
   }
 
   /** The landing's camera: wide screens see the stage from the right so it sits beside the copy; phones see it head-on. */
@@ -822,6 +860,7 @@ export class FoleySystem extends createSystem({
     }
     if (!this.placed) this.placeStage(dt);
     const inXR = this.world.visibilityState.value !== VisibilityState.NonImmersive;
+    if (inXR && this.placed) this.watchSeat(dt);
     if (!inXR && window.innerWidth !== this.lastW) {
       this.lastW = window.innerWidth;
       this.frameBrowserCamera();

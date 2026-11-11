@@ -36,6 +36,13 @@ export const ITEMS = [
 
 export const FACINGS = ['audience', 'upstage', 'left', 'right'];
 
+/**
+ * Marks every set has without listing them: the stage works them out. door_side and window_side stand beside the
+ * door and the window; duel_a / duel_b face each other across the middle; front_* and aside_* are the clear places
+ * downstage and in the front corners.
+ */
+export const DERIVED_MARKS = ['door_side', 'window_side', 'duel_a', 'duel_b', 'front_left', 'front_right', 'aside_left', 'aside_right'];
+
 /** A place on the stage: a named mark of the set, or the wings. */
 export type Mark = string;
 export type Side = 'left' | 'right';

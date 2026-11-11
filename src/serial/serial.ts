@@ -8,13 +8,13 @@ import { CHAPTER_1 } from './chapter1';
 import { type ReelAnswer, type ReelRequest, requestReel, type StoryLine } from './director';
 import { assemble, checkPlan, type Pitch, PITCHES_2, type ReelPlan, WRITTEN } from './pieces';
 import { ReelPlayer, type PlayerHooks, type ReelStats, type Sound, type Waiting } from './player';
-import { type Reel, type SetInfo, type StageCue, validateReel } from './schema';
+import { DERIVED_MARKS, type Reel, type SetInfo, type StageCue, validateReel } from './schema';
 import { Theatre } from './theatre';
 
 /** ready: a reel waits for the clapper. pitch: the player chooses what happens next. writing: the next reel is being written. */
 export type SerialState = 'boot' | 'loading' | 'ready' | 'playing' | 'pitch' | 'writing';
 
-const ROAD_MARK_NAMES = ['centre', 'left', 'right', 'wings_left', 'wings_right'];
+const ROAD_MARK_NAMES = ['centre', 'left', 'right', 'wings_left', 'wings_right', ...DERIVED_MARKS];
 const setInfo = (id: string, marks: string[]): SetInfo => ({ id, marks: Object.fromEntries(marks.map((m) => [m, [0, 0] as [number, number]])) });
 
 /** A way on for every prop, for the reels the Director did not pitch. */
@@ -100,7 +100,7 @@ export class Serial {
       if (res.ok) {
         const cat = (await res.json()) as { horse?: { riderSeat?: { position?: [number, number, number] } }; sets?: Record<string, { marks?: string[] }> };
         seat = cat.horse?.riderSeat?.position;
-        for (const [id, s] of Object.entries(cat.sets ?? {})) this.catalogue[id] = setInfo(id, [...(s.marks ?? []), 'door_side']);
+        for (const [id, s] of Object.entries(cat.sets ?? {})) this.catalogue[id] = setInfo(id, [...(s.marks ?? []), ...DERIVED_MARKS]);
       }
     } catch {
       // the mount's own default

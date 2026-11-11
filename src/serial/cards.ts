@@ -55,6 +55,23 @@ function wrap(g: CanvasRenderingContext2D, text: string, maxWidth: number): stri
     } else cur = t;
   }
   if (cur) lines.push(cur);
+  // two lines read better balanced than with one word left alone on either
+  if (lines.length === 2 && words.length > 2) {
+    let best = lines;
+    let bestGap = Infinity;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(' ');
+      const b = words.slice(i).join(' ');
+      const wa = g.measureText(a).width;
+      const wb = g.measureText(b).width;
+      if (wa > maxWidth || wb > maxWidth) continue;
+      if (Math.abs(wa - wb) < bestGap) {
+        bestGap = Math.abs(wa - wb);
+        best = [a, b];
+      }
+    }
+    return best;
+  }
   return lines;
 }
 

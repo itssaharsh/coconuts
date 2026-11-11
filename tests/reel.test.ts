@@ -24,7 +24,7 @@ import {
 import { geminiBackend, handleReel, POST, type ReelDeps } from '../api/reel';
 import { PROP_IDS, type PropId } from '../src/foley/types';
 import { assemble, checkPlan, type ReelPlan, SET_IDS, WRITTEN } from '../src/serial/pieces';
-import { CHARACTERS, type SetInfo, validateReel } from '../src/serial/schema';
+import { DERIVED_MARKS, CHARACTERS, type SetInfo, validateReel } from '../src/serial/schema';
 
 type Message = Anthropic.Beta.Messages.BetaMessage;
 type Params = Parameters<CreateMessage>[0];
@@ -37,9 +37,9 @@ function catalogue(): Record<string, SetInfo> {
   const info = (id: string, marks: string[]): SetInfo => ({ id, marks: Object.fromEntries(marks.map((m) => [m, [0, 0] as [number, number]])) });
   for (const f of readdirSync('public/serial/sets').filter((x) => x.endsWith('.json'))) {
     const j = JSON.parse(readFileSync(`public/serial/sets/${f}`, 'utf8')) as { marks: Record<string, unknown> };
-    out[f.replace('.json', '')] = info(f.replace('.json', ''), [...Object.keys(j.marks), 'door_side']);
+    out[f.replace('.json', '')] = info(f.replace('.json', ''), [...Object.keys(j.marks), ...DERIVED_MARKS]);
   }
-  for (const r of ['road', 'road-forest', 'road-village']) out[r] = info(r, ['centre', 'left', 'right', 'wings_left', 'wings_right']);
+  for (const r of ['road', 'road-forest', 'road-village']) out[r] = info(r, ['centre', 'left', 'right', 'wings_left', 'wings_right', ...DERIVED_MARKS]);
   return out;
 }
 const SETS_ON_DISK = catalogue();

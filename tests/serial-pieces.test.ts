@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PROP_IDS } from '../src/foley/types';
 import { assemble, checkPlan, PITCHES_2, type ReelPlan, SET_IDS, WRITTEN } from '../src/serial/pieces';
-import { type SetInfo, validateReel } from '../src/serial/schema';
+import { DERIVED_MARKS, type SetInfo, validateReel } from '../src/serial/schema';
 
 /** The set catalogue the way the Serial builds it: mark names from the set files, plus the roads. */
 function catalogue(): Record<string, SetInfo> {
@@ -10,9 +10,9 @@ function catalogue(): Record<string, SetInfo> {
   const info = (id: string, marks: string[]): SetInfo => ({ id, marks: Object.fromEntries(marks.map((m) => [m, [0, 0] as [number, number]])) });
   for (const f of readdirSync('public/serial/sets').filter((x) => x.endsWith('.json'))) {
     const j = JSON.parse(readFileSync(`public/serial/sets/${f}`, 'utf8')) as { marks: Record<string, unknown> };
-    out[f.replace('.json', '')] = info(f.replace('.json', ''), [...Object.keys(j.marks), 'door_side']);
+    out[f.replace('.json', '')] = info(f.replace('.json', ''), [...Object.keys(j.marks), ...DERIVED_MARKS]);
   }
-  for (const r of ['road', 'road-forest', 'road-village']) out[r] = info(r, ['centre', 'left', 'right', 'wings_left', 'wings_right']);
+  for (const r of ['road', 'road-forest', 'road-village']) out[r] = info(r, ['centre', 'left', 'right', 'wings_left', 'wings_right', ...DERIVED_MARKS]);
   return out;
 }
 

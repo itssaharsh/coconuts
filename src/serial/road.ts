@@ -21,7 +21,7 @@ interface Lane {
 
 const LANES: Record<RoadTheme, Lane[]> = {
   road: [
-    { z: -3.2, step: 6.5, scale: 1, pieces: ['tree_round', 'house_a', 'tree_cone', 'windmill'] },
+    { z: -3.2, step: 6.5, scale: 1, pieces: ['tree_round', 'house_a', 'tree_cone', 'tree_grove_b'] },
     { z: -1.2, step: 5.2, scale: 0.85, pieces: ['fence', 'haystack', 'bush_b', 'signpost', 'rock_a'] },
     { z: 3.5, step: 8.7, scale: 0.3, pieces: ['rock_b', 'rock_a', 'rock_b'] },
   ],

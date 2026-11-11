@@ -207,41 +207,68 @@ export function assemble(plan: ReelPlan, id: string): Reel {
   if (errs.length) throw new Error(`plan rejected: ${errs.slice(0, 3).join('; ')}`);
   const beats: Beat[] = [];
   let first: { set: SetId; tint: Tint; cast: CastEntry[] } | null = null;
-  let steelSaid = false;
 
   for (const sc of plan.scenes) {
     const info = SETS[sc.set];
     const tint = sc.tint ?? info.tint;
-    const on = new Set<string>(); // who is on the stage right now
+    // Staging keeps a little book: who is on the stage, on which mark, and who is lying down. Every piece asks the
+    // book for a free spot, so nobody stands on (or in front of) anybody else.
+    const at = new Map<string, string>();
+    const down = new Set<string>();
     const cast: CastEntry[] = sc.cast.map((c) => ({ id: c.id, char: c.char, ...(c.items?.length ? { items: c.items } : {}) }));
     const entry = (cid: string) => cast.find((c) => c.id === cid)!;
     // who is already in place when the curtain opens
     const lead = sc.pieces[0];
     if (lead.piece === 'ride') {
       Object.assign(entry(lead.who), { mounted: true, at: 'centre' });
-      on.add(lead.who);
+      at.set(lead.who, 'centre');
     }
     if (lead.piece === 'wake' && info.sleep) {
       Object.assign(entry(lead.sleeper), { at: info.sleep[0], pose: info.sleep[1], zzz: true });
-      on.add(lead.sleeper);
+      at.set(lead.sleeper, info.sleep[0]);
+      down.add(lead.sleeper);
     }
     const storm = sc.pieces.find((p) => p.piece === 'storm') as Extract<PiecePlan, { piece: 'storm' }> | undefined;
     (storm?.risers ?? []).forEach((r, i) => {
-      if (on.has(r) || !info.graves) return;
+      if (at.has(r) || !info.graves) return;
       Object.assign(entry(r), { at: info.graves[i], pose: 'sleep' });
-      on.add(r);
+      at.set(r, info.graves[i]);
+      down.add(r);
     });
     const scene: Beat[] = [];
     let side: Side = 'left';
+    const taken = (mark: string, by?: string) => [...at].some(([who, m]) => m === mark && who !== by);
+    /** The first of these marks nobody else stands on (the first of all when every one is taken). */
+    const free = (marks: string[], by?: string) => marks.find((m) => !taken(m, by)) ?? marks[0];
     /** Bring an actor to a mark: on from the wings if they are off, across the stage if they are on. */
-    const bring = (who: string, to: string, opts: { face?: string; gait?: 'walk' | 'run'; from?: Side } = {}): Beat => {
-      if (on.has(who)) return { k: 'move', who, to, ...(opts.gait ? { gait: opts.gait } : {}), ...(opts.face ? { face: opts.face } : {}) };
-      on.add(who);
+    const bring = (who: string, to: string | string[], opts: { face?: string; gait?: 'walk' | 'run'; from?: Side } = {}): Beat => {
+      const mark = typeof to === 'string' ? to : free(to, who);
+      const extra = { ...(opts.gait ? { gait: opts.gait } : {}), ...(opts.face ? { face: opts.face } : {}) };
+      if (at.has(who)) {
+        at.set(who, mark);
+        return { k: 'move', who, to: mark, ...extra };
+      }
+      at.set(who, mark);
       const from = opts.from ?? side;
       side = from === 'left' ? 'right' : 'left';
-      return { k: 'enter', who, from, to, ...(opts.gait ? { gait: opts.gait } : {}), ...(opts.face ? { face: opts.face } : {}) };
+      return { k: 'enter', who, from, to: mark, ...extra };
     };
-    const everyone = () => [...on];
+    /** Walk everyone who is not part of the action (and can walk) off these marks, to the sides of the stage. */
+    const clear = (marks: string[], except: string[], toward: string[] = ['aside_left', 'aside_right', 'front_left', 'front_right']): void => {
+      const moves: Beat[] = [];
+      for (const [who, m] of [...at]) {
+        if (except.includes(who) || down.has(who) || !marks.includes(m)) continue;
+        moves.push(bring(who, toward.filter((t) => !marks.includes(t)), { face: 'centre' }));
+      }
+      if (moves.length) scene.push(moves.length === 1 ? moves[0] : { k: 'par', beats: moves });
+    };
+    const leave = (who: string, to: Side | string, gait: 'walk' | 'run' = 'run'): Beat => {
+      at.delete(who);
+      down.delete(who);
+      return { k: 'exit', who, to, gait };
+    };
+    const standing = () => [...at.keys()].filter((x) => !down.has(x));
+    const FRONT = ['front_left', 'front_right', 'aside_left', 'aside_right'];
 
     for (const pc of sc.pieces) {
       switch (pc.piece) {
@@ -250,7 +277,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
           break;
         case 'arrive':
           if (pc.line) scene.push({ k: 'title', text: pc.line, secs: 2.2 });
-          scene.push(bring(pc.who, pc.from === 'right' ? 'right' : 'left', { from: pc.from }));
+          scene.push(bring(pc.who, pc.from === 'right' ? ['front_right', 'aside_right', 'front_left'] : ['front_left', 'aside_left', 'front_right'], { from: pc.from }));
           break;
         case 'ride':
           scene.push({ k: 'title', text: pc.line ?? 'Ride! Ride!', secs: 2 });
@@ -265,13 +292,14 @@ export function assemble(plan: ReelPlan, id: string): Reel {
           });
           break;
         case 'knock': {
+          // doors are stage left: whoever is not knocking waits on the other side, where they hide nothing
+          clear(['door_side', 'door', 'front_left', 'aside_left', 'left'], [pc.who, pc.opener], ['front_right', 'aside_right']);
           scene.push(bring(pc.who, 'door_side', { face: 'door' }));
           const answer: Beat[] = [{ k: 'door', open: true }, { k: 'wait', secs: 0.4 }];
-          if (on.has(pc.opener)) answer.push({ k: 'move', who: pc.opener, to: 'door', face: pc.who });
-          else {
-            on.add(pc.opener);
-            answer.push({ k: 'enter', who: pc.opener, from: 'door', to: 'door', face: pc.who });
-          }
+          if (at.has(pc.opener)) answer.push({ k: 'move', who: pc.opener, to: 'door', face: pc.who });
+          else answer.push({ k: 'enter', who: pc.opener, from: 'door', to: 'door', face: pc.who });
+          at.set(pc.opener, 'door');
+          down.delete(pc.opener);
           answer.push({ k: 'emote', who: pc.opener, emote: '!' });
           scene.push({
             k: 'cue',
@@ -284,25 +312,29 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             miss: [{ k: 'title', text: 'Nobody knocked.', sub: 'The door opens anyway.', secs: 2.2 }, ...answer],
           });
           if (pc.line) scene.push({ k: 'title', text: pc.line, secs: 2.4 });
+          // the two of them come down to the front, so the next piece has the door and the middle of the stage
+          scene.push({ k: 'par', beats: [bring(pc.who, ['front_right', 'aside_right'], { face: pc.opener }), bring(pc.opener, ['front_left', 'aside_left'], { face: pc.who })] });
           break;
         }
         case 'wake':
-          scene.push(bring(pc.who, 'right', { face: pc.sleeper, from: 'right' }));
+          scene.push(bring(pc.who, ['front_right', 'front_left'], { face: pc.sleeper, from: 'right' }));
           scene.push({
             k: 'open',
             prompt: 'What wakes the sleeper?',
             branches: wakes(pc.sleeper, sc.set),
             miss: [{ k: 'title', text: 'The sleeper wakes alone.', sub: '(Nobody made a sound.)', secs: 2.2 }, { k: 'do', who: pc.sleeper, verb: 'getup' }],
           });
+          down.delete(pc.sleeper);
           scene.push({ k: 'par', beats: [{ k: 'do', who: pc.sleeper, verb: 'flinch', face: pc.who }, { k: 'emote', who: pc.sleeper, emote: '!' }] });
           break;
         case 'duel': {
           const loser = pc.loser === 'a' ? pc.a : pc.b;
           const winner = loser === pc.a ? pc.b : pc.a;
-          scene.push({ k: 'par', beats: [bring(pc.a, 'left', { face: pc.b, from: 'left' }), bring(pc.b, 'centre', { face: pc.a, from: 'right' })] });
-          scene.push({ k: 'move', who: pc.a, to: pc.b });
-          if (!steelSaid) scene.push({ k: 'title', text: 'Steel rings like a bell.', secs: 1.9 });
-          steelSaid = true;
+          // the duel has the middle of the stage to itself: a to the audience's left, b to the right, a sword apart
+          clear(['duel_a', 'duel_b', 'centre', 'front_left', 'front_right'], [pc.a, pc.b], ['aside_left', 'aside_right']);
+          down.delete(pc.a);
+          down.delete(pc.b);
+          scene.push({ k: 'par', beats: [bring(pc.a, 'duel_a', { face: pc.b, from: 'left' }), bring(pc.b, 'duel_b', { face: pc.a, from: 'right' })] });
           const blows = pc.blows ?? 2;
           const exchange = (striker: string, other: string, verb: 'chop' | 'stab'): Beat => ({
             k: 'par',
@@ -322,63 +354,70 @@ export function assemble(plan: ReelPlan, id: string): Reel {
               { k: 'par', beats: [{ k: 'do', who: winner, verb: 'slash', face: loser }, { k: 'do', who: loser, verb: 'stagger', face: winner }] },
               { k: 'do', who: loser, verb: 'fall' },
               { k: 'do', who: winner, verb: 'cheer', face: 'audience' },
+              // the beaten one picks themselves up and runs: the stage is clear for what comes next
+              { k: 'do', who: loser, verb: 'getup' },
             ],
           });
+          scene.push(leave(loser, loser === pc.a ? 'left' : 'right'));
           break;
         }
         case 'storm': {
           scene.push({ k: 'title', text: pc.line ?? 'A storm breaks.', secs: 2 });
-          const risers = (pc.risers ?? []).filter((r) => info.graves);
-          const standing = everyone().filter((x) => !risers.includes(x));
+          const risers = (pc.risers ?? []).filter(() => info.graves);
+          const up = standing().filter((x) => !risers.includes(x));
           scene.push({
             k: 'cue',
             prop: 'thunder',
             label: 'Shake the thunder',
             hold: 12,
             times: 2,
-            each: [{ k: 'fx', fx: 'lightning' }, { k: 'par', beats: standing.map((x): Beat => ({ k: 'do', who: x, verb: 'flinch' })) }],
+            each: [{ k: 'fx', fx: 'lightning' }, { k: 'par', beats: up.map((x): Beat => ({ k: 'do', who: x, verb: 'flinch' })) }],
             hit: [
+              { k: 'fx', fx: 'grow' },
               { k: 'fx', fx: 'shake' },
               ...(risers.length
                 ? [
                     { k: 'par', beats: risers.map((r): Beat => ({ k: 'do', who: r, verb: 'awaken' })) } as Beat,
-                    { k: 'par', beats: [...risers.map((r): Beat => ({ k: 'emote', who: r, emote: 'skull' })), ...standing.map((x): Beat => ({ k: 'emote', who: x, emote: '!' }))] } as Beat,
+                    { k: 'par', beats: [...risers.map((r): Beat => ({ k: 'emote', who: r, emote: 'skull' })), ...up.map((x): Beat => ({ k: 'emote', who: x, emote: '!' }))] } as Beat,
                     { k: 'title', text: 'Your thunder woke the dead.', secs: 2.2 } as Beat,
                   ]
-                : [{ k: 'par', beats: standing.map((x): Beat => ({ k: 'emote', who: x, emote: 'sweat' })) } as Beat]),
+                : [{ k: 'par', beats: up.map((x): Beat => ({ k: 'emote', who: x, emote: 'sweat' })) } as Beat]),
             ],
           });
+          for (const r of risers) down.delete(r);
           break;
         }
         case 'smash':
           if (info.window) {
+            clear(['window', 'window_side'], [pc.who], ['front_left', 'aside_left']);
             scene.push(bring(pc.who, 'window', { gait: 'run', face: 'window' }));
-            scene.push({ k: 'cue', prop: 'glass', label: 'Smash! A leap!', who: pc.who, hold: 10, hit: [{ k: 'do', who: pc.who, verb: 'jump', secs: 0.45 }, { k: 'exit', who: pc.who, to: 'window', gait: 'run' }] });
-            on.delete(pc.who);
+            scene.push({ k: 'cue', prop: 'glass', label: 'Smash! A leap!', who: pc.who, hold: 10, hit: [{ k: 'do', who: pc.who, verb: 'jump', secs: 0.45 }, leave(pc.who, 'window')] });
           } else {
-            scene.push(bring(pc.who, 'centre'));
+            scene.push(bring(pc.who, FRONT));
             scene.push({
               k: 'cue',
               prop: 'glass',
               label: 'Smash a bottle!',
               who: pc.who,
               hold: 10,
-              hit: [{ k: 'do', who: pc.who, verb: 'throw' }, { k: 'par', beats: everyone().filter((x) => x !== pc.who).map((x): Beat => ({ k: 'do', who: x, verb: 'jump' })) }],
+              hit: [{ k: 'do', who: pc.who, verb: 'throw', face: 'audience' }, { k: 'par', beats: standing().filter((x) => x !== pc.who).map((x): Beat => ({ k: 'do', who: x, verb: 'jump' })) }],
             });
           }
           break;
         case 'whistle':
-          scene.push(bring(pc.who, 'centre'));
+          scene.push(bring(pc.who, ['front_left', 'front_right'], { from: 'left' }));
           scene.push({
             k: 'cue',
             prop: 'whistle',
             label: 'Whistle for help',
             who: pc.who,
             hold: 10,
-            hit: [{ k: 'emote', who: pc.who, emote: 'note' }, bring(pc.comes, pc.who, { gait: 'run' }), { k: 'emote', who: pc.comes, emote: '!' }],
+            hit: [{ k: 'emote', who: pc.who, emote: 'note' }, bring(pc.comes, ['front_right', 'front_left', 'aside_right'], { gait: 'run', face: pc.who, from: 'right' }), { k: 'emote', who: pc.comes, emote: '!' }],
           });
+          down.delete(pc.comes);
           break;
         case 'slam':
+          clear(['door_side', 'door', 'front_left', 'aside_left', 'left'], [pc.who], ['front_right', 'aside_right']);
           scene.push({ k: 'par', beats: [bring(pc.who, 'door_side', { gait: 'run', face: 'door' }), { k: 'door', open: true }] });
           scene.push({
             k: 'cue',
@@ -391,11 +430,10 @@ export function assemble(plan: ReelPlan, id: string): Reel {
           });
           break;
         case 'chase': {
-          const start = bring(pc.runner, 'centre', { gait: 'run' });
-          scene.push(start, { k: 'emote', who: pc.runner, emote: 'sweat' }, { k: 'exit', who: pc.runner, to: side, gait: 'run' });
-          on.delete(pc.runner);
-          scene.push(bring(pc.chaser, 'centre', { gait: 'run' }), { k: 'emote', who: pc.chaser, emote: 'angry' }, { k: 'exit', who: pc.chaser, to: side, gait: 'run' });
-          on.delete(pc.chaser);
+          scene.push(bring(pc.runner, 'centre', { gait: 'run' }), { k: 'emote', who: pc.runner, emote: 'sweat' });
+          const out = side; // the wing the runner did not come from
+          scene.push(leave(pc.runner, out));
+          scene.push(bring(pc.chaser, 'centre', { gait: 'run' }), { k: 'emote', who: pc.chaser, emote: 'angry' }, leave(pc.chaser, out));
           break;
         }
         case 'toast':
@@ -405,7 +443,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             prop: 'bell',
             label: 'Ring the bell!',
             hold: 10,
-            hit: [{ k: 'par', beats: everyone().map((x): Beat => ({ k: 'do', who: x, verb: 'cheer', face: 'audience' })) }],
+            hit: [{ k: 'par', beats: standing().map((x): Beat => ({ k: 'do', who: x, verb: 'cheer', face: 'audience' })) }],
           });
           break;
       }
@@ -440,7 +478,7 @@ export const WRITTEN: Record<PropId, ReelPlan> = {
         cast: [KNIGHT, THIEF, { id: 'brute', char: 'barbarian' }],
         pieces: [
           { piece: 'wake', who: 'knight', sleeper: 'brute' },
-          { piece: 'card', line: '“Where is the thief?”' },
+          { piece: 'storm', line: 'The fire spits. The sky answers.' },
           { piece: 'duel', a: 'knight', b: 'brute', blows: 2 },
           { piece: 'chase', runner: 'thief', chaser: 'knight' },
         ],
@@ -493,6 +531,7 @@ export const WRITTEN: Record<PropId, ReelPlan> = {
           { piece: 'knock', who: 'knight', opener: 'guard', line: '“The Duke is not at home.”' },
           { piece: 'duel', a: 'knight', b: 'guard', blows: 2 },
           { piece: 'arrive', who: 'duke', from: 'right', line: 'The Duke was at home.' },
+          { piece: 'storm', line: 'He raises his staff.' },
           { piece: 'slam', who: 'knight' },
         ],
       },
@@ -508,9 +547,9 @@ export const WRITTEN: Record<PropId, ReelPlan> = {
         pieces: [
           { piece: 'arrive', who: 'knight', line: 'Lost in the forest.' },
           { piece: 'whistle', who: 'knight', comes: 'sage' },
-          { piece: 'card', line: '“The thief serves the Duke.”' },
-          { piece: 'storm', line: 'The fire spits.' },
-          { piece: 'duel', a: 'sage', b: 'brute', blows: 1 },
+          { piece: 'card', line: '“The thief serves the Duke!”' },
+          { piece: 'storm', line: 'The Duke’s storm rolls in.' },
+          { piece: 'duel', a: 'knight', b: 'brute', blows: 2 },
         ],
       },
     ],

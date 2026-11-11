@@ -22,7 +22,7 @@ const WAKES: Extract<Beat, { k: 'open' }>['branches'] = {
       { k: 'fx', fx: 'lightning' },
       { k: 'do', who: 'thief', verb: 'getup' },
       { k: 'do', who: 'thief', verb: 'flinch' },
-      { k: 'move', who: 'thief', to: 'table', gait: 'run' },
+      { k: 'move', who: 'thief', to: 'aside_left', gait: 'run' },
       { k: 'do', who: 'thief', verb: 'sitfloor' },
       { k: 'emote', who: 'thief', emote: 'sweat' },
       { k: 'do', who: 'thief', verb: 'getup' },
@@ -120,7 +120,7 @@ export const REEL_1: Reel = {
       cast: [{ id: 'thief', char: 'rogue_hooded', at: 'chest', pose: 'sleep', zzz: true, item: 'dagger' }, KNIGHT],
     },
     { k: 'title', text: 'The robbers’ den.', sub: 'The thief sleeps on his loot.', secs: 2.6 },
-    { k: 'enter', who: 'knight', from: 'right', to: 'right', face: 'thief' },
+    { k: 'enter', who: 'knight', from: 'right', to: 'front_right', face: 'thief' },
     {
       k: 'open',
       prompt: 'What wakes him?',
@@ -163,8 +163,7 @@ export const REEL_1: Reel = {
         { k: 'do', who: 'thief', verb: 'stagger' },
       ],
     },
-    { k: 'par', beats: [{ k: 'move', who: 'thief', to: 'centre', gait: 'run', face: 'knight' }, { k: 'move', who: 'knight', to: 'right', face: 'thief' }] },
-    { k: 'move', who: 'knight', to: 'thief' },
+    { k: 'par', beats: [{ k: 'move', who: 'thief', to: 'duel_a', gait: 'run', face: 'knight' }, { k: 'move', who: 'knight', to: 'duel_b', face: 'thief' }] },
     { k: 'title', text: 'Steel rings like a bell.', secs: 1.9 },
     {
       k: 'cue',
@@ -207,7 +206,7 @@ export const REEL_1: Reel = {
         { k: 'exit', who: 'thief', to: 'window', gait: 'run' },
       ],
     },
-    { k: 'move', who: 'knight', to: 'window', gait: 'run', face: 'window' },
+    { k: 'move', who: 'knight', to: 'window_side', gait: 'run', face: 'window' },
     { k: 'emote', who: 'knight', emote: 'angry' },
     {
       k: 'cue',

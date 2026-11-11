@@ -62,7 +62,26 @@ const DEFAULT_MARKS: Record<string, [number, number]> = {
   wings_right: [8.5, 2],
 };
 
+/** The clear places every set has (the sets keep the front of the stage free of furniture). */
+const COMMON_MARKS: Record<string, [number, number]> = {
+  duel_a: [-1.15, 1.5],
+  duel_b: [1.15, 1.5],
+  front_left: [-3.0, 2.0],
+  front_right: [3.0, 2.0],
+  aside_left: [-5.2, 2.4],
+  aside_right: [5.2, 2.4],
+};
+
+/** Where a set's own marks put an actor behind its furniture, the stage knows better. */
+const MARK_FIXES: Record<string, Record<string, [number, number]>> = {
+  hall: { door_side: [-4.3, -1.0] }, // clear of the shield pillar
+  inn: { door_side: [-3.4, -1.6] }, // clear of the left table
+  graveyard: { grave_a: [-3.4, -0.9], grave_b: [0.4, -1.4], grave_c: [3.6, -0.7] }, // in front of the stones, not behind them
+  vault: { chest: [-1.9, -0.5] }, // the sleeper lies in front of the gold
+};
+
 const ROAD_MARKS: Record<string, [number, number]> = {
+  ...COMMON_MARKS,
   centre: [0, 1.3],
   left: [-3.8, 1.3],
   right: [3.8, 1.3],
@@ -101,9 +120,9 @@ interface Lamp {
 /** The wash and the key for each film stock, outdoors and in: [sky, ground, key]. */
 const LIGHTS: Record<TintName, { out: [number, number, number]; in: [number, number, number] }> = {
   blue: { out: [0x56669a, 0x1c1c26, 0x8a9cd6], in: [0x4a4f66, 0x1a1820, 0x7a7f9a] },
-  amber: { out: [0xa6adb8, 0x4a4234, 0xfff0d8], in: [0x6e5e4c, 0x2a201a, 0xb8a280] },
+  amber: { out: [0xa6adb8, 0x4a4234, 0xfff0d8], in: [0x7e6c58, 0x30251e, 0xc8b08c] },
   red: { out: [0x8a625c, 0x30201c, 0xf0a078], in: [0x70504a, 0x2a1a18, 0xc08060] },
-  green: { out: [0x52705e, 0x1a241c, 0x9acba6], in: [0x4a5e50, 0x1a201a, 0x86a890] },
+  green: { out: [0x6c9478, 0x26362a, 0xb4e0bc], in: [0x4a5e50, 0x1a201a, 0x86a890] },
   plain: { out: [0xa6adb8, 0x4a4234, 0xfff0d8], in: [0x77705e, 0x2a241c, 0xc0b090] },
 };
 
@@ -169,6 +188,8 @@ export class Theatre {
   /** The theatre wants to be wall-size (or desk-size again): whoever placed it moves and scales it. */
   onScale: ((big: boolean) => void) | null = null;
   private bigNow = false;
+  /** False once wall size proved too much for the headset: the theatre then stays on the desk. */
+  allowBig = true;
 
   constructor(private base: string) {
     this.group.name = 'theatre';
@@ -365,9 +386,11 @@ export class Theatre {
     } catch {
       // default marks
     }
-    const marks = { ...DEFAULT_MARKS, ...(file.marks ?? {}) };
-    // the spot beside the door, from where a knock can be seen
+    const marks = { ...DEFAULT_MARKS, ...COMMON_MARKS, ...(file.marks ?? {}) };
+    // the spots beside the door and the window, from where a knock or a leap can be seen
     if (!file.marks?.door_side) marks.door_side = [Math.min(5.4, marks.door[0] + 1.55), marks.door[1] - 0.15];
+    if (!file.marks?.window_side) marks.window_side = [Math.max(-5.4, marks.window[0] - 1.5), marks.window[1] + 0.6];
+    Object.assign(marks, MARK_FIXES[id] ?? {});
     this.info = { id, marks, kind: file.kind, sky: file.sky };
     try {
       const gltf = await loadGLB(`${this.base}sets/${id}.glb`);
@@ -528,7 +551,7 @@ export class Theatre {
 
   /** Burst to the size of the wall, under cover of a lightning flash; or come back to the desk. */
   grow(big = true): void {
-    if (big === this.bigNow) return;
+    if (big === this.bigNow || (big && !this.allowBig)) return;
     this.bigNow = big;
     this.flash = 1;
     this.onScale?.(big);
