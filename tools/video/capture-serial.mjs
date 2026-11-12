@@ -29,6 +29,8 @@ const pitchProp = opt('pitch', null);
 const openProp = opt('open', 'bell');
 // --tilt -8: how far the head is tipped down for the whole take, in degrees (shows more of the table under the stage)
 const tilt = Number(opt('tilt', -8));
+// --stop-at "Shake the thunder": end the take when the stage first waits for a cue whose label matches (a short clip)
+const stopAt = opt('stop-at', null) ? new RegExp(String(opt('stop-at')), 'i') : null;
 // --start bell: the first clapper rolls that prop's written reel instead of reel one (for clips of the later reels)
 const startOn = String(opt('start', '') || '');
 const [W, H] = String(opt('size', '1920x1080')).split('x').map(Number);
@@ -226,6 +228,10 @@ async function main() {
       await sleep(0.9 * slow * 1000);
       const play = prop === 'any' ? openProp : prop;
       const label = w.message.split(' ').slice(4).join(' ');
+      if (stopAt && stopAt.test(label)) {
+        await sleep(1.2 * slow * 1000);
+        break;
+      }
       if (kind === 'ride') {
         for (let i = 0; i < 4 && !since('^CUE (hit|miss) ride', lastWait).length; i++) await pat(play, 4);
       } else {
