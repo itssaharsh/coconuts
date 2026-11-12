@@ -3,12 +3,13 @@
 // every reel the player picks what happens next and the Director writes the next reel (a written one stands in
 // whenever the Director is slow, wrong or away).
 import type { PropId } from '../foley/types';
-import { type Actor, Mount, Troupe } from './cast';
+import { Mount, Troupe } from './cast';
 import { CHAPTER_1 } from './chapter1';
 import { type ReelAnswer, type ReelRequest, requestReel, type StoryLine, warmDirector } from './director';
 import { assemble, checkPlan, type Pitch, PITCHES_2, type ReelPlan, WRITTEN, WRITTEN_MORE } from './pieces';
 import { ReelPlayer, type PlayerHooks, type ReelStats, type Sound, type Waiting } from './player';
 import { DERIVED_MARKS, type Reel, type SetInfo, type StageCue, validateReel } from './schema';
+import type { Task } from './tasks';
 import { Theatre } from './theatre';
 
 /** ready: a reel waits for the clapper. pitch: the player chooses what happens next. writing: the next reel is being written. */
@@ -59,8 +60,13 @@ export interface SerialHooks extends PlayerHooks {
 export class Serial {
   readonly theatre: Theatre;
   readonly troupe: Troupe;
-  /** An actor who left the picture last reel and is about to climb back into it. */
-  private returning: Actor | null = null;
+  /**
+   * Whoever went over the edge of the desk last reel climbs back into the picture while the Director writes the next
+   * one (the wait is the climb); the reel does not roll until the climb is over.
+   */
+  private climbing: Promise<void> | null = null;
+  /** A task the stage plays between reels, outside any reel (the climb back). */
+  private aside: { task: Task; done: () => void } | null = null;
   readonly mount: Mount;
   readonly player: ReelPlayer;
   private reels: Reel[] = [...CHAPTER_1];
@@ -223,6 +229,11 @@ export class Serial {
   /** The clapper: roll the reel that is ready (a returning player goes straight to what happens next). */
   async roll(): Promise<void> {
     if (this.state !== 'ready') return;
+    // (a climb back into the picture still under way: the reel waits for it; a second press waits with it)
+    if (this.climbing) {
+      await this.climbing;
+      if (this.state !== 'ready') return;
+    }
     this.rollsSoon = false;
     if (this.resuming) {
       this.resuming = false;
@@ -231,10 +242,7 @@ export class Serial {
     }
     this.theatre.hideCard();
     this.warm();
-    const back = this.returning;
-    this.returning = null;
-    if (back) this.player.adopt('(returning)', back); // not a name a plan can use: it is animated and cleared with the cast
-    this.player.start(back ? () => this.theatre.climbBack(back) : undefined);
+    this.player.start();
     this.setState('playing');
   }
 
@@ -276,6 +284,8 @@ export class Serial {
     this.setState('writing');
     this.hooks.onWaiting?.(null);
     this.theatre.showCard(`“${pitch.text}”`, 'The Director is writing the next reel…');
+    // whoever went over the edge of the desk last reel climbs back into the picture while the next reel is written
+    if (this.story[this.story.length - 1]?.flags.includes('thief_out') && this.theatre.hasDesk && !this.climbing) this.climbing = this.climbBack();
     const number = this.done + 1;
     console.log('PITCH chosen', pitch.prop ?? 'spoken', pitch.text);
     let answer: ReelAnswer | null = null;
@@ -299,10 +309,6 @@ export class Serial {
     this.reels.push(reel);
     this.rollsSoon = true;
     await this.prepare(this.reels.length - 1);
-    // whoever went over the edge of the desk last reel climbs back into the picture before this one
-    if (this.story[this.story.length - 1]?.flags.includes('thief_out') && this.theatre.hasDesk) {
-      this.returning = await this.troupe.spawn('returning', 'rogue_hooded').catch(() => null);
-    }
     const note = answer && reel.title === answer.plan.title ? answer.note : '';
     if (note && (this.state as SerialState) === 'ready') {
       // the Director's line to the player, on the stage's own card and in its large letters (it is the line that
@@ -331,6 +337,18 @@ export class Serial {
     } finally {
       const owed = (performance.now() - wall) / 1000 - (this.clock - show);
       if (owed > 0.05) await this.pause(owed);
+    }
+  }
+
+  /** The thief who went over the edge comes back: up over the table's edge, across it, and into the picture. */
+  private async climbBack(): Promise<void> {
+    try {
+      const a = await this.troupe.spawn('returning', 'rogue_hooded');
+      await new Promise<void>((done) => (this.aside = { task: this.theatre.climbBack(a), done }));
+    } catch (e) {
+      console.warn('SERIAL climb back failed', e instanceof Error ? e.message : e);
+    } finally {
+      this.climbing = null;
     }
   }
 
@@ -391,6 +409,11 @@ export class Serial {
   update(dt: number): void {
     this.clock += dt;
     this.player.update(dt);
+    const aside = this.aside;
+    if (aside && aside.task.update(dt)) {
+      this.aside = null;
+      aside.done();
+    }
     this.theatre.update(dt);
     for (let i = this.pauses.length - 1; i >= 0; i--) {
       const p = this.pauses[i];
