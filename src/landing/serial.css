@@ -648,11 +648,29 @@ html:not(.show-serial) #scene-container > .house {
 }
 .s-steps {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 28px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px 28px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+@media (min-width: 1200px) {
+  .s-steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 28px 24px;
+  }
+  .s-steps h3 {
+    /* two lines, so a long heading never pushes its text out of line */
+    align-items: flex-start;
+    line-height: 30px;
+    min-height: 60px;
+  }
+}
+@media (max-width: 699px) {
+  .s-steps {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
 }
 .s-steps li {
   display: flex;
@@ -998,10 +1016,6 @@ html:not(.show-serial) #scene-container > .house {
   .s-how {
     padding-top: 56px;
     padding-bottom: 48px;
-  }
-  .s-steps {
-    grid-template-columns: 1fr;
-    gap: 36px;
   }
   .s-director {
     padding-bottom: 56px;
