@@ -4,7 +4,7 @@ import { Hovered, Pressed, RayInteractable, VisibilityState, createSystem, type 
 import { BackSide, Box3, Matrix4, Mesh, MeshBasicMaterial, Object3D, Quaternion, SphereGeometry, Vector3 } from 'three';
 import { Bubble } from './bubble';
 import { CueTracker, type Cue } from './cues';
-import { automationRun, captureMode, serialMode } from './env';
+import { automationRun, captureMode, serialMode, startReel } from './env';
 import { frameSerial } from '../landing/framing';
 import { Lane } from './lane';
 import { modelStats } from './models';
@@ -21,6 +21,7 @@ import type { HitEvent, PropId, Take } from './types';
 import { DESK_ROUTE, PROP_IDS } from './types';
 import { Serial, type SerialState } from '../serial/serial';
 import type { Waiting } from '../serial/player';
+import { type ReelPlan, WRITTEN } from '../serial/pieces';
 
 const tmpP = new Vector3();
 const tmpM = new Matrix4();
@@ -205,7 +206,16 @@ export class FoleySystem extends createSystem({
       this.house.renderOrder = -1000;
       this.house.frustumCulled = false;
       this.stage.root.add(this.house);
-      void this.serial.init().catch((e) => console.warn('SERIAL init failed', e instanceof Error ? e.message : e));
+      const serial = this.serial;
+      void serial
+        .init()
+        .then(() => {
+          // (a test or capture run may ask for one of the written reels instead of reel one)
+          const want = startReel();
+          const plan = want ? (WRITTEN as Record<string, ReelPlan | undefined>)[want] : undefined;
+          if (plan) return serial.preview(plan).then((ok) => console.log('SERIAL starts on the written reel for', want, ok ? '' : '(it did not stage)'));
+        })
+        .catch((e) => console.warn('SERIAL init failed', e instanceof Error ? e.message : e));
       // without a headset the page is still playable: six keys are the six props, the space bar is the clapper
       const keys: Record<string, PropId> = { c: 'coconuts', d: 'door', b: 'bell', t: 'thunder', w: 'whistle', g: 'glass' };
       const onKey = (e: KeyboardEvent) => {
@@ -299,6 +309,12 @@ export class FoleySystem extends createSystem({
     if (this.capture) {
       sound.setSoundTrace((type, key, gain) => console.log('SND', this.showClock.toFixed(3), type, key, gain.toFixed(2)));
       console.log('CAPTURE on: one drawn frame is 1/30 s of the show');
+      // the story's own log lines, stamped with the show's clock, so a film can be cut on what happened in it
+      const plain = console.log.bind(console);
+      console.log = (...a: unknown[]) => {
+        plain(...a);
+        if (typeof a[0] === 'string' && /^(WAIT|CUE|TITLE|REEL|PITCH|SET|STAGE size|NUDGE|DIRECTOR)\b/.test(a[0])) plain('EVT', this.showClock.toFixed(3), a.map(String).join(' '));
+      };
       // the recorder asks where the show clock stands when it starts, to lay the soundtrack under the right frame
       (window as unknown as { __capture: unknown }).__capture = { clock: () => this.showClock, frame: () => this.frameNo };
     }

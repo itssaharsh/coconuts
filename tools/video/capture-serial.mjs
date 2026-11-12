@@ -24,6 +24,8 @@ const until = opt('until', 'pitch');
 const reels = Number(opt('reels', 1));
 const pitchProp = opt('pitch', null);
 const openProp = opt('open', 'bell');
+// --start bell: the first clapper rolls that prop's written reel instead of reel one (for clips of the later reels)
+const startOn = String(opt('start', '') || '');
 const [W, H] = String(opt('size', '1920x1080')).split('x').map(Number);
 const maxSeconds = Number(opt('max', 3000));
 rmSync(out, { recursive: true, force: true });
@@ -70,8 +72,10 @@ const targetName = (prop) => (GRABBABLE.includes(prop) ? `hit-${prop}` : prop ==
 
 // every sound the app logs, kept as it comes (the console buffer is a ring)
 const sounds = new Map();
+const events = new Map();
 function collect(t0) {
   for (const e of since('^SND ', t0)) sounds.set(`${e.timestamp}|${e.message}`, e.message);
+  for (const e of since('^EVT ', t0)) events.set(`${e.timestamp}|${e.message}`, e.message);
 }
 
 /** Real seconds that one second of the show takes right now, from the app's FRAME lines. */
@@ -145,7 +149,7 @@ async function pat(prop, times = 1) {
 
 async function main() {
   await waitReady();
-  log(JSON.stringify(iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '1' })?.data?.result ?? {}));
+  log(JSON.stringify(iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '1', REEL: startOn })?.data?.result ?? {}));
   iw(['browser', 'reload']);
   await sleep(5000);
   await waitReady();
@@ -237,7 +241,9 @@ async function main() {
   rec.kill('SIGTERM');
   await new Promise((r) => rec.once('exit', r));
   writeFileSync(join(out, 'log.txt'), [...sounds.values()].join('\n') + '\n');
-  iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0' });
+  // what happened in the story, on the show's clock: `EVT <seconds> <line>` (cues, cards, scene changes)
+  writeFileSync(join(out, 'events.txt'), [...events.values()].join('\n') + '\n');
+  iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0', REEL: '' });
 
   // picture: every captured frame is a thirtieth of a second
   const frames = JSON.parse(readFileSync(join(out, 'frames.json'), 'utf8'));
@@ -257,7 +263,7 @@ async function main() {
 main().catch((e) => {
   console.error('FAIL:', e.message);
   try {
-    iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0' });
+    iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0', REEL: '' });
   } catch {}
   process.exit(1);
 });

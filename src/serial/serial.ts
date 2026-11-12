@@ -5,7 +5,7 @@
 import type { PropId } from '../foley/types';
 import { type Actor, Mount, Troupe } from './cast';
 import { CHAPTER_1 } from './chapter1';
-import { type ReelAnswer, type ReelRequest, requestReel, type StoryLine } from './director';
+import { type ReelAnswer, type ReelRequest, requestReel, type StoryLine, warmDirector } from './director';
 import { assemble, checkPlan, type Pitch, PITCHES_2, type ReelPlan, WRITTEN, WRITTEN_MORE } from './pieces';
 import { ReelPlayer, type PlayerHooks, type ReelStats, type Sound, type Waiting } from './player';
 import { DERIVED_MARKS, type Reel, type SetInfo, type StageCue, validateReel } from './schema';
@@ -227,12 +227,16 @@ export class Serial {
       return;
     }
     this.theatre.hideCard();
+    this.warm();
     const back = this.returning;
     this.returning = null;
     if (back) this.player.adopt('(returning)', back); // not a name a plan can use: it is animated and cleared with the cast
     this.player.start(back ? () => this.theatre.climbBack(back) : undefined);
     this.setState('playing');
   }
+
+  /** Overridable in tests and on the dev page: by default the Director is told a reel has started. */
+  warm: () => void = warmDirector;
 
   togglePause(): boolean {
     this.player.paused = !this.player.paused;

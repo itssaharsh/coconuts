@@ -35,6 +35,18 @@ function base(): string {
   }
 }
 
+/**
+ * Tell the reel function a player has started: it gets ready (its long prompt cached, its answer format compiled)
+ * while the reel plays, so the first "What happens next?" is not answered by its slowest call. Nothing is awaited.
+ */
+export function warmDirector(): void {
+  try {
+    void fetch(`${base()}api/reel`, { method: 'GET' }).catch(() => undefined);
+  } catch {
+    // no network: the written reels need no warming
+  }
+}
+
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
 /** Keep only an answer the stage can play: a plan that checks, three pitches on three props, a short note. */

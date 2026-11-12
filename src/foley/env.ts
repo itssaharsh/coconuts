@@ -68,3 +68,23 @@ export function functionsBase(): string {
     return '/';
   }
 }
+
+/**
+ * A test or capture run may start on one of the written reels instead of reel one: `?reel=bell` (kept in the browser's
+ * storage, because entering the headset view reloads the page without its query; `?reel=` clears it). Only in a
+ * dev build or under automation: a player always starts at the beginning.
+ */
+export function startReel(): string | null {
+  if (typeof location === 'undefined' || !(import.meta.env?.DEV || automationRun())) return null;
+  const q = new URLSearchParams(location.search);
+  try {
+    if (q.has('reel')) {
+      const v = q.get('reel') ?? '';
+      if (v) localStorage.setItem('coconuts.reel', v);
+      else localStorage.removeItem('coconuts.reel');
+    }
+    return localStorage.getItem('coconuts.reel');
+  } catch {
+    return q.get('reel');
+  }
+}
