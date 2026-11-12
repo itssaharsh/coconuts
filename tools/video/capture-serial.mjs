@@ -46,6 +46,10 @@ const poke = !!opt('poke', false);
 // many metres forward and two thirds of that down, and tips down this far), and sits back when he is gone
 const lean = Number(opt('lean', 0));
 const deskTilt = Number(opt('desk-tilt', -28));
+// --verbs bell=ray,glass=drop,whistle=pull,thunder=shake: answer those props' cues with another hand verb than a pat:
+// ray = a pinch from the lap along the hand's ray; drop = pick it up and let it fall; pull = pick it up and draw it up
+// (the slide whistle); shake = pick it up and shake it (the thunder sheet)
+const verbs = Object.fromEntries(String(opt('verbs', '') || '').split(',').filter(Boolean).map((p) => p.split('=')));
 const AUDIO_TYPES = { webm: 'audio/webm', wav: 'audio/wav', ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4' };
 const FLAGS = {
   CAPTURE: '1',
@@ -74,6 +78,16 @@ function iw(cmdArgs, input, timeout = 120000, env = {}) {
   }
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** The same, for commands that may outlast the CLI's own wait (a heavy emulator room reloads slowly): the command
+ * usually goes on regardless, and whatever needs its result checks for it afterwards. */
+function iwSlow(cmdArgs, input) {
+  try {
+    return iw(cmdArgs, input);
+  } catch (e) {
+    console.log('[film]', cmdArgs.join(' '), 'is slow:', String(e.message).split('\n').find((l) => /message/.test(l))?.trim() ?? 'no answer');
+    return null;
+  }
+}
 const log = (...m) => console.log('[film]', ...m);
 function entries(pattern, count = 200) {
   const r = iw(['browser', 'logs'], { pattern, count });
@@ -195,17 +209,66 @@ async function hold(prop, showSecs) {
   reach(REST, 0.45);
 }
 
+/** A pinch from afar: the hand rests by the lap, its ray on the prop, and pinches once. */
+async function ray(prop) {
+  const c = centreOf(targetName(prop));
+  reach({ x: REST.x - 0.06, y: REST.y + 0.02, z: REST.z + 0.06 }, 0.35);
+  iw(['xr', 'look-at'], { device: 'hand-right', target: { x: c.x, y: c.y, z: c.z } });
+  await sleep(0.5 * slow * 1000); // the ray is drawn on it for a moment first
+  iw(['xr', 'select'], { device: 'hand-right', duration: Math.max(0.6, 0.1 * slow) });
+  await sleep(0.5 * slow * 1000);
+  reach(REST, 0.4);
+}
+
+/** Pick a prop up (a pinch just above it), do `move` with it held, and let go. */
+async function pickUp(prop, move) {
+  const c = centreOf(targetName(prop));
+  reach({ x: c.x, y: c.y + 0.16, z: c.z + 0.05 }, 0.4);
+  reach({ x: c.x, y: c.y + 0.075, z: c.z + 0.01 }, 0.2);
+  iw(['xr', 'set-select-value'], { device: 'hand-right', value: 1, duration: 0.3 });
+  await sleep(0.35 * slow * 1000);
+  await move(c);
+  iw(['xr', 'set-select-value'], { device: 'hand-right', value: 0, duration: 0.15 });
+  await sleep(0.5 * slow * 1000);
+  reach(REST, 0.5);
+}
+
+async function verb(name, prop) {
+  if (name === 'ray') return ray(prop);
+  if (name === 'drop')
+    return pickUp(prop, async (c) => {
+      reach({ x: c.x + 0.02, y: c.y + 0.3, z: c.z + 0.06 }, 0.6); // lifted high over the table
+      await sleep(0.3 * slow * 1000);
+    });
+  if (name === 'pull')
+    return pickUp(prop, async (c) => {
+      reach({ x: c.x, y: c.y + 0.24, z: c.z + 0.02 }, 0.9); // drawn up: the note climbs
+      await sleep(0.6 * slow * 1000);
+    });
+  if (name === 'shake')
+    return pickUp(prop, async (c) => {
+      reach({ x: c.x, y: c.y + 0.18, z: c.z + 0.05 }, 0.35);
+      for (let i = 0; i < 5; i++) reach({ x: c.x + (i % 2 ? -0.06 : 0.06), y: c.y + 0.18, z: c.z + 0.05 }, 0.12, 'linear');
+      await sleep(0.3 * slow * 1000);
+    });
+  return pat(prop, 1);
+}
+
 async function main() {
   await waitReady();
   log(JSON.stringify(iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, FLAGS)?.data?.result ?? {}));
-  iw(['browser', 'reload']);
-  await sleep(5000);
-  await waitReady();
+  // --no-reload: the flags are already in the browser's storage and the page was loaded with them (a heavy emulator
+  // room can take the browser down on a reload)
+  if (!opt('no-reload', false)) {
+    iwSlow(['browser', 'reload']);
+    await sleep(5000);
+  }
+  await waitReady(300000);
   const HEAD = { x: 0, y: 1.2, z: 0 };
   const boot = Date.now() - 8000;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const status = iw(['xr', 'status']);
-    if (!(status?.data?.result?.sessionActive ?? status?.data?.sessionActive)) iw(['xr', 'enter']);
+    const status = iwSlow(['xr', 'status']);
+    if (!(status?.data?.result?.sessionActive ?? status?.data?.sessionActive)) iwSlow(['xr', 'enter']);
     iw(['xr', 'set-transform'], { device: 'headset', position: HEAD });
     iw(['xr', 'set-input-mode'], { mode: 'hand' });
     iw(['xr', 'set-transform'], { device: 'hand-right', position: { x: 0.36, y: 0.98, z: -0.2 } });
@@ -256,6 +319,8 @@ async function main() {
     const offers = since('^PITCH [a-z]+:', t0);
     if (offers.length > pitched) {
       pitched = offers.length;
+      // (the reel's end and the next card are logged together: count the end again, it may have come in just now)
+      reelsDone = Math.max(reelsDone, since('^REEL end', t0).length);
       if (until === 'end' && reelsDone >= reels) break;
       // hold on the card long enough to read it
       await sleep(3.5 * slow * 1000);
@@ -299,7 +364,8 @@ async function main() {
             await sleep(0.4 * slow * 1000);
           }
         }
-        await pat(play, Math.max(1, need - got));
+        if (verbs[play]) await verb(verbs[play], play);
+        else await pat(play, Math.max(1, need - got));
         // the film breaks out: the player looks down at the desk, where the thief has landed, until he is over its edge
         if (/jumps/i.test(label)) {
           if (lean) {
