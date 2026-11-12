@@ -206,6 +206,12 @@ describe('Stroke: one fingertip on one prop, down, up and down again', () => {
     expect(firm.live).toBe(true);
   });
 
+  it('small strokes are enough: two centimetres up and down, five times a second', () => {
+    const s = new Stroke('coconuts', -0.002, true);
+    const got = run(s, 1, (t) => -0.012 + 0.01 * Math.cos(2 * Math.PI * 5 * t));
+    expect(got.pats).toBe(4);
+  });
+
   it('a touch that did not count can simply be tapped again', () => {
     const s = new Stroke('bell', 0.01, false);
     // sinks 1 cm slowly, comes up 2.5 cm, goes down again

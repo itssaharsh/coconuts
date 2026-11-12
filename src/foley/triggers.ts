@@ -201,10 +201,11 @@ export const TOUCH_IN = 0.012;
 /**
  * A finger sinks a centimetre or three into a prop that is not there, and a drummer lifts no further than that
  * between pats. So a touch is followed as a stroke: once the finger has come this far back up out of it, the pat is
- * over, and from there this far down again is the next one, without the finger ever leaving the prop.
+ * over, and from there this far down again is the next one, without the finger ever leaving the prop. (Three times
+ * the few millimetres a tracked fingertip jitters by; a missed pat costs the player more than a doubled one.)
  */
-export const TOUCH_LIFT = 0.02;
-export const TOUCH_DROP = 0.012;
+export const TOUCH_LIFT = 0.015;
+export const TOUCH_DROP = 0.01;
 /** A return this soon after the lift is drumming and needs no other proof that it was meant. */
 const DRUM_S = 1.2;
 

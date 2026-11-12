@@ -129,7 +129,7 @@ Hands only, no controllers. Seated, everything inside a two-foot radius.
 - One hand is enough, and no grip is needed: a pat or a far pinch sounds every prop; the clapper and the tiles
   answer a touch. A hand that only rests or drifts over the table is not a pat: a touch counts when the finger
   came there on purpose, and the tile that starts a reel again asks twice. Drumming needs only a small lift: a
-  finger that comes two centimetres back up and goes down again has patted again.
+  finger that comes a centimetre and a half back up and goes down again has patted again.
 - Eyes do the aiming on Meta VR Glasses: look at a prop and pinch once with either hand.
 - Nothing is timed: the stage waits, asks again, then goes on. Every sound is also seen (a sound word on the
   stage, a card that names what it did). When the headset comes off or the system menu opens, the reel holds.
