@@ -51,7 +51,12 @@ function failure(err: unknown): BackendError {
   if (err instanceof BackendError) return err;
   if (err instanceof Anthropic.APIUserAbortError) return new BackendError('aborted', 'the call was aborted at the deadline');
   if (err instanceof Anthropic.APIConnectionTimeoutError) return new BackendError('timeout', 'the API did not answer in time');
-  if (err instanceof Anthropic.APIConnectionError) return new BackendError('network', err.message);
+  if (err instanceof Anthropic.APIConnectionError) {
+    // the SDK's message is only "Connection error.": what went wrong is in its cause
+    const cause = (err as { cause?: unknown }).cause;
+    const why = cause instanceof Error ? `${cause.name}: ${cause.message}` : cause ? String(cause) : '';
+    return new BackendError('network', why ? `${err.message} (${why.slice(0, 160)})` : err.message);
+  }
   if (err instanceof Anthropic.RateLimitError) return new BackendError('rate_limit', 'rate limited (429)');
   if (err instanceof Anthropic.AuthenticationError) return new BackendError('auth', 'the API key was refused (401)');
   if (err instanceof Anthropic.PermissionDeniedError) return new BackendError('auth', 'not allowed for this key (403)');
