@@ -370,8 +370,9 @@ def card_caption_html(cap, pos='bottom-left'):
     most one short body line, paper at 94 %, 20 px radius, a soft shadow, placed in a corner or centred."""
     v, hz = POS.get(pos or 'bottom-left', ('bottom', 'left'))
     place = f'{v}:44px;' + ('left:50%;transform:translateX(-50%);' if hz == 'center' else f'{hz}:48px;')
+    maxw = int(W * float(cap.get('max_width', 0.72)))  # a narrower card where the action is close to a corner
     css = f"""
-.cap{{position:absolute;{place}max-width:{int(W * 0.72)}px;padding:20px 34px 24px;border-radius:20px;background:rgba(251,247,240,.94);
+.cap{{position:absolute;{place}max-width:{maxw}px;padding:20px 34px 24px;border-radius:20px;background:rgba(251,247,240,.94);
   box-shadow:0 2px 4px rgba(43,35,32,.22),0 22px 44px -16px rgba(20,16,14,.6)}}
 .kicker{{margin-bottom:10px;font-size:26px}}
 .title{{font-size:58px;white-space:nowrap;line-height:1.08;text-wrap:nowrap;letter-spacing:-.025em}}
@@ -669,11 +670,15 @@ def main():
             desc = ', '.join(f'{x["t0"]:.2f}-{x["t1"]:.2f}' + (f' x{x["speed"]:g}' if x['speed'] != 1 else '') + f' {x["layout"]}' for x in p)
             log(f'{s["id"]:>10}  {p[0]["src"].name}  {desc}  -> {sum(x["n"] for x in p) / FPS:.2f} s')
     for s, p in zip(segs, plans):
-        if p and s.get('caption_n') and s.get('caption'):  # {N}: seconds between two anchors of the source, one decimal
+        cv = dict(s.get('caption_vars') or {})
+        if s.get('caption_n'):
+            cv['N'] = s['caption_n']
+        if p and cv and s.get('caption'):  # {N}, {H}, ...: seconds between two anchors of the source, one decimal
             src = p[0]['src']
-            n = src.resolve(s['caption_n']['to'], s['id']) - src.resolve(s['caption_n']['from'], s['id'])
-            s['caption'] = {k: (v.replace('{N}', f'{n:.1f}') if isinstance(v, str) else v) for k, v in s['caption'].items()}
-            log(f'{s["id"]}: N = {n:.1f} s')
+            for name, rng in cv.items():
+                n = src.resolve(rng['to'], s['id']) - src.resolve(rng['from'], s['id'])
+                s['caption'] = {k: (v.replace('{' + name + '}', f'{n:.1f}') if isinstance(v, str) else v) for k, v in s['caption'].items()}
+                log(f'{s["id"]}: {name} = {n:.1f} s')
         if p and s.get('voice'):
             s['voice'] = dict(s['voice'])
             s['voice']['_t'] = p[0]['src'].resolve(s['voice']['at'], f'segment {s["id"]}.voice.at')
@@ -968,7 +973,7 @@ def master(fx, music, out, cfg):
     # one gain for the whole film (measured), then a limiter a little under the true-peak ceiling for the few hits
     # that would pass it; checked by measuring the result, and the gain trimmed once if it missed
     gain = target - float(m['input_i'])
-    ceiling = 10 ** ((tp - 2.6) / 20)  # room for inter-sample peaks and the AAC encode
+    ceiling = 10 ** ((tp - 3.5) / 20)  # room for inter-sample peaks and the AAC encode
     for attempt in range(3):
         af = f'volume={gain:.3f}dB,alimiter=limit={ceiling:.4f}:attack=0.5:release=40:level=disabled,aresample=48000'
         r2 = subprocess.run(['ffmpeg', '-y', '-hide_banner', '-nostats', '-i', mixed, '-af', af, '-c:a', 'pcm_s24le', out],
