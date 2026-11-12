@@ -104,7 +104,9 @@ emulator draws a few frames a second, so a capture runs the show in slow time: e
 second of the show, and an emulated hand pats the props in the same slow time. The frames played back at 30 a
 second are the show at its real speed; waits on the network (the Director, hearing) are held in the show for as
 long as they really took. The sound is laid under afterwards from the game's own log of what it played
-(`tools/video/soundtrack.py`), and `tools/video/cut.py` cuts the film from a storyboard.
+(`tools/video/soundtrack.py`), and `tools/video/cut.py` cuts the film from a storyboard. The shots with a room
+around the theatre use the emulator's sample room (a home office) in place of passthrough; the others show the
+emulator's plain backdrop.
 
 The emulator has no microphone. For the megaphone shot a synthesised voice line (Gemini text-to-speech, standing in
 for a player) is handed to the game in place of the
