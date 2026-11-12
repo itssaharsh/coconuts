@@ -693,7 +693,10 @@ export class FoleySystem extends createSystem({
     const serial = this.serial;
     if (!serial || !voice.listening()) return;
     const blob = await voice.stopListening();
-    if (!blob) return;
+    if (!blob) {
+      if (serial.state === 'pitch') serial.pitchNote('Not heard. Hold the megaphone and speak, or make a sound.');
+      return;
+    }
     serial.pitchNote('The Director is listening…');
     const text = await voice.transcribe(blob);
     if (serial.state !== 'pitch') return; // a prop chose in the meantime

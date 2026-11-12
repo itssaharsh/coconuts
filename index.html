@@ -29,9 +29,10 @@
         if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder)) document.documentElement.className += ' no-voice';
       })();
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400..700&family=Limelight&display=swap" rel="stylesheet" />
+    <!-- the three typefaces are served from this site: no third party between a headset and its first card -->
+    <link rel="preload" href="/fonts/limelight.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
   </head>
   <body>
     <div id="scene-container"><div class="house" aria-hidden="true"></div></div>

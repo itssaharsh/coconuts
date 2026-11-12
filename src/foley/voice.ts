@@ -3,6 +3,7 @@
 // player wants it; when it is missing, refused or silent the game carries on with its pitch cards.
 
 import { functionsBase } from './env';
+import { audioContext } from './sound';
 
 let stream: MediaStream | null = null;
 let recorder: MediaRecorder | null = null;
@@ -68,6 +69,46 @@ export async function enableVoice(timeoutMs = 0): Promise<boolean> {
   return true;
 }
 
+/** The loudest moment of the take so far, 0..1: a take that never rose above the room is not sent anywhere. */
+let peak = 0;
+let meter: { stop: () => void } | null = null;
+const QUIET = 0.03;
+
+function startMeter(s: MediaStream): void {
+  peak = 0;
+  meter = null;
+  try {
+    const ctx = audioContext();
+    if (!ctx) return; // no audio graph (it never started): the take is sent unjudged
+    const src = ctx.createMediaStreamSource(s);
+    const an = ctx.createAnalyser();
+    an.fftSize = 1024;
+    src.connect(an);
+    const buf = new Float32Array(an.fftSize);
+    const id = setInterval(() => {
+      an.getFloatTimeDomainData(buf);
+      for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
+    }, 50);
+    meter = {
+      stop: () => {
+        clearInterval(id);
+        src.disconnect();
+      },
+    };
+  } catch {
+    meter = null;
+  }
+}
+
+/** True when the take was measured and nothing in it rose above the room. */
+function stopMeter(): boolean {
+  const m = meter;
+  meter = null;
+  if (!m) return false;
+  m.stop();
+  return peak < QUIET;
+}
+
 function mimeType(): string {
   for (const t of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']) if (MediaRecorder.isTypeSupported(t)) return t;
   return '';
@@ -97,6 +138,7 @@ export async function startListening(maxMs = 6000, onAutoStop?: () => void): Pro
     return false;
   }
   stream = s;
+  startMeter(s);
   chunks = [];
   recorder.ondataavailable = (e) => {
     if (e.data.size) chunks.push(e.data);
@@ -120,11 +162,13 @@ export function stopListening(): Promise<Blob | null> {
   const s = stream;
   recorder = null;
   stream = null;
+  const quiet = stopMeter();
   if (!r) return Promise.resolve(null);
   return new Promise((resolve) => {
     r.onstop = () => {
       release(s);
-      resolve(chunks.length ? new Blob(chunks, { type: (r.mimeType || 'audio/webm').split(';')[0] }) : null);
+      if (quiet) console.log('VOICE nothing was said');
+      resolve(chunks.length && !quiet ? new Blob(chunks, { type: (r.mimeType || 'audio/webm').split(';')[0] }) : null);
     };
     try {
       r.stop();
