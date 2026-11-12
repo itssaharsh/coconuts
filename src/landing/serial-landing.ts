@@ -104,6 +104,33 @@ export function mountSerialLanding(engine: EngineBridge): void {
       go(ok ? 'The microphone is on. Press Enter once more.' : 'No microphone: sounds only. Press Enter once more.', 2500);
     });
   });
+  // a story already under way in this browser: the clapper will go on with it. On a headset that is passed round, the
+  // next player wants reel one, so the page says what is waiting and offers the beginning.
+  const resume = byId<HTMLParagraphElement>('s-resume');
+  const resumeLine = byId<HTMLSpanElement>('s-resume-line');
+  const resumeBtn = byId<HTMLButtonElement>('s-resume-btn');
+  if (resume && resumeLine && resumeBtn) {
+    let done = 0;
+    try {
+      const saved = JSON.parse(localStorage.getItem('coconuts.serial') ?? 'null') as { v?: number; done?: number; story?: unknown[] } | null;
+      if (saved && saved.v === 1 && Array.isArray(saved.story) && saved.story.length) done = Number(saved.done) || 0;
+    } catch {
+      done = 0;
+    }
+    if (done >= 1) {
+      resumeLine.textContent = `A story is under way here: reel ${done + 1} is next.`;
+      resume.hidden = false;
+      resumeBtn.addEventListener('click', () => {
+        try {
+          localStorage.removeItem('coconuts.serial');
+        } catch {
+          // nothing was kept
+        }
+        location.reload();
+      });
+    }
+  }
+
   let xrOk = false;
   const say = (before: string, after: string) => {
     const where = document.createElement('code');

@@ -51,12 +51,14 @@
             <div>
               <p class="s-eyebrow">A silent-film serial, in mixed reality</p>
               <h1 class="s-h1">You make every <span class="brush">sound</span>.</h1>
-              <p class="s-lede">A toy theatre on your desk plays a comic serial, and nothing happens on stage until you make its sound: knock three times and the castle gate opens.</p>
+              <p class="s-lede">A toy theatre on your desk plays a silent-film serial, and nothing happens on stage until you make its sound. Then its thief jumps out of the picture onto your table, and an AI Director writes the next reel.</p>
             </div>
           </div>
 
           <div class="s-cta">
             <button class="btn btn-primary s-enter" type="button" id="s-enter">Enter in your headset</button>
+            <!-- a story is under way in this browser (yours, or the last player's on a shared headset): go on, or start again -->
+            <p class="s-resume" id="s-resume" hidden><span id="s-resume-line"></span> <button class="s-resume-btn" type="button" id="s-resume-btn">Start from reel one</button></p>
             <!-- asked once, on the first press of Enter: nobody should meet the megaphone in the headset without having been offered it -->
             <div class="s-ask" id="s-ask" role="group" aria-labelledby="s-ask-q" hidden>
               <p class="s-ask-q" id="s-ask-q"><b>One question before the curtain.</b> Between reels you can say what happens next, in your own words. May the Director hear you?</p>
@@ -144,7 +146,6 @@
           <ul class="s-links">
             <li><a href="/audio/CREDITS.md">Credits</a></li>
             <li><a href="https://github.com/itssaharsh/coconuts">Source on GitHub</a></li>
-            <li><a href="?films">Classic films</a></li>
           </ul>
         </footer>
       </main>
