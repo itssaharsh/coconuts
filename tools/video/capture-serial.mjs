@@ -212,7 +212,8 @@ async function hold(prop, showSecs) {
 /** A pinch from afar: the hand rests by the lap, its ray on the prop, and pinches once. */
 async function ray(prop) {
   const c = centreOf(targetName(prop));
-  reach({ x: REST.x - 0.06, y: REST.y + 0.02, z: REST.z + 0.06 }, 0.35);
+  // (a hand held out in front, well clear of the head: an emulated hand nearer than about 20 cm fills the view)
+  reach({ x: REST.x - 0.1, y: REST.y, z: REST.z - 0.1 }, 0.35);
   iw(['xr', 'look-at'], { device: 'hand-right', target: { x: c.x, y: c.y, z: c.z } });
   await sleep(0.5 * slow * 1000); // the ray is drawn on it for a moment first
   iw(['xr', 'select'], { device: 'hand-right', duration: Math.max(0.6, 0.1 * slow) });
