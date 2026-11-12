@@ -202,22 +202,24 @@ function wakes(s: string, set: SetId): Extract<Beat, { k: 'open' }>['branches'] 
   const info = SETS[set];
   const up: Beat = { k: 'do', who: s, verb: 'getup' };
   return {
-    bell: { title: 'A bell! “Supper?”', flag: 'woke_hungry', beats: [up, { k: 'emote', who: s, emote: 'heart' }, { k: 'do', who: s, verb: 'cheer', face: 'audience' }] },
+    bell: { title: 'A bell! “Supper?”', flag: 'woke_hungry', did: `woke ${s}, who thought it was supper`, beats: [up, { k: 'emote', who: s, emote: 'heart' }, { k: 'do', who: s, verb: 'cheer', face: 'audience' }] },
     thunder: {
       title: 'Thunder! A fright!',
       flag: 'woke_scared',
+      did: `woke ${s} with a fright`,
       beats: [{ k: 'fx', fx: 'lightning' }, up, { k: 'do', who: s, verb: 'flinch' }, { k: 'emote', who: s, emote: 'sweat' }],
     },
-    glass: { title: 'Glass! “Burglars!”', flag: 'woke_alert', beats: [up, { k: 'emote', who: s, emote: 'angry' }, { k: 'do', who: s, verb: 'guard', face: 'audience', secs: 1.2 }] },
+    glass: { title: 'Glass! “Burglars!”', flag: 'woke_alert', did: `woke ${s}, who shouted burglars`, beats: [up, { k: 'emote', who: s, emote: 'angry' }, { k: 'do', who: s, verb: 'guard', face: 'audience', secs: 1.2 }] },
     door: info.door
       ? {
           title: 'A knock. “Come in!”',
           flag: 'woke_polite',
+          did: `woke ${s}, who went to answer the door`,
           beats: [up, { k: 'move', who: s, to: 'door_side', face: 'door' }, { k: 'door', open: true }, { k: 'emote', who: s, emote: '?' }, { k: 'door', open: false }],
         }
-      : { title: 'A knock? Out here?', flag: 'woke_polite', beats: [up, { k: 'emote', who: s, emote: '?' }, { k: 'do', who: s, verb: 'idle', face: 'left', secs: 0.8 }] },
-    coconuts: { title: 'Hooves! “The Duke!”', flag: 'woke_fooled', beats: [up, { k: 'do', who: s, verb: 'cheer', face: 'audience' }, { k: 'emote', who: s, emote: 'sweat' }] },
-    whistle: { title: 'A tune. A little dance.', flag: 'woke_merry', beats: [up, { k: 'emote', who: s, emote: 'note' }, { k: 'do', who: s, verb: 'cheer', face: 'audience' }, { k: 'do', who: s, verb: 'jump' }] },
+      : { title: 'A knock? Out here?', flag: 'woke_polite', did: `woke ${s}, who wondered who knocks out here`, beats: [up, { k: 'emote', who: s, emote: '?' }, { k: 'do', who: s, verb: 'idle', face: 'left', secs: 0.8 }] },
+    coconuts: { title: 'Hooves! “The Duke!”', flag: 'woke_fooled', did: `woke ${s}, who thought the Duke had come`, beats: [up, { k: 'do', who: s, verb: 'cheer', face: 'audience' }, { k: 'emote', who: s, emote: 'sweat' }] },
+    whistle: { title: 'A tune. A little dance.', flag: 'woke_merry', did: `woke ${s}, who danced to it`, beats: [up, { k: 'emote', who: s, emote: 'note' }, { k: 'do', who: s, verb: 'cheer', face: 'audience' }, { k: 'do', who: s, verb: 'jump' }] },
   };
 }
 
@@ -311,7 +313,8 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'ride',
             who: pc.who,
             label: pc.wolves ? 'Clop! Outrun them!' : 'Clop the coconuts',
-            need: pc.clops ?? 10,
+            did: pc.wolves ? `carried ${pc.who} ahead of the wolves` : `carried ${pc.who} down the road`,
+            need: pc.clops ?? 8,
             secs: 22,
             ...(pc.wolves ? { pursuers: ['wolf_a', 'wolf_b'] } : {}),
             hit: [{ k: 'wait', secs: 0.5 }],
@@ -332,6 +335,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'cue',
             prop: 'door',
             label: 'Knock for him',
+            did: `brought ${pc.opener} to the door`,
             who: pc.who,
             times: 3,
             each: [{ k: 'do', who: pc.who, verb: 'punch', face: 'door', secs: 0.42 }],
@@ -369,12 +373,13 @@ export function assemble(plan: ReelPlan, id: string): Reel {
           });
           for (let i = 0; i < blows - 1; i++) {
             const [striker, other] = i % 2 === 0 ? [pc.a, pc.b] : [pc.b, pc.a];
-            scene.push({ k: 'cue', prop: 'bell', label: i === 0 ? 'Ring: a blow!' : 'Ring: a parry!', who: striker, hold: 9, hit: [exchange(striker, other, i % 2 === 0 ? 'chop' : 'stab')] });
+            scene.push({ k: 'cue', prop: 'bell', label: i === 0 ? 'Ring: a blow!' : 'Ring: a parry!', did: `rang the duel of ${pc.a} and ${pc.b}`, who: striker, hold: 9, hit: [exchange(striker, other, i % 2 === 0 ? 'chop' : 'stab')] });
           }
           scene.push({
             k: 'cue',
             prop: 'bell',
             label: 'Ring: the last blow!',
+            did: `rang the duel of ${pc.a} and ${pc.b}`,
             who: winner,
             hold: 9,
             hit: [
@@ -396,6 +401,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'cue',
             prop: 'thunder',
             label: 'Shake the thunder',
+            did: risers.length ? 'brought the rain and woke the dead' : 'brought the rain',
             hold: 12,
             times: 2,
             // the player's first thunderclap brings the rain down
@@ -420,13 +426,14 @@ export function assemble(plan: ReelPlan, id: string): Reel {
           if (info.window) {
             clear(['window', 'window_side'], [pc.who], ['front_left', 'aside_left']);
             scene.push(bring(pc.who, 'window', { gait: 'run', face: 'window' }));
-            scene.push({ k: 'cue', prop: 'glass', label: 'Smash! A leap!', who: pc.who, hold: 10, hit: [{ k: 'do', who: pc.who, verb: 'jump', secs: 0.45 }, leave(pc.who, 'window')] });
+            scene.push({ k: 'cue', prop: 'glass', label: 'Smash! A leap!', did: `broke the window ${pc.who} leapt through`, who: pc.who, hold: 10, hit: [{ k: 'do', who: pc.who, verb: 'jump', secs: 0.45 }, leave(pc.who, 'window')] });
           } else {
             scene.push(bring(pc.who, FRONT));
             scene.push({
               k: 'cue',
               prop: 'glass',
               label: 'Smash a bottle!',
+              did: 'smashed a bottle and made everyone jump',
               who: pc.who,
               hold: 10,
               hit: [{ k: 'do', who: pc.who, verb: 'throw', face: 'audience' }, { k: 'par', beats: standing().filter((x) => x !== pc.who).map((x): Beat => ({ k: 'do', who: x, verb: 'jump' })) }],
@@ -439,6 +446,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'cue',
             prop: 'whistle',
             label: 'Whistle for help',
+            did: `called ${pc.comes} to help`,
             who: pc.who,
             hold: 10,
             hit: [{ k: 'emote', who: pc.who, emote: 'note' }, bring(pc.comes, ['front_right', 'front_left', 'aside_right'], { gait: 'run', face: pc.who, from: 'right' }), { k: 'emote', who: pc.comes, emote: '!' }],
@@ -452,6 +460,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'cue',
             prop: 'door',
             label: 'Slam it shut!',
+            did: `slammed the door on ${pc.who}`,
             who: pc.who,
             hold: 10,
             hit: [{ k: 'door', open: false }, { k: 'fx', fx: 'shake' }, { k: 'do', who: pc.who, verb: 'stagger' }],
@@ -485,6 +494,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'cue',
             prop: 'thunder',
             label: 'Thunder! Drive it back!',
+            did: `drove the ${pc.beast ?? 'spider'} back`,
             who: pc.hero,
             hold: 10,
             hit: [{ k: 'fx', fx: 'grow' }, { k: 'fx', fx: 'lightning' }, { k: 'do', who: 'monster', verb: 'flinch' }],
@@ -493,6 +503,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'cue',
             prop: 'bell',
             label: 'Ring: a blow!',
+            did: `rang the fight with the ${pc.beast ?? 'spider'}`,
             who: pc.hero,
             hold: 9,
             hit: [{ k: 'par', beats: [{ k: 'do', who: pc.hero, verb: 'chop', face: 'monster' }, { k: 'do', who: 'monster', verb: 'stagger' }] }],
@@ -501,6 +512,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'cue',
             prop: 'bell',
             label: 'Ring: it strikes!',
+            did: `rang the fight with the ${pc.beast ?? 'spider'}`,
             who: pc.hero,
             hold: 9,
             hit: [{ k: 'par', beats: [{ k: 'do', who: 'monster', verb: 'chop', face: pc.hero }, { k: 'do', who: pc.hero, verb: 'block', face: 'monster' }] }],
@@ -509,6 +521,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'cue',
             prop: 'glass',
             label: 'Smash! Finish it!',
+            did: `finished the ${pc.beast ?? 'spider'}`,
             who: pc.hero,
             hold: 10,
             hit: [
@@ -527,6 +540,7 @@ export function assemble(plan: ReelPlan, id: string): Reel {
             k: 'cue',
             prop: 'bell',
             label: 'Ring the bell!',
+            did: 'rang for a toast',
             hold: 10,
             hit: [{ k: 'par', beats: standing().map((x): Beat => ({ k: 'do', who: x, verb: 'cheer', face: 'audience' })) }],
           });

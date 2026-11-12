@@ -57,6 +57,14 @@
 
           <div class="s-cta">
             <button class="btn btn-primary s-enter" type="button" id="s-enter">Enter in your headset</button>
+            <!-- asked once, on the first press of Enter: nobody should meet the megaphone in the headset without having been offered it -->
+            <div class="s-ask" id="s-ask" role="group" aria-labelledby="s-ask-q" hidden>
+              <p class="s-ask-q" id="s-ask-q"><b>One question before the curtain.</b> Between reels you can say what happens next, in your own words. May the Director hear you?</p>
+              <div class="s-ask-btns">
+                <button class="btn s-ask-yes" type="button" id="s-ask-yes">Yes, use my microphone</button>
+                <button class="btn s-ask-no" type="button" id="s-ask-no">No, sounds only</button>
+              </div>
+            </div>
           </div>
           <div class="s-fold">
             <div>

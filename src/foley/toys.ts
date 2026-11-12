@@ -21,7 +21,7 @@ export const PALETTE = {
   kraft: '#C9A06A',
   glass: '#BFE3F2',
   curtain: '#A8322A',
-  accent: '#3F8FD6',
+  accent: '#E8B24A',
   plank: '#D8B98A',
 } as const;
 

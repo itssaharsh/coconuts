@@ -103,7 +103,7 @@ export class Serial {
       onResult: (r, w, s) => this.hooks.onResult?.(r, w, s),
       onReelEnd: (stats) => {
         this.last = stats;
-        this.story.push({ title: this.reel.title, wrote: stats.wrote.slice(0, 12), flags: stats.flags.slice(0, 12), cliffhanger: this.reel.cliffhanger });
+        this.story.push({ title: this.reel.title, wrote: stats.wrote.slice(0, 12), did: stats.did.slice(0, 12), flags: stats.flags.slice(0, 12), cliffhanger: this.reel.cliffhanger });
         if (this.story.length > 4) this.story.shift();
         this.done++;
         this.hooks.onReelEnd?.(stats);

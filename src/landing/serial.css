@@ -2,6 +2,7 @@
    While a reel plays the house lights go down across the page and the copy steps back to a short programme.
    Every rule is scoped to .show-serial so the classic films page (?films) draws exactly as before. */
 .show-serial {
+  --accent: oklch(70% 0.13 78);
   --cream: #f6ebd3;
   --cream-2: oklch(87% 0.025 80);
   --walnut: oklch(40% 0.06 52);
@@ -328,25 +329,73 @@ body.in-xr {
   padding: 0 32px;
   font-size: 19px;
   border-radius: 14px;
-  color: #fff;
-  text-shadow: 0 1px 0 oklch(36% 0.13 250 / 0.6);
-  background: linear-gradient(180deg, oklch(56% 0.15 243), oklch(48% 0.15 247));
+  /* the way in is the colour of the curtain, with a brass edge: nothing on this page is interface blue */
+  color: #fff8ec;
+  text-shadow: 0 1px 0 oklch(30% 0.12 27 / 0.7);
+  background: linear-gradient(180deg, oklch(52% 0.19 27), oklch(43% 0.17 27));
   box-shadow:
-    inset 0 1px 0 oklch(78% 0.1 232 / 0.9),
-    inset 0 -3px 0 oklch(38% 0.14 250),
-    0 1px 2px oklch(32% 0.12 250 / 0.4),
-    0 14px 28px -14px oklch(40% 0.15 248 / 0.85);
+    inset 0 1px 0 oklch(72% 0.14 40 / 0.9),
+    inset 0 -3px 0 oklch(33% 0.13 27),
+    0 0 0 2px oklch(74% 0.12 80),
+    0 1px 2px oklch(28% 0.1 27 / 0.4),
+    0 14px 28px -14px oklch(36% 0.15 27 / 0.85);
+}
+/* the question asked once before the first entry: a slip of paper under the button */
+.s-ask {
+  max-width: 440px;
+  margin-top: 16px;
+  padding: 16px 18px 18px;
+  border-radius: 14px;
+  background: #fffdf8;
+  border: 1px solid oklch(80% 0.05 80);
+  box-shadow:
+    0 0 0 1px oklch(74% 0.12 80 / 0.5),
+    0 14px 30px -18px oklch(30% 0.05 50 / 0.55);
+}
+.s-ask[hidden] {
+  display: none;
+}
+.s-ask-q {
+  margin: 0 0 14px;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--ink, #2b2320);
+}
+.s-ask-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.s-ask .btn {
+  height: 46px;
+  padding: 0 18px;
+  font-size: 16px;
+  border-radius: 12px;
+}
+.s-ask-yes {
+  color: #fff8ec;
+  background: linear-gradient(180deg, oklch(52% 0.19 27), oklch(43% 0.17 27));
+  box-shadow: inset 0 -2px 0 oklch(33% 0.13 27);
+}
+.s-ask-yes[aria-busy='true'] {
+  opacity: 0.7;
+}
+.s-ask-no {
+  color: var(--ink, #2b2320);
+  background: #f3e9d8;
+  box-shadow: inset 0 0 0 1px oklch(74% 0.05 80);
 }
 .show-serial .s-enter:hover {
-  background: linear-gradient(180deg, oklch(52% 0.15 244), oklch(44% 0.15 248));
+  background: linear-gradient(180deg, oklch(48% 0.19 27), oklch(39% 0.17 27));
 }
 .show-serial .s-enter:active {
   transform: translateY(2px);
   box-shadow:
-    inset 0 1px 0 oklch(70% 0.1 235 / 0.7),
-    inset 0 -1px 0 oklch(38% 0.14 250),
-    0 0 1px oklch(32% 0.12 250 / 0.4),
-    0 4px 10px -6px oklch(40% 0.15 248 / 0.6);
+    inset 0 1px 0 oklch(66% 0.14 40 / 0.7),
+    inset 0 -1px 0 oklch(33% 0.13 27),
+    0 0 0 2px oklch(74% 0.12 80),
+    0 0 1px oklch(28% 0.1 27 / 0.4),
+    0 4px 10px -6px oklch(36% 0.15 27 / 0.6);
 }
 .s-after {
   margin: 14px 0 0;
@@ -515,10 +564,10 @@ body.in-xr {
   animation: s-blink 1.1s ease-in-out infinite;
 }
 .s-status[data-state='ready'] .bulb {
-  background: oklch(60% 0.16 242);
+  background: oklch(62% 0.17 145);
   box-shadow:
-    0 0 0 3px oklch(62% 0.15 240 / 0.22),
-    0 0 12px oklch(62% 0.15 240 / 0.7);
+    0 0 0 3px oklch(62% 0.15 145 / 0.22),
+    0 0 12px oklch(62% 0.15 145 / 0.7);
   animation: s-glow 1.7s ease-in-out infinite;
 }
 .s-status[data-state='playing'] .bulb {

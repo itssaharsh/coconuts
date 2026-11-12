@@ -4,6 +4,8 @@ import { CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry,
 const PX_PER_M = 1600; // canvas pixels per metre of bubble
 const FONT = '600 42px "Instrument Sans", system-ui, sans-serif';
 const SMALL = '500 30px "Instrument Sans", system-ui, sans-serif';
+/** The slate that speaks for the show itself is a theatre ticket: the intertitles' face on cream, ruled in brass. */
+const TICKET = '400 42px "Limelight", "Instrument Sans", system-ui, serif';
 
 function wrap(g: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const words = text.split(/\s+/);
@@ -47,13 +49,14 @@ export class Bubble {
     const w = Math.round(this.widthM * PX_PER_M);
     const c = document.createElement('canvas');
     const g = c.getContext('2d')!;
-    g.font = FONT;
+    const main = this.tone === 'accent' ? TICKET : FONT;
+    g.font = main;
     const lines = wrap(g, text, w - 120);
     const h = 60 + lines.length * 54 + (caption ? 44 : 0) + 40;
     c.width = w;
     c.height = h;
-    g.font = FONT;
-    g.fillStyle = this.tone === 'accent' ? '#3F8FD6' : '#FFFDF8';
+    g.font = main;
+    g.fillStyle = this.tone === 'accent' ? '#F8EFDC' : '#FFFDF8';
     g.beginPath();
     g.roundRect(6, 6, w - 12, h - 12 - 18, 26);
     g.fill();
@@ -63,17 +66,24 @@ export class Bubble {
     g.lineTo(w / 2, h - 6);
     g.lineTo(w / 2 + 22, h - 30);
     g.fill();
-    g.strokeStyle = this.tone === 'accent' ? '#2F6FB0' : '#E1D6C4';
-    g.lineWidth = 4;
+    g.strokeStyle = this.tone === 'accent' ? '#B58630' : '#E1D6C4';
+    g.lineWidth = this.tone === 'accent' ? 6 : 4;
     g.beginPath();
     g.roundRect(6, 6, w - 12, h - 12 - 18, 26);
     g.stroke();
-    g.fillStyle = this.tone === 'accent' ? '#FFFFFF' : '#2B2320';
+    if (this.tone === 'accent') {
+      // a second, thin rule inside the first, as on a ticket
+      g.lineWidth = 2;
+      g.beginPath();
+      g.roundRect(18, 18, w - 36, h - 36 - 18, 16);
+      g.stroke();
+    }
+    g.fillStyle = '#2B2320';
     g.textBaseline = 'top';
     lines.forEach((l, i) => g.fillText(l, 60, 44 + i * 54));
     if (caption) {
       g.font = SMALL;
-      g.fillStyle = this.tone === 'accent' ? '#E8F1FA' : '#8A7A66';
+      g.fillStyle = this.tone === 'accent' ? '#6E5A40' : '#8A7A66';
       g.fillText(caption, 60, 44 + lines.length * 54 + 10);
     }
     const tex = new CanvasTexture(c);

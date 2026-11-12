@@ -355,14 +355,14 @@ export class FoleySystem extends createSystem({
     const serial = this.serial;
     if (!serial) return;
     // with a microphone allowed, the pitch card says a pitch can be spoken
-    serial.pitchFooter = voice.voiceWanted() ? 'Make its sound, or hold the megaphone and say your own' : 'Make its sound to choose';
+    serial.pitchFooter = voice.voiceWanted() ? 'Make its sound, or hold the megaphone and say anything' : 'Make its sound to choose';
     if (s === 'ready') {
-      this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, 'Tap the clapper to roll', 0);
+      this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, 'Tap the clapper, or point at it and pinch', 0);
       // the marquee before the first reel: what this is and the one thing to do
       if (serial.resuming) {
         this.slate.say('Welcome back', 'Tap the clapper to go on. Redo starts the serial again.', 0);
         serial.theatre.showCard('Previously…', serial.previously || 'The story goes on.');
-      } else if (serial.reelNumber === 1) serial.theatre.showCard('Coconuts: the Serial', 'You make every sound. Try the props, then tap the clapper.');
+      } else if (serial.reelNumber === 1) serial.theatre.showCard('Coconuts: the Serial', 'You make every sound. Tap a prop, then tap the clapper.');
     }
     else if (s === 'playing') {
       this.slate.hide();
@@ -1180,7 +1180,8 @@ export class FoleySystem extends createSystem({
       if (this.house) {
         // down with the curtain's rise, up again between reels; lightning on the stage lights the room for an instant
         const t = this.serial.theatre;
-        const want = (0.3 + 0.48 * t.curtainLevel) * (1 - 0.85 * t.flashLevel);
+        // (the room stays present: it is the auditorium; and when somebody leaves the picture the house lights come up)
+        const want = t.houseUp ? 0.07 : (0.24 + 0.34 * t.curtainLevel) * (1 - 0.85 * t.flashLevel);
         const m = this.house.material as MeshBasicMaterial;
         m.opacity += (want - m.opacity) * Math.min(1, dt * 3);
       }

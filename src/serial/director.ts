@@ -8,6 +8,8 @@ import { functionsBase } from '../foley/env';
 export interface StoryLine {
   title: string;
   wrote: string[];
+  /** What each landed sound did, as plain facts ("glass: broke the picture and let the thief out"). */
+  did?: string[];
   flags: string[];
   cliffhanger: string;
 }

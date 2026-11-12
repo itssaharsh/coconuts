@@ -8,6 +8,7 @@ const WAKES: Extract<Beat, { k: 'open' }>['branches'] = {
   bell: {
     title: 'A bell! “Supper?”',
     flag: 'thief_hungry',
+    did: 'woke the thief, who thought it was supper',
     beats: [
       { k: 'do', who: 'thief', verb: 'getup' },
       { k: 'emote', who: 'thief', emote: 'heart' },
@@ -18,6 +19,7 @@ const WAKES: Extract<Beat, { k: 'open' }>['branches'] = {
   thunder: {
     title: 'Thunder! He hides.',
     flag: 'thief_scared',
+    did: 'woke the thief and sent him to hide',
     beats: [
       { k: 'fx', fx: 'lightning' },
       { k: 'do', who: 'thief', verb: 'getup' },
@@ -31,6 +33,7 @@ const WAKES: Extract<Beat, { k: 'open' }>['branches'] = {
   glass: {
     title: 'Glass! “Burglars!”',
     flag: 'thief_alert',
+    did: 'woke the thief, who shouted burglars',
     beats: [
       { k: 'do', who: 'thief', verb: 'getup' },
       { k: 'emote', who: 'thief', emote: 'angry' },
@@ -40,6 +43,7 @@ const WAKES: Extract<Beat, { k: 'open' }>['branches'] = {
   door: {
     title: 'A knock. “Come in!”',
     flag: 'thief_polite',
+    did: 'woke the thief, who called come in',
     beats: [
       { k: 'do', who: 'thief', verb: 'getup' },
       { k: 'move', who: 'thief', to: 'door_side', face: 'door' },
@@ -51,6 +55,7 @@ const WAKES: Extract<Beat, { k: 'open' }>['branches'] = {
   coconuts: {
     title: 'Hooves! “The Duke!”',
     flag: 'thief_fooled',
+    did: 'woke the thief, who thought the Duke had come',
     beats: [
       { k: 'do', who: 'thief', verb: 'getup' },
       { k: 'do', who: 'thief', verb: 'cheer', face: 'audience' },
@@ -60,6 +65,7 @@ const WAKES: Extract<Beat, { k: 'open' }>['branches'] = {
   whistle: {
     title: 'A tune. He dances.',
     flag: 'thief_merry',
+    did: 'woke the thief, who danced to it',
     beats: [
       { k: 'do', who: 'thief', verb: 'getup' },
       { k: 'emote', who: 'thief', emote: 'note' },
@@ -72,11 +78,11 @@ const WAKES: Extract<Beat, { k: 'open' }>['branches'] = {
 export const REEL_1: Reel = {
   id: 'c1r1',
   title: 'The Midnight Knock',
+  sub: 'A knight. A door.',
   set: 'gate',
   tint: 'blue',
   cast: [KNIGHT, { id: 'butler', char: 'skeleton_minion' }, { id: 'guard', char: 'barbarian', at: 'guard', pose: 'sitfloor', zzz: true }],
   beats: [
-    { k: 'title', text: 'A knight. A door.', secs: 2 },
     { k: 'enter', who: 'knight', from: 'left', to: 'door_side', face: 'door' },
     {
       k: 'cue',
@@ -84,6 +90,7 @@ export const REEL_1: Reel = {
       label: 'Knock for him',
       who: 'knight',
       times: 3,
+      did: 'opened the castle gate',
       each: [{ k: 'do', who: 'knight', verb: 'punch', face: 'door', secs: 0.42 }],
       hit: [
         { k: 'door', open: true },
@@ -97,17 +104,18 @@ export const REEL_1: Reel = {
         { k: 'enter', who: 'butler', from: 'door', to: 'door', face: 'knight' },
       ],
     },
-    { k: 'title', text: '“The crown is stolen!”', sub: '“The thief rode north, sir.”', secs: 2.8 },
+    { k: 'title', text: '“The crown is stolen!”', sub: '“The thief rode north, sir.”', secs: 2.2 },
     { k: 'par', beats: [{ k: 'do', who: 'knight', verb: 'jump', face: 'audience' }, { k: 'emote', who: 'knight', emote: '!' }] },
     { k: 'exit', who: 'knight', to: 'right', gait: 'run' },
 
     { k: 'scene', set: 'road', tint: 'blue', cast: [{ ...KNIGHT, mounted: true, at: 'centre' }] },
-    { k: 'title', text: 'His horse runs on your hooves.', secs: 2.4 },
+    { k: 'title', text: 'His horse runs on your hooves.', secs: 1.8 },
     {
       k: 'ride',
       who: 'knight',
       label: 'Clop the coconuts',
-      need: 10,
+      need: 7,
+      did: 'carried the knight down the road',
       secs: 22,
       hit: [{ k: 'wait', secs: 0.5 }],
       miss: [{ k: 'title', text: 'The horse walked.', sub: 'It took all night.', secs: 2.4 }],
@@ -119,7 +127,7 @@ export const REEL_1: Reel = {
       tint: 'amber',
       cast: [{ id: 'thief', char: 'rogue_hooded', at: 'chest', pose: 'sleep', zzz: true, item: 'dagger' }, KNIGHT],
     },
-    { k: 'title', text: 'The robbers’ den.', sub: 'The thief sleeps on his loot.', secs: 2.6 },
+    { k: 'title', text: 'The robbers’ den.', sub: 'The thief sleeps on his loot.', secs: 2.1 },
     { k: 'enter', who: 'knight', from: 'right', to: 'front_right', face: 'thief' },
     {
       k: 'open',
@@ -131,14 +139,15 @@ export const REEL_1: Reel = {
       ],
     },
     { k: 'par', beats: [{ k: 'do', who: 'thief', verb: 'flinch', face: 'knight' }, { k: 'emote', who: 'thief', emote: '!' }] },
-    { k: 'title', text: '“The crown, villain!”', secs: 1.9 },
+    { k: 'title', text: '“The crown, villain!”', secs: 1.5 },
     // the player's thunder blows the toy theatre open to the size of the wall: the rest of the reel is played large
-    { k: 'title', text: 'A storm breaks overhead.', secs: 1.8 },
+    { k: 'title', text: 'A storm breaks overhead.', secs: 1.4 },
     {
       k: 'cue',
       prop: 'thunder',
       label: 'Shake the thunder!',
       hold: 10,
+      did: 'burst the toy theatre open to the size of the wall',
       hit: [
         { k: 'fx', fx: 'grow' },
         { k: 'fx', fx: 'shake' },
@@ -152,6 +161,7 @@ export const REEL_1: Reel = {
       label: 'Slam it shut!',
       who: 'thief',
       hold: 10,
+      did: 'slammed the door in the thief’s face',
       hit: [
         { k: 'door', open: false },
         { k: 'fx', fx: 'shake' },
@@ -164,13 +174,14 @@ export const REEL_1: Reel = {
       ],
     },
     { k: 'par', beats: [{ k: 'move', who: 'thief', to: 'duel_a', gait: 'run', face: 'knight' }, { k: 'move', who: 'knight', to: 'duel_b', face: 'thief' }] },
-    { k: 'title', text: 'Steel rings like a bell.', secs: 1.9 },
+    { k: 'title', text: 'Steel rings like a bell.', secs: 1.5 },
     {
       k: 'cue',
       prop: 'bell',
       label: 'Ring: he strikes!',
       who: 'knight',
       hold: 9,
+      did: 'rang every blow of the duel',
       hit: [{ k: 'par', beats: [{ k: 'do', who: 'knight', verb: 'chop', face: 'thief' }, { k: 'do', who: 'thief', verb: 'block', face: 'knight' }] }],
     },
     {
@@ -179,6 +190,7 @@ export const REEL_1: Reel = {
       label: 'Ring: he parries!',
       who: 'knight',
       hold: 9,
+      did: 'rang every blow of the duel',
       hit: [{ k: 'par', beats: [{ k: 'do', who: 'thief', verb: 'stab', face: 'knight' }, { k: 'do', who: 'knight', verb: 'block', face: 'thief' }] }],
     },
     {
@@ -187,6 +199,7 @@ export const REEL_1: Reel = {
       label: 'Ring: the last blow!',
       who: 'knight',
       hold: 9,
+      did: 'rang every blow of the duel',
       hit: [
         { k: 'par', beats: [{ k: 'do', who: 'knight', verb: 'slash', face: 'thief' }, { k: 'do', who: 'thief', verb: 'stagger', face: 'knight' }] },
         { k: 'item', who: 'thief', item: 'dagger', hold: false },
@@ -194,7 +207,7 @@ export const REEL_1: Reel = {
       ],
     },
     // the film breaks out: the thief leaves the picture, by the footlights, onto the player's own desk
-    { k: 'title', text: 'One way out.', secs: 1.6 },
+    { k: 'title', text: 'One way out.', secs: 1.3 },
     { k: 'move', who: 'thief', to: 'footlights', gait: 'run', face: 'audience' },
     { k: 'emote', who: 'thief', emote: '!' },
     {
@@ -203,28 +216,32 @@ export const REEL_1: Reel = {
       label: 'Smash! He jumps!',
       who: 'thief',
       hold: 10,
+      did: 'broke the picture and let the thief out of it, onto the player’s table',
       // the picture breaks, the theatre is a toy on the desk again, and he is out of it
       hit: [{ k: 'fx', fx: 'shrink' }, { k: 'wait', secs: 0.5 }],
       miss: [{ k: 'title', text: 'He kicks it out himself.', secs: 1.6 }, { k: 'fx', fx: 'shrink' }, { k: 'wait', secs: 0.5 }],
     },
+    // no card covers the leap; the house lights come up over the player's own room, because that is where he is now
+    { k: 'fx', fx: 'house_up' },
     {
       k: 'par',
       beats: [
         { k: 'leap', who: 'thief' },
-        { k: 'title', text: 'He has left the picture!', secs: 2.6 },
-        { k: 'move', who: 'knight', to: 'footlights_side', gait: 'run', face: 'audience' },
+        { k: 'seq', beats: [{ k: 'wait', secs: 0.5 }, { k: 'move', who: 'knight', to: 'footlights_side', gait: 'run', face: 'audience' }, { k: 'emote', who: 'knight', emote: 'angry' }] },
+        { k: 'seq', beats: [{ k: 'wait', secs: 1.9 }, { k: 'title', text: 'He has left the picture!', sub: 'He is in your room.', secs: 2.0 }] },
       ],
     },
-    { k: 'emote', who: 'knight', emote: 'angry' },
     {
       k: 'cue',
       prop: 'whistle',
       label: 'Whistle him off the edge',
       who: 'knight',
       hold: 12,
+      did: 'sent the thief over the edge of the table',
       hit: [{ k: 'drop', who: 'thief' }, { k: 'do', who: 'knight', verb: 'cheer', face: 'audience' }],
       miss: [{ k: 'title', text: 'He climbs down by himself.', secs: 1.8 }, { k: 'drop', who: 'thief' }],
     },
+    { k: 'fx', fx: 'house_down' },
     // (the next reel begins with him climbing back into the picture)
     { k: 'flag', set: 'thief_out' },
     { k: 'fx', fx: 'lightning' },

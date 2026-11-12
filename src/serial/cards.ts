@@ -195,11 +195,12 @@ function drawCue(prop: PropId | null, label: string): CanvasTexture {
   c.width = 768;
   c.height = 192;
   const g = c.getContext('2d')!;
-  g.fillStyle = '#FFFDF8';
+  // a prompt card in the theatre's own colours: cream paper ruled in brass
+  g.fillStyle = '#FBF3E2';
   g.beginPath();
   g.roundRect(6, 6, c.width - 12, c.height - 12, 44);
   g.fill();
-  g.strokeStyle = '#3F8FD6';
+  g.strokeStyle = '#C39A3F';
   g.lineWidth = 10;
   g.stroke();
   let x = 60;

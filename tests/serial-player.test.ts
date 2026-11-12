@@ -81,6 +81,7 @@ class FakeTheatre {
     this.left.push(`back:${a.id}`);
     return wait(0.5);
   }
+  houseUp = false;
   readonly reactions: string[] = [];
   react(kind: string): void {
     this.reactions.push(kind);
@@ -747,5 +748,49 @@ describe('between reels', () => {
     await until(rig, () => rig.player.waiting !== null);
     expect(guest.onStage).toBe(false); // the scene change took it off with everyone else
     expect(rig.player.actor('(returning)')).toBeUndefined();
+  });
+});
+
+describe('what the sounds did', () => {
+  it('a landed cue leaves its fact once, a missed one leaves none', async () => {
+    const rig = await boot([
+      door({ did: 'opened the gate', hold: 30 }),
+      door({ did: 'opened the gate', hold: 30 }),
+      { k: 'cue', prop: 'bell', label: 'Ring', who: 'hero', hold: 1, did: 'rang for supper', hit: [] },
+    ]);
+    play(rig, 'door');
+    await until(rig, () => rig.player.stats.hits === 1);
+    await until(rig, () => rig.player.waiting !== null);
+    play(rig, 'door');
+    await until(rig, () => rig.ends.length === 1);
+    expect(rig.ends[0].did).toEqual(['door: opened the gate']); // twice landed, noted once; the bell was missed
+  });
+
+  it('an open moment notes what the chosen prop did', async () => {
+    const rig = await boot([
+      { k: 'open', prompt: 'What wakes him?', branches: { bell: { title: 'A bell!', did: 'woke him hungry', beats: [] } }, miss: [] },
+      door({ hold: 1 }),
+    ]);
+    play(rig, 'bell');
+    await until(rig, () => rig.ends.length === 1);
+    expect(rig.ends[0].did).toEqual(['bell: woke him hungry']);
+  });
+
+  it('a seq runs its beats in order inside a par, and the house lights follow their beats', async () => {
+    const rig = await boot([
+      { k: 'fx', fx: 'house_up' },
+      { k: 'par', beats: [{ k: 'seq', beats: [{ k: 'wait', secs: 0.5 }, flag('late')] }, flag('early')] },
+      door({ hold: 30 }),
+    ]);
+    expect(rig.theatre.houseUp).toBe(true);
+    expect([...rig.player.flags]).toEqual(['early', 'late']);
+  });
+
+  it('the reel ends on a closed curtain, with its last card on the curtain', async () => {
+    const rig = await boot([door({ hold: 1 })]);
+    await until(rig, () => rig.ends.length === 1);
+    const closed = rig.theatre.curtains.lastIndexOf(false);
+    expect(closed).toBeGreaterThan(0);
+    expect(rig.theatre.titles.at(-1)).toContain('To be continued');
   });
 });

@@ -36,6 +36,8 @@ export interface ReelStats {
   missed: number;
   /** What the player's sounds did, in order: the "your sounds wrote this" strip. */
   wrote: string[];
+  /** The same, as plain facts for the Director: "glass: broke the picture and let the thief out". */
+  did: string[];
   flags: string[];
 }
 
@@ -66,7 +68,7 @@ export class ReelPlayer {
   private snore = 0;
   private reel: Reel | null = null;
   readonly flags = new Set<string>();
-  stats: ReelStats = { reel: '', asked: 0, hits: 0, wrong: 0, missed: 0, wrote: [], flags: [] };
+  stats: ReelStats = { reel: '', asked: 0, hits: 0, wrong: 0, missed: 0, wrote: [], did: [], flags: [] };
   playing = false;
   paused = false;
 
@@ -92,7 +94,7 @@ export class ReelPlayer {
     this.root = null;
     this.pending.length = 0;
     this.setWaiting(null);
-    this.stats = { reel: reel.id, asked: 0, hits: 0, wrong: 0, missed: 0, wrote: [], flags: [] };
+    this.stats = { reel: reel.id, asked: 0, hits: 0, wrong: 0, missed: 0, wrote: [], did: [], flags: [] };
     this.flags.clear(); // what one reel's sounds decided is that reel's: the story keeps it, the next reel starts clean
     await this.troupe.preload(reel.cast.map((c) => c.char));
     await this.changeScene(reel.set, reel.cast);
@@ -179,7 +181,7 @@ export class ReelPlayer {
     this.paused = false;
     this.root = sequence([
       ...(before ? [before] : []),
-      () => this.theatre.title(reel.title, '', 2.4),
+      () => this.theatre.title(reel.title, reel.sub ?? '', reel.sub ? 2.8 : 2.4),
       () => this.theatre.curtain(true),
       () => this.run(reel.beats),
       () =>
@@ -187,9 +189,9 @@ export class ReelPlayer {
           this.theatre.onSound?.('applause');
           this.theatre.burst('confetti');
         }),
-      () => wait(0.6),
-      () => this.theatre.title('To be continued', reel.cliffhanger, 3.4),
+      () => wait(0.9),
       () => this.theatre.curtain(false),
+      () => this.theatre.title('To be continued', reel.cliffhanger, 3.2),
       () =>
         call(() => {
           this.playing = false;
@@ -206,6 +208,13 @@ export class ReelPlayer {
     this.theatre.soundWord(s.prop, s.kind);
     this.theatre.pulse();
     if (this.playing && !this.paused) this.pending.push(s);
+  }
+
+  /** Remember what a landed sound did, once (three bell cues of one duel are one fact). */
+  private note(prop: PropId, did: string | undefined): void {
+    if (!did) return;
+    const line = `${prop}: ${did}`;
+    if (!this.stats.did.includes(line)) this.stats.did.push(line);
   }
 
   private setWaiting(w: Waiting | null): void {
@@ -372,6 +381,8 @@ export class ReelPlayer {
           else if (b.fx === 'shrink') this.theatre.grow(false);
           else if (b.fx === 'rain') this.theatre.storm(true);
           else if (b.fx === 'rainstop') this.theatre.storm(false);
+          else if (b.fx === 'house_up') this.theatre.houseUp = true;
+          else if (b.fx === 'house_down') this.theatre.houseUp = false;
         });
       case 'leap': {
         const a = this.actors.get(b.who);
@@ -385,6 +396,8 @@ export class ReelPlayer {
         return call(() => this.theatre.setTint(b.tint));
       case 'par':
         return parallel(b.beats.map((x) => this.beat(x)));
+      case 'seq':
+        return this.run(b.beats);
       case 'flag':
         return call(() => this.flags.add(b.set));
       case 'scene':
@@ -478,6 +491,7 @@ export class ReelPlayer {
               this.setWaiting(null);
               this.resolve('hit', w, s);
               this.stats.wrote.push(b.label);
+              this.note(b.prop, b.did);
               if (b.prop === 'glass') this.shatter(b);
               inner = b.each ? sequence([() => this.run(b.each!), () => this.run(b.hit)]) : this.run(b.hit);
               phase = 'resolved';
@@ -614,6 +628,7 @@ export class ReelPlayer {
           this.setWaiting(null);
           this.resolve('hit', w);
           this.stats.wrote.push(b.label);
+          this.note('coconuts', b.did);
           this.mount?.setPace(0);
           inner = this.run(b.hit);
           return false;
@@ -661,6 +676,7 @@ export class ReelPlayer {
             this.resolve('hit', w, s);
             if (br.flag) this.flags.add(br.flag);
             this.stats.wrote.push(br.title);
+            this.note(s.prop, br.did);
             inner = sequence([() => this.theatre.title(br.title, '', 2.2), () => this.run(br.beats)]);
             return false;
           }

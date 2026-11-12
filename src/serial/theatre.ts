@@ -211,6 +211,11 @@ export class Theatre {
   fx: StageFx | null = null;
   private raining = false;
   private warmFrames = 0;
+  /**
+   * The house lights are up: the player's own room is to be seen (somebody has left the picture and is in it).
+   * Whoever dims the room for the show reads this.
+   */
+  houseUp = false;
   /** When the house last made each of its sounds (show time): an audience, not a laugh track. */
   private reacted = new Map<StageCue, number>();
 
@@ -404,6 +409,7 @@ export class Theatre {
     this.lamps.length = 0;
     this.scroll = 0;
     this.raining = false;
+    this.houseUp = false;
     this.fx?.clear();
   }
 
@@ -572,6 +578,7 @@ export class Theatre {
       () =>
         call(() => {
           a.onStage = false;
+          this.houseUp = true; // he is in the player's room until he is back behind the curtain
           this.onSound?.('whoosh');
           this.react('gasp', 4);
         }),
@@ -584,6 +591,7 @@ export class Theatre {
       () =>
         call(() => {
           this.removeActor(a);
+          this.houseUp = false;
           this.react('laugh', 3);
         }),
     ]);
@@ -714,7 +722,7 @@ export class Theatre {
   grow(big = true): void {
     if (big === this.bigNow || (big && !this.allowBig)) return;
     this.bigNow = big;
-    this.flash = 1;
+    this.flash = Math.max(this.flash, 0.78);
     this.onScale?.(big);
     if (big) this.react('ooh', 10);
   }
@@ -737,7 +745,7 @@ export class Theatre {
   }
 
   lightning(): void {
-    this.flash = 1;
+    this.flash = 0.92;
   }
 
   /**

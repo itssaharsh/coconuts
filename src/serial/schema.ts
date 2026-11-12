@@ -13,7 +13,8 @@ export const EMOTES = ['!', '?', 'zzz', 'heart', 'skull', 'note', 'angry', 'swea
 export type Emote = (typeof EMOTES)[number];
 
 /** grow / shrink: the toy theatre bursts to the size of the wall in front of the player, and comes back. */
-export const FX = ['lightning', 'rain', 'rainstop', 'dark', 'light', 'shake', 'dust', 'sparkle', 'grow', 'shrink'] as const;
+/** house_up / house_down: the house lights come up over the player's own room (somebody has left the picture), and go down again. */
+export const FX = ['lightning', 'rain', 'rainstop', 'dark', 'light', 'shake', 'dust', 'sparkle', 'grow', 'shrink', 'house_up', 'house_down'] as const;
 export type Fx = (typeof FX)[number];
 
 export const CHARACTERS = [
@@ -76,6 +77,8 @@ export type Beat =
   | { k: 'tint'; tint: Tint }
   /** Beats that play together (two actors moving at once). */
   | { k: 'par'; beats: Beat[] }
+  /** Beats one after another, as one beat (a line of action inside a `par`). */
+  | { k: 'seq'; beats: Beat[] }
   /**
    * The action waits for a sound. `prop` is the sound it wants; the stage holds for up to `hold` seconds.
    * hit: the wanted prop sounded. wrong: another prop sounded (optional; falls back to a stock reaction, then keeps waiting).
@@ -87,6 +90,8 @@ export type Beat =
       label: string;
       who?: string;
       hold?: number;
+      /** What the sound does, as a plain fact for the story's memory ("opened the castle gate"). */
+      did?: string;
       /** The sound is wanted this many times (three knocks); `each` plays on every one of them, `hit` after the last. */
       times?: number;
       each?: Beat[];
@@ -96,9 +101,9 @@ export type Beat =
       miss?: Beat[];
     }
   /** The rider goes as fast as the clops come and stands still without them. `need` clops is a hit; `secs` is how much silence the ride forgives. */
-  | { k: 'ride'; who: string; label: string; need: number; secs: number; /** Beasts that run after the horse: they gain when the hooves slow. */ pursuers?: string[]; hit: Beat[]; miss: Beat[] }
+  | { k: 'ride'; who: string; label: string; need: number; secs: number; did?: string; /** Beasts that run after the horse: they gain when the hooves slow. */ pursuers?: string[]; hit: Beat[]; miss: Beat[] }
   /** The stage freezes on a question; whichever prop sounds picks the branch. */
-  | { k: 'open'; prompt: string; hold?: number; branches: Partial<Record<PropId, { title: string; flag?: string; beats: Beat[] }>>; miss: Beat[] }
+  | { k: 'open'; prompt: string; hold?: number; branches: Partial<Record<PropId, { title: string; flag?: string; did?: string; beats: Beat[] }>>; miss: Beat[] }
   /** Close the curtain, change the set and the cast behind it, open again. */
   | { k: 'scene'; set: string; tint?: Tint; cast?: CastEntry[] }
   | { k: 'flag'; set: string };
@@ -125,6 +130,8 @@ export interface CastEntry {
 export interface Reel {
   id: string;
   title: string;
+  /** A second line on the title card (it saves a card of its own). */
+  sub?: string;
   set: string;
   tint: Tint;
   cast: CastEntry[];
@@ -225,6 +232,7 @@ export function validateReel(reel: Reel, sets: Record<string, SetInfo>): string[
           if (!(TINT_NAMES as readonly string[]).includes(b.tint)) errs.push(`${at}: tint ${b.tint} unknown`);
           break;
         case 'par':
+        case 'seq':
           walk(b.beats, at, depth + 1);
           break;
         case 'cue':

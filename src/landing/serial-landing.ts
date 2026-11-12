@@ -4,7 +4,7 @@
 // player can pitch the next reel by voice through the megaphone between reels.
 import './serial.css';
 import { ensureAudio } from '../foley/sound';
-import { enableVoice, hearingOn, voiceSupported } from '../foley/voice';
+import { enableVoice, hearingOn, voiceSupported, voiceWanted } from '../foley/voice';
 import { followSerial } from './framing';
 import type { EngineBridge } from './landing';
 
@@ -44,13 +44,65 @@ export function mountSerialLanding(engine: EngineBridge): void {
   const params = new URLSearchParams(location.search);
 
   // the button: into the headset where WebXR is there; elsewhere it says where to open the page
+  // Into the headset. The first time, where speech can be heard, one question comes first: may the Director hear you?
+  // (Inside the headset view the browser cannot ask, so a player who was never asked would find the megaphone dead.)
+  const ask = byId<HTMLDivElement>('s-ask');
+  const askYes = byId<HTMLButtonElement>('s-ask-yes');
+  const askNo = byId<HTMLButtonElement>('s-ask-no');
+  let hearing = false;
+  void hearingOn().then((ok) => (hearing = ok));
+  const answered = (): boolean => {
+    try {
+      return voiceWanted() || localStorage.getItem('coconuts.voiceAsk') !== null;
+    } catch {
+      return true;
+    }
+  };
+  const remember = (v: 'yes' | 'no'): void => {
+    try {
+      localStorage.setItem('coconuts.voiceAsk', v);
+    } catch {
+      // private mode: asked again next visit
+    }
+  };
+  const go = (hint = 'The headset view did not open. Allow it if the browser asks, then press Enter again.', after = 6000): void => {
+    engine.launchXR();
+    // a session that never starts (a refused prompt, a headset that is busy, a click the browser no longer counts) says so
+    setTimeout(() => {
+      if (xrOk && !document.body.classList.contains('in-xr')) note.textContent = hint;
+    }, after);
+  };
   enter.addEventListener('click', () => {
     void ensureAudio(); // the click is the gesture that lets the audio graph start
-    engine.launchXR();
-    // a session that never starts (a refused prompt, a headset that is busy) says so instead of leaving a dead button
-    setTimeout(() => {
-      if (xrOk && !document.body.classList.contains('in-xr')) note.textContent = 'The headset view did not open. Allow it if the browser asks, then press Enter again.';
-    }, 6000);
+    if (xrOk && ask && ask.hidden && hearing && voiceSupported() && !answered()) {
+      ask.hidden = false;
+      askYes?.focus();
+      return;
+    }
+    if (ask) ask.hidden = true; // Enter pressed again with the question open: sounds only, and in we go
+    go();
+  });
+  askNo?.addEventListener('click', () => {
+    remember('no');
+    if (ask) ask.hidden = true;
+    go();
+  });
+  askYes?.addEventListener('click', () => {
+    if (askYes.getAttribute('aria-busy') === 'true') return;
+    askYes.setAttribute('aria-busy', 'true');
+    void enableVoice().then((ok) => {
+      askYes.removeAttribute('aria-busy');
+      remember(ok ? 'yes' : 'no');
+      if (ask) ask.hidden = true;
+      const label = byId<HTMLSpanElement>('s-voice-label');
+      const btn = byId<HTMLButtonElement>('s-voice-btn');
+      if (label && btn) {
+        btn.dataset.on = String(ok);
+        label.textContent = ok ? 'Voice is on' : 'No microphone';
+      }
+      // the browser's own prompt may have outlived the click: if the headset view does not open, one more press does it
+      go(ok ? 'The microphone is on. Press Enter once more.' : 'No microphone: sounds only. Press Enter once more.', 2500);
+    });
   });
   let xrOk = false;
   const say = (before: string, after: string) => {
