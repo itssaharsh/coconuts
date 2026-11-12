@@ -150,7 +150,7 @@ export class FoleySystem extends createSystem({
   private slide = new SlideTracker();
   private clopSide: 0 | 1 = 0;
   private lastSourceSync = 0;
-  private slate = new Bubble(0.3, 'accent');
+  private slate = new Bubble(0.3);
   private volumeStep = 0;
   private lastRumbleMark: number | undefined;
   private lastWhistleMark: number | undefined;
