@@ -17,17 +17,8 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="/brand/icon.svg" type="image/svg+xml" />
     <script>
-      // which show's page to draw before the app loads (the same rule as serialMode() in src/foley/env.ts), so neither flashes
-      (function () {
-        var q = new URLSearchParams(location.search);
-        var films = q.has('films');
-        try {
-          if (!films && !q.has('serial')) films = localStorage.getItem('coconuts.show') === 'films';
-        } catch (e) {}
-        document.documentElement.className += films ? ' show-films' : ' show-serial';
-        // the voice control shows only where the page can record a microphone
-        if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder)) document.documentElement.className += ' no-voice';
-      })();
+      // the voice control shows only where the page can record a microphone
+      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder)) document.documentElement.className += ' no-voice';
     </script>
     <!-- the three typefaces are served from this site: no third party between a headset and its first card -->
     <link rel="preload" href="/fonts/limelight.woff2" as="font" type="font/woff2" crossorigin />
@@ -38,7 +29,7 @@
     <div id="scene-container"><div class="house" aria-hidden="true"></div></div>
 
     <div class="landing" id="landing">
-      <header class="s-hero s-only" id="serial-top">
+      <header class="s-hero" id="serial-top">
         <nav class="s-nav" aria-label="Coconuts: the Serial">
           <a class="s-mark" href="#serial-top">
             <svg viewBox="0 0 26 24" aria-hidden="true"><ellipse cx="13" cy="21.6" rx="11" ry="2.2" fill="#D9C29B"/><path d="M2 10.5h22c0 6.2-4.9 10.6-11 10.6S2 16.7 2 10.5z" fill="#7A4B2A"/><path d="M5 13.4c1.4 3.4 4.4 5.4 8 5.4" fill="none" stroke="#9A6A42" stroke-width="1.4" stroke-linecap="round"/><ellipse cx="13" cy="10.5" rx="11" ry="3.4" fill="#4A2C18"/><ellipse cx="13" cy="10.6" rx="9.4" ry="2.5" fill="#F6EBD3"/></svg>
@@ -103,7 +94,7 @@
         <div class="s-frame" aria-hidden="true" data-stage-frame></div>
       </header>
 
-      <main class="s-main s-only">
+      <main class="s-main">
         <section class="s-band s-how" aria-labelledby="how-h">
           <h2 id="how-h">How to play</h2>
           <ol class="s-steps">
@@ -146,99 +137,6 @@
           <ul class="s-links">
             <li><a href="/audio/CREDITS.md">Credits</a></li>
             <li><a href="https://github.com/itssaharsh/coconuts">Source on GitHub</a></li>
-          </ul>
-        </footer>
-      </main>
-
-      <header class="hero f-only" id="top">
-        <nav class="nav" aria-label="Coconuts">
-          <a class="mark" href="#top">
-            <svg viewBox="0 0 26 24" aria-hidden="true"><ellipse cx="13" cy="21.6" rx="11" ry="2.2" fill="#D9C29B"/><path d="M2 10.5h22c0 6.2-4.9 10.6-11 10.6S2 16.7 2 10.5z" fill="#7A4B2A"/><path d="M5 13.4c1.4 3.4 4.4 5.4 8 5.4" fill="none" stroke="#9A6A42" stroke-width="1.4" stroke-linecap="round"/><ellipse cx="13" cy="10.5" rx="11" ry="3.4" fill="#4A2C18"/><ellipse cx="13" cy="10.6" rx="9.4" ry="2.5" fill="#F6EBD3"/></svg>
-            Coconuts
-          </a>
-        </nav>
-
-        <div class="copy">
-          <h1><span class="l">Be the <span class="brush">sound</span></span><span class="l">of a silent</span><span class="l">movie.</span></h1>
-          <div class="spacer" aria-hidden="true"></div>
-
-          <div class="actions">
-            <button class="btn btn-primary" type="button" id="enter">Enter in your headset</button>
-            <button class="btn btn-secondary" type="button" id="play" hidden>Play the sample take</button>
-          </div>
-          <p class="device">Meta Quest or Meta VR Glasses<span class="sep"> · </span>hands only, no controllers<span class="sep"> · </span>free</p>
-          <p class="note" id="note" hidden></p>
-
-          <div class="try">
-            <p class="try-label">Try these</p>
-            <ul class="chips" role="list" id="chips">
-              <li><button class="chip" type="button" data-clip="one-week" aria-pressed="true"><span class="peg" style="--c:var(--sepia)"></span>One Week (1920)</button></li>
-              <li><button class="chip" type="button" data-clip="safety-last" aria-pressed="false"><span class="peg" style="--c:var(--sepia-2)"></span>Safety Last! (1923)</button></li>
-              <li><button class="chip" type="button" data-clip="trip-to-the-moon" aria-pressed="false"><span class="peg" style="--c:var(--moon)"></span>A Trip to the Moon (1902)</button></li>
-            </ul>
-          </div>
-        </div>
-
-        <svg class="fx" id="fx" aria-hidden="true">
-          <line class="ray-halo" id="rayHalo" x1="0" y1="0" x2="0" y2="0" />
-          <line class="ray-dots" id="rayDots" x1="0" y1="0" x2="0" y2="0" />
-        </svg>
-
-        <div class="result" id="result" role="status" aria-live="polite">
-          <p class="result-title" id="takeTitle">Loading the reel…</p>
-          <ul class="hits" id="hits" aria-hidden="true"></ul>
-          <p class="result-line" id="takeLine">Pinch the clapperboard and the film rolls.</p>
-          <p class="result-meta" id="takeMeta"></p>
-          <div class="result-actions">
-            <button class="btn btn-secondary" type="button" id="playTake" hidden>Play it back</button>
-            <button class="btn btn-secondary" type="button" id="copyLink" hidden>Copy link</button>
-          </div>
-        </div>
-
-        <div class="hand-wrap" aria-hidden="true">
-          <svg class="hand" id="hand" viewBox="0 0 320 540">
-            <defs>
-              <linearGradient id="glove" gradientUnits="userSpaceOnUse" x1="70" y1="30" x2="290" y2="470"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".5" stop-color="#FCF9F4"/><stop offset="1" stop-color="#EADFCF"/></linearGradient>
-              <linearGradient id="cuffG" gradientUnits="userSpaceOnUse" x1="90" y1="400" x2="280" y2="540"><stop offset="0" stop-color="#F8F3EB"/><stop offset="1" stop-color="#E2D5C2"/></linearGradient>
-              <filter id="rim" x="-12%" y="-8%" width="124%" height="116%"><feMorphology in="SourceAlpha" operator="dilate" radius="3" result="d"/><feFlood flood-color="#CDB792"/><feComposite in2="d" operator="in" result="o"/><feMerge><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            </defs>
-            <g filter="url(#rim)">
-              <path fill="url(#cuffG)" d="M98 392 L262 392 L280 560 L80 560 Z"/>
-              <path fill="url(#glove)" d="M100 200 C150 184 232 190 278 218 C290 266 282 336 258 400 L104 400 C90 344 84 278 100 200 Z"/>
-              <circle cx="180" cy="198" r="28" fill="url(#glove)"/><circle cx="224" cy="206" r="26" fill="url(#glove)"/><circle cx="260" cy="224" r="23" fill="url(#glove)"/>
-              <path fill="url(#glove)" d="M99 226 L99 56 C99 32 111 16 128 16 C145 16 157 32 157 56 L157 216 Z"/>
-              <path fill="url(#glove)" d="M122 350 C88 348 60 322 58 290 C56 260 70 238 95 232 C120 227 138 246 140 270 L142 322 Z"/>
-            </g>
-            <g fill="none" stroke="#DCCDB6" stroke-width="3" stroke-linecap="round"><path d="M110 104 Q128 110 146 104"/><path d="M110 156 Q128 162 146 156"/><path d="M157 218 Q166 200 160 180"/><path d="M203 186 Q207 200 202 216"/><path d="M245 198 Q250 212 244 228"/><path d="M140 272 Q140 306 124 344"/></g>
-            <g fill="none" stroke-linecap="round"><path d="M162 256 L156 372" stroke="#E2D5C2" stroke-width="3.4"/><path d="M194 252 L194 372" stroke="#E2D5C2" stroke-width="3.4"/><path d="M228 258 L234 372" stroke="#E2D5C2" stroke-width="3.4"/><path d="M165 256 L159 372" stroke="#FFFFFF" stroke-width="1.6"/><path d="M197 252 L197 372" stroke="#FFFFFF" stroke-width="1.6"/><path d="M231 258 L237 372" stroke="#FFFFFF" stroke-width="1.6"/><path d="M100 410 L264 410" stroke="#D7C8B1" stroke-width="2.4"/><path d="M98 422 L266 422" stroke="#D7C8B1" stroke-width="1.6" stroke-dasharray="2 5"/></g>
-          </svg>
-        </div>
-      </header>
-
-      <main class="f-only">
-        <section class="band story">
-          <p class="subhead">A silent film plays on a little screen. The props on your table make the sound: coconuts for the running feet, the tiny door for the bang, the slide whistle for the fall. Your take plays back with the film, and the Director gives you one line about it.</p>
-          <ul class="proofs">
-            <li><span class="peg" style="--c:var(--coco)"></span>Three public-domain films, one to two minutes each.</li>
-            <li><span class="peg" style="--c:var(--door)"></span>Plays with gaze and a single pinch on Meta VR Glasses.</li>
-            <li><span class="peg" style="--c:var(--brass)"></span>Your take becomes a link anyone can watch in a browser.</li>
-          </ul>
-        </section>
-
-        <section class="band how" aria-label="How it works">
-          <h2>How it works</h2>
-          <ul class="strip">
-            <li><img src="/films/one-week.jpg" alt="A frame of One Week (1920): Buster Keaton's crooked house" width="640" height="400" loading="lazy" /><p class="cap"><b>WATCH</b><span>the cue card slides in</span></p></li>
-            <li><img src="/films/safety-last-mid.jpg" alt="A frame of Safety Last! (1923): Harold Lloyd on the building" width="640" height="400" loading="lazy" /><p class="cap"><b>HIT</b><span>clap the coconuts</span></p></li>
-            <li><img src="/films/trip-to-the-moon-mid.jpg" alt="A frame of A Trip to the Moon (1902)" width="640" height="400" loading="lazy" /><p class="cap"><b>PLAY IT BACK</b><span>the film with your sound</span></p></li>
-          </ul>
-        </section>
-
-        <footer class="band foot" id="about">
-          <p class="real"><b>What's real:</b> the films are original prints from the Internet Archive; every sound is synthesized on your headset; the Director's line comes from a model, with a written line when offline.</p>
-          <ul class="links">
-            <li><a href="#top">Play</a></li>
-            <li><a href="https://github.com/itssaharsh/coconuts" id="sourceLink">Source</a></li>
           </ul>
         </footer>
       </main>

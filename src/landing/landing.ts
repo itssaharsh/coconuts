@@ -1,6 +1,5 @@
 // The landing overlay: wires the buttons and chips to the engine and keeps the result card and the glove in step.
 // The Serial (the default show) has its own page in serial-landing.ts; this file's films page runs with `?films`.
-import './landing.css';
 import { CueTracker, type Cue } from '../foley/cues';
 import { directorLine } from '../foley/director';
 import { serialMode } from '../foley/env';
