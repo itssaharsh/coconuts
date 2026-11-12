@@ -19,6 +19,9 @@ class Walker {
   faceAudience(): void {
     this.calls.push('face:audience');
   }
+  face(x: number, z: number): void {
+    this.calls.push(`face:${x.toFixed(1)},${z.toFixed(1)}`);
+  }
   place(x: number, z: number, facing = 0): void {
     this.root.position.set(x, 0, z);
     this.root.rotation.y = facing;
@@ -150,5 +153,51 @@ describe('the desk: a character leaves the picture', () => {
     expect(host.children).toContain(desk.root);
     desk.dispose();
     expect(host.children).not.toContain(desk.root);
+  });
+});
+
+describe('a finger near the figure on the desk', () => {
+  const arrived = () => {
+    const r = rig();
+    run(r.desk.arrive(r.a as unknown as Actor), r.world);
+    r.world.updateMatrixWorld(true);
+    r.a.calls.length = 0;
+    const at = r.a.root.getWorldPosition(new Vector3());
+    return { ...r, at };
+  };
+
+  it('makes it start and look at the finger, once, and then it is left in peace for a moment', () => {
+    const { desk, a, at } = arrived();
+    const finger = at.clone().add(new Vector3(0.03, 0.05, 0.02));
+    expect(desk.poke(finger)).toBe(a);
+    expect(a.calls.some((c) => c.startsWith('face:'))).toBe(true);
+    expect(a.calls).toContain('play:jump');
+    expect(desk.poke(finger)).toBeNull(); // not again at once
+    for (let i = 0; i < 30; i++) desk.update(1 / 30); // a second on: it has turned back to the house
+    expect(a.calls.slice(-2)).toEqual(['face:audience', 'play:idle']);
+    expect(desk.poke(finger)).toBeNull(); // still calming down
+    for (let i = 0; i < 60; i++) desk.update(1 / 30);
+    expect(desk.poke(finger)).toBe(a);
+  });
+
+  it('a hand that stays a hand\'s breadth away does not', () => {
+    const { desk, at } = arrived();
+    expect(desk.poke(at.clone().add(new Vector3(0.12, 0.05, 0)))).toBeNull();
+    expect(desk.poke(at.clone().add(new Vector3(0, 0.2, 0)))).toBeNull();
+  });
+
+  it('nobody starts before the run is over, or once it is going over the edge', () => {
+    const r = rig();
+    const task = r.desk.arrive(r.a as unknown as Actor);
+    r.world.updateMatrixWorld(true);
+    task.update(1 / 30);
+    r.world.updateMatrixWorld(true);
+    expect(r.desk.poke(r.a.root.getWorldPosition(new Vector3()))).toBeNull();
+    run(task, r.world);
+    r.world.updateMatrixWorld(true);
+    const at = r.a.root.getWorldPosition(new Vector3()).add(new Vector3(0, 0.04, 0));
+    const leave = r.desk.leave(r.a as unknown as Actor);
+    leave.update(1 / 30);
+    expect(r.desk.poke(at)).toBeNull();
   });
 });

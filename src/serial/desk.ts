@@ -17,6 +17,11 @@ export interface DeskRoute {
 
 const LEAP_SECS = 0.8;
 const LEAP_RISE = 2.4; // stage units above the straight line, at the top of the leap
+/** A fingertip this near the middle of the figure on the desk (metres) makes it start; then it is left in peace this long. */
+const POKE_REACH = 0.075;
+const POKE_MIDDLE = 0.045;
+const POKE_CALM_S = 2.2;
+const POKE_START_S = 0.55;
 const from = new Vector3();
 const to = new Vector3();
 const tmp = new Vector3();
@@ -24,6 +29,10 @@ const tmp = new Vector3();
 export class Desk {
   /** Its units are stage units, so an actor walks here as it walks on the stage. */
   readonly root = new Group();
+  /** The figure standing at the table's edge with nothing to do but be pleased with itself. */
+  private waiting: Actor | null = null;
+  private calm = 0;
+  private starting = 0;
 
   constructor(
     host: Object3D,
@@ -89,7 +98,52 @@ export class Desk {
       return a.goTo(to.x, to.z, 'run');
     });
     // at the edge it turns to the player and crows: it got away, and it knows who is watching
-    return sequence([() => leap, ...run, () => call(() => a.faceAudience()), () => a.perform('cheer')]);
+    return sequence([
+      () => leap,
+      ...run,
+      () => call(() => a.faceAudience()),
+      () => a.perform('cheer'),
+      () =>
+        call(() => {
+          this.waiting = a;
+          this.calm = 0;
+        }),
+    ]);
+  }
+
+  /**
+   * A fingertip (a point in the world) comes close to the figure waiting on the desk: it starts, and turns to look
+   * at the finger. Returns the figure when it did, so the house can laugh; it is then left in peace for a moment.
+   */
+  poke(world: Vector3): Actor | null {
+    const a = this.waiting;
+    if (!a || this.calm > 0 || !this.holds(a)) return null;
+    a.root.getWorldPosition(from);
+    from.y += POKE_MIDDLE;
+    if (from.distanceTo(world) > POKE_REACH) return null;
+    this.root.worldToLocal(to.copy(world));
+    a.face(to.x, to.z);
+    a.play('jump');
+    this.starting = POKE_START_S;
+    this.calm = POKE_CALM_S;
+    return a;
+  }
+
+  /** Where the waiting figure stands, in the world (null when nobody waits): for whoever films a finger going near it. */
+  waitingAt(out: Vector3): Vector3 | null {
+    const a = this.waiting;
+    return a && this.holds(a) ? a.root.getWorldPosition(out) : null;
+  }
+
+  update(dt: number): void {
+    if (this.calm > 0) this.calm -= dt;
+    if (this.starting > 0 && (this.starting -= dt) <= 0) {
+      const a = this.waiting;
+      if (a && this.holds(a)) {
+        a.faceAudience();
+        a.play('idle');
+      }
+    }
   }
 
   /**
@@ -169,6 +223,7 @@ export class Desk {
       update: (dt) => {
         if (t < 0) {
           t = 0;
+          if (this.waiting === a) this.waiting = null;
           start.copy(a.root.position);
           this.point(this.route.off, end);
           a.play('jump');

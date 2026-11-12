@@ -343,7 +343,15 @@ export class FoleySystem extends createSystem({
         if (typeof a[0] === 'string' && /^(WAIT|CUE|TITLE|REEL|PITCH|SET|STAGE size|NUDGE|DIRECTOR|VOICE)\b/.test(a[0])) plain('EVT', this.showClock.toFixed(3), a.map(String).join(' '));
       };
       // the recorder asks where the show clock stands when it starts, to lay the soundtrack under the right frame
-      (window as unknown as { __capture: unknown }).__capture = { clock: () => this.showClock, frame: () => this.frameNo };
+      // (and where the figure out on the desk stands, so a filmed finger can go near it)
+      (window as unknown as { __capture: unknown }).__capture = {
+        clock: () => this.showClock,
+        frame: () => this.frameNo,
+        figure: () => {
+          const p = this.serial?.theatre.deskFigureAt(new Vector3());
+          return p ? { x: p.x, y: p.y, z: p.z } : null;
+        },
+      };
     }
     console.log('STAGE ready');
     hooks.onReady(this.api);
@@ -1276,6 +1284,8 @@ export class FoleySystem extends createSystem({
         }
       }
       if (this.soundLocked && sound.audioContext()?.state === 'running') this.checkSound();
+      // a finger that goes near the little figure out on the table: it notices
+      if (this.serial) for (const hand of HANDS) if (this.handSeen[hand]) this.serial.theatre.poke(this.pinchPoint(hand, tmpP));
     }
     if (!inXR && window.innerWidth !== this.lastW) {
       this.lastW = window.innerWidth;

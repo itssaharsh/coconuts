@@ -40,6 +40,8 @@ const startOn = String(opt('start', '') || '');
 const sayFile = opt('say', null) ? String(opt('say')) : '';
 // --resume story.json: start from a saved story, so the clapper goes straight to "What happens next?"
 const resumeFile = opt('resume', null) ? String(opt('resume')) : '';
+// --poke: before the whistle sends the thief off the table, a fingertip comes down beside him (he starts at it)
+const poke = !!opt('poke', false);
 const AUDIO_TYPES = { webm: 'audio/webm', wav: 'audio/wav', ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4' };
 const FLAGS = {
   CAPTURE: '1',
@@ -273,6 +275,19 @@ async function main() {
         for (let i = 0; i < 4 && !since('^CUE (hit|miss) ride', lastWait).length; i++) await pat(play, 4);
       } else {
         const [got, need] = progress.split('/').map(Number);
+        if (poke && /edge/i.test(label)) {
+          // he stands at the table's edge, pleased with himself: a finger comes down beside him, and he notices
+          await sleep(0.8 * slow * 1000);
+          const f = iw(['browser', 'run', 'tools/video/figure.mjs'], null, 60000)?.data?.result ?? null;
+          log('figure on the desk:', JSON.stringify(f));
+          if (f && typeof f.x === 'number') {
+            reach({ x: f.x + 0.1, y: f.y + 0.13, z: f.z + 0.02 }, 0.5);
+            reach({ x: f.x + 0.035, y: f.y + 0.05, z: f.z + 0.012 }, 0.4);
+            await sleep(1.5 * slow * 1000);
+            reach(REST, 0.45);
+            await sleep(0.4 * slow * 1000);
+          }
+        }
         await pat(play, Math.max(1, need - got));
         // the film breaks out: the player looks down at the desk, where the thief has landed, until he is over its edge
         if (/jumps/i.test(label)) {

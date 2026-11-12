@@ -627,6 +627,23 @@ export class Theatre {
     ]);
   }
 
+  /**
+   * A fingertip, as a point in the world. Whoever stands on the desk waiting starts at it and looks at the finger,
+   * and the house laughs: the figure knows the player is there.
+   */
+  poke(world: Vector3): void {
+    const a = this.desk?.poke(world);
+    if (!a) return;
+    this.emote(a, '!');
+    this.react('laugh', 4);
+    console.log('DESK poked');
+  }
+
+  /** Where the figure waiting on the desk stands, in the world (null when nobody does). */
+  deskFigureAt(out: Vector3): Vector3 | null {
+    return this.desk?.waitingAt(out) ?? null;
+  }
+
   /** An actor on the desk goes over its edge and is gone. */
   dropOff(a: Actor): Task {
     const desk = this.desk;
@@ -835,7 +852,8 @@ export class Theatre {
     if (emote === 'skull') this.react('gasp', 8); // the dead are up
     s.scale.setScalar(1.5);
     s.renderOrder = 8;
-    this.stage.add(s);
+    // (an actor out on the desk carries its emote there: the desk counts in the stage's units too)
+    (this.desk?.holds(actor) ? this.desk.root : this.stage).add(s);
     this.floaters.push({ sprite: s, life: 1.7, total: 1.7, rise: 0.5, base: 1.5 });
   }
 
@@ -916,6 +934,7 @@ export class Theatre {
       this.flashMesh.visible = f > 0.01;
       film.flash.value = f;
     }
+    this.desk?.update(dt);
     if (this.freeWarm && --this.freeWarm.frames <= 0) {
       this.freeWarm.actor.setFree(false);
       this.freeWarm = null;
@@ -941,7 +960,7 @@ export class Theatre {
       m.opacity = f.life < 0.3 ? Math.max(0, f.life / 0.3) : 1;
       f.sprite.position.y += f.rise * dt;
       if (f.life <= 0) {
-        this.stage.remove(f.sprite);
+        f.sprite.removeFromParent();
         this.spriteMats.push(m); // kept for the next card (and the card's texture with its own cache)
         this.floaters.splice(i, 1);
       }
