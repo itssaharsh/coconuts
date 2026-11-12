@@ -111,6 +111,12 @@ function drawTitle(text: string, sub: string): CanvasTexture {
     g.font = `400 ${size}px ${TITLE_FONT}`;
     lines = wrap(g, text.toUpperCase(), c.width - 200);
   }
+  // (a line someone said, the Director's or the player's, can run to four lines or more: smaller still, never cut off)
+  if (lines.length > 4) {
+    size = 66;
+    g.font = `400 ${size}px ${TITLE_FONT}`;
+    lines = wrap(g, text.toUpperCase(), c.width - 180);
+  }
   const lh = size * 1.18;
   const block = lines.length * lh + (sub ? 70 : 0);
   let y = c.height / 2 - block / 2 + lh / 2;

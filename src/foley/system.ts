@@ -361,7 +361,12 @@ export class FoleySystem extends createSystem({
     // with a microphone allowed, the pitch card says a pitch can be spoken
     serial.pitchFooter = voice.voiceWanted() ? 'Make its sound, or hold the megaphone and say anything' : 'Make its sound to choose';
     if (s === 'ready') {
-      this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, this.soundLocked ? 'Point at the clapper and pinch: a pinch turns the sound on' : 'Tap the clapper, or point at it and pinch', 0);
+      const how = this.soundLocked
+        ? 'Point at the clapper and pinch: a pinch turns the sound on'
+        : serial.rollsSoon
+          ? 'It rolls in a moment, or tap the clapper'
+          : 'Tap the clapper, or point at it and pinch';
+      this.slate.say(`Reel ${serial.reelNumber}: ${serial.reel.title}`, how, 0);
       // the marquee before the first reel: what this is and the one thing to do
       if (serial.resuming) {
         this.slate.say('Welcome back', this.soundLocked ? 'Point at the clapper and pinch to go on: a pinch turns the sound on' : 'Tap the clapper to go on. Redo starts the serial again.', 0);

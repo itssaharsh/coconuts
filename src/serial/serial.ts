@@ -78,6 +78,8 @@ export class Serial {
   private done = 0;
   /** A returning player: the clapper goes on with the story instead of playing reel one again. */
   resuming = false;
+  /** The reel just written rolls by itself in a moment (after the Director's note); the clapper rolls it at once. */
+  rollsSoon = false;
   /** How the Director is asked; replaced in tests and on the dev page. */
   ask: (req: ReelRequest) => Promise<ReelAnswer | null> = (req) => requestReel(req);
   /** Every set a reel may ask for, with the names of its marks (for checking reels before they play). */
@@ -221,6 +223,7 @@ export class Serial {
   /** The clapper: roll the reel that is ready (a returning player goes straight to what happens next). */
   async roll(): Promise<void> {
     if (this.state !== 'ready') return;
+    this.rollsSoon = false;
     if (this.resuming) {
       this.resuming = false;
       this.offerPitches();
@@ -294,6 +297,7 @@ export class Serial {
     }
     this.usedProps.push(prop);
     this.reels.push(reel);
+    this.rollsSoon = true;
     await this.prepare(this.reels.length - 1);
     // whoever went over the edge of the desk last reel climbs back into the picture before this one
     if (this.story[this.story.length - 1]?.flags.includes('thief_out') && this.theatre.hasDesk) {
@@ -301,9 +305,9 @@ export class Serial {
     }
     const note = answer && reel.title === answer.plan.title ? answer.note : '';
     if (note && (this.state as SerialState) === 'ready') {
-      // the Director's line to the player, on the stage's own card (where it can be read), before the reel rolls;
-      // the clapper rolls it at once for anyone who will not wait
-      this.theatre.showCard('From the Director', note);
+      // the Director's line to the player, on the stage's own card and in its large letters (it is the line that
+      // says what their sounds did), before the reel rolls; the clapper rolls it at once for anyone who will not wait
+      this.theatre.showCard(`“${note}”`, 'From the Director');
       await this.pause(4);
     }
     await this.roll();
