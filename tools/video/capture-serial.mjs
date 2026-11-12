@@ -29,6 +29,7 @@ const pitchProp = opt('pitch', null);
 const openProp = opt('open', 'bell');
 // --tilt -8: how far the head is tipped down for the whole take, in degrees (shows more of the table under the stage)
 const tilt = Number(opt('tilt', -8));
+// --voice: as if the microphone had been allowed on the page (the megaphone glows at the pitch, the card offers it)
 // --stop-at "Shake the thunder": end the take when the stage first waits for a cue whose label matches (a short clip)
 const stopAt = opt('stop-at', null) ? new RegExp(String(opt('stop-at')), 'i') : null;
 // --start bell: the first clapper rolls that prop's written reel instead of reel one (for clips of the later reels)
@@ -156,7 +157,7 @@ async function pat(prop, times = 1) {
 
 async function main() {
   await waitReady();
-  log(JSON.stringify(iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '1', REEL: startOn })?.data?.result ?? {}));
+  log(JSON.stringify(iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '1', REEL: startOn, VOICE: opt('voice', false) ? '1' : '0' })?.data?.result ?? {}));
   iw(['browser', 'reload']);
   await sleep(5000);
   await waitReady();
@@ -255,7 +256,7 @@ async function main() {
   writeFileSync(join(out, 'log.txt'), [...sounds.values()].join('\n') + '\n');
   // what happened in the story, on the show's clock: `EVT <seconds> <line>` (cues, cards, scene changes)
   writeFileSync(join(out, 'events.txt'), [...events.values()].join('\n') + '\n');
-  iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0', REEL: '' });
+  iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0', REEL: '', VOICE: '0' });
 
   // picture: every captured frame is a thirtieth of a second
   const frames = JSON.parse(readFileSync(join(out, 'frames.json'), 'utf8'));
@@ -275,7 +276,7 @@ async function main() {
 main().catch((e) => {
   console.error('FAIL:', e.message);
   try {
-    iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0', REEL: '' });
+    iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0', REEL: '', VOICE: '0' });
   } catch {}
   process.exit(1);
 });
