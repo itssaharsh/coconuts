@@ -30,9 +30,9 @@ Experience division.
 | Weather and debris | rain that starts on the player's thunder, ground mist, embers over fires, sparks where steel meets, dust, broken glass, confetti: four draw calls in all, lit and graded by the film's own shader (`src/serial/fx.ts`) |
 | The reels after it | planned by the Director (Claude) from the player's pitch and what their sounds did so far, then assembled from hand-staged pieces and checked; a written reel for every prop plays whenever the model is slow, wrong or absent |
 | The six props | hand interactions: a pat, a pinch from afar, gaze and pinch, or pick up and shake; recorded CC0 sounds with a synthesised fallback |
-| Speaking a pitch | optional: hold the megaphone, speech-to-text by AssemblyAI; off without a microphone or the key, and the pitch cards always work |
+| Speaking a pitch | optional: hold the megaphone; speech-to-text by Gemini, with AssemblyAI raced in when Gemini is slow (about 2.6 s); the page asks once, before the first curtain, whether the Director may hear you; off without a microphone or the keys, and the pitch cards always work |
 | Wall size | the player's thunder bursts the toy theatre to the size of the wall; a tile switches back, and it stays small if the headset cannot keep its frame rate |
-| Headset testing | the IWSDK desktop emulator only (Quest 3 profile); no physical headset was available to the builder |
+| Headset testing | the IWSDK desktop emulator only (Quest 3 profile, and the Meta VR Glasses profile for gaze and pinch); no physical headset was available to the builder |
 
 ## How it plays
 
@@ -67,8 +67,11 @@ and the words on the cards, plus three pitches for the reel after and one line t
 - The plan is checked twice (`checkPlan` on the server and again in the browser, then the assembled reel
   against the set's marks). One repair turn; after that, or after 9 seconds, a written reel plays.
 - The Director's one line to the player (what their sounds did) is shown on the stage's own card before its reel.
-- Claude (`claude-opus-5-5`, one structured-output call, low effort, cached system prompt) is tried first,
-  Gemini second, the written reels last. A per-IP limit and a daily cap bound the cost.
+- Claude (`claude-opus-5-5` in fast mode, one structured-output call, low effort, cached system prompt; about
+  3 seconds) is tried first, Gemini second, the written reels last. The function is warmed when a reel starts,
+  so the first answer is not the slowest. A per-IP limit and a daily cap bound the cost.
+- The Director is told what each of the player's sounds did, as facts, and its one line to the player has to be
+  about one of them; a reel may not lean on one prop.
 - The player's spoken pitch is story material, never instructions: it is cleaned, kept out of the system
   prompt, and echoed on a card.
 
@@ -85,7 +88,7 @@ npm test            # unit tests: the stage runtime with a fake stage, the piece
 ```
 
 Keys, all optional (in the environment of the functions): `ANTHROPIC_API_KEY` for the Director,
-`GEMINI_API_KEY` as its second, `ASSEMBLYAI_API_KEY` for spoken pitches. Without any of them the serial plays
+`GEMINI_API_KEY` as its second and for spoken pitches, `ASSEMBLYAI_API_KEY` as the second ear. Without any of them the serial plays
 its written reels.
 
 Two more ways to look at the stage:
