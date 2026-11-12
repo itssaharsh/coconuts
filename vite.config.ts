@@ -14,11 +14,9 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 8081,
     open: false,
-    // films and cue sheets are written by tools while the dev runtime runs; a full reload would drop an XR session
+    // assets are written by tools while the dev runtime runs; a full reload would drop an XR session
     watch: {
       ignored: [
-        '**/public/films/**',
-        '**/public/clips/**',
         '**/public/models/**',
         '**/public/serial/**',
         '**/public/audio/**',

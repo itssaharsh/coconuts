@@ -92,8 +92,6 @@ pids/
 design/
 .claude/
 
-# synthetic test reels
-public/films/test.*
 qa/
 
 # downloaded CC0 kits (sources; only processed GLBs ship in public/)
