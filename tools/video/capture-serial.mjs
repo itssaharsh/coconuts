@@ -5,7 +5,10 @@
 // The hands are moved in the same slow time. The sound is laid under afterwards from the game's own log of what it
 // would have played (tools/video/soundtrack.py).
 //
-//   node tools/video/capture-serial.mjs --out qa/film/reel1 [--until pitch|end] [--reels 1] [--pitch thunder] [--open bell] [--size 1280x720]
+//   node tools/video/capture-serial.mjs --out qa/film/reel1 [--until pitch|end] [--reels 1] [--pitch thunder] [--open bell] [--start bell] [--tilt -8] [--size 1920x1080]
+//
+// For frames that are the headset view and nothing else, start the runtime at the film's size first:
+//   iwsdk dev up --ai-mode agent --allow-browser-automation --headless --screenshot-width 1920 --screenshot-height 1080
 //
 // Needs the dev runtime (`iwsdk dev up --ai-mode agent --allow-browser-automation --headless`). Leaves capture mode off.
 import { execFileSync, spawn } from 'node:child_process';
@@ -24,6 +27,8 @@ const until = opt('until', 'pitch');
 const reels = Number(opt('reels', 1));
 const pitchProp = opt('pitch', null);
 const openProp = opt('open', 'bell');
+// --tilt -8: how far the head is tipped down for the whole take, in degrees (shows more of the table under the stage)
+const tilt = Number(opt('tilt', -8));
 // --start bell: the first clapper rolls that prop's written reel instead of reel one (for clips of the later reels)
 const startOn = String(opt('start', '') || '');
 const [W, H] = String(opt('size', '1920x1080')).split('x').map(Number);
@@ -179,6 +184,7 @@ async function main() {
   slow = slowdown(boot);
   log('slow time: one show second takes', slow.toFixed(1), 'real seconds');
   calibrate();
+  if (tilt) look(tilt, 0.05);
 
   const rec = spawn(process.execPath, ['tools/xr/record-cdp.mjs'], {
     env: { ...process.env, REC_DIR: out, REC_SECONDS: String(maxSeconds), REC_FPS: '240', REC_W: String(W), REC_H: String(H), REC_QUALITY: '93' },
@@ -228,10 +234,10 @@ async function main() {
         // the film breaks out: the player looks down at the desk, where the thief has landed, until he is over its edge
         if (/jumps/i.test(label)) {
           await sleep(1.6 * slow * 1000);
-          look(-24, 0.7);
+          look(tilt - 20, 0.7);
         } else if (/edge/i.test(label)) {
           await sleep(2.6 * slow * 1000);
-          look(0, 0.8);
+          look(tilt, 0.8);
         }
       }
     } else await sleep(500);

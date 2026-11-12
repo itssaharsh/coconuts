@@ -113,6 +113,14 @@ html:not(.show-serial) .s-only,
 html:not(.show-serial) #scene-container > .house {
   display: none !important;
 }
+/* in the headset the room is the player's own: nothing of the page stands behind the stage */
+body.in-xr #scene-container > .house {
+  display: none !important;
+}
+/* (a desktop emulator shows the page where a headset shows the room: a dim room, then, not a web page) */
+body.in-xr {
+  background: radial-gradient(70% 80% at 50% 38%, #3a2a22 0%, #241915 55%, #120c0a 100%) fixed;
+}
 
 /* the house: the stage's own room, under the canvas; the engine's house lights darken it further while a reel plays */
 .show-serial #scene-container {
