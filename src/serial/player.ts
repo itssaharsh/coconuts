@@ -608,7 +608,11 @@ export class ReelPlayer {
             quiet = 0;
             // each hoofbeat kicks up the road, and the road carries the dust away behind
             this.theatre.burst('dust', hx - 0.5, 0, hz + 0.25, 0.55, -(2.5 + 6 * (this.mount?.speed ?? 0)));
-          } else this.side.push(this.stock(s));
+          } else if (s.prop === 'thunder') {
+            this.theatre.lightning();
+            this.mount?.lurch();
+            this.theatre.onSound?.('whinny');
+          } else if (this.mounted) this.theatre.emote(this.mounted, s.prop === 'glass' ? '!' : s.prop === 'door' ? '?' : 'note');
         }
         // tempo sets the gait: a slow pat is a walk, a quick rattle a gallop
         const last = recent.length ? Math.min(...recent) : 9;

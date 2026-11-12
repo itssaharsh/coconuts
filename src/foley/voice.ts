@@ -2,7 +2,7 @@
 // Everything here is optional. The microphone is asked for on the page, before the headset view, and only if the
 // player wants it; when it is missing, refused or silent the game carries on with its pitch cards.
 
-import { functionsBase } from './env';
+import { automationRun, functionsBase } from './env';
 import { audioContext } from './sound';
 
 let stream: MediaStream | null = null;
@@ -14,6 +14,26 @@ let opening = false;
 let calledOff = false;
 
 const FLAG = 'coconuts.voice';
+
+/**
+ * A filmed run has no microphone: the capture tool leaves a recording in the browser's storage, and a held megaphone
+ * hears that instead (under automation only: a player's megaphone always opens the microphone).
+ */
+const SAY = 'coconuts.say';
+let scripted: Blob | null = null;
+function scriptedTake(): Blob | null {
+  if (!automationRun()) return null;
+  try {
+    const m = /^data:([^;,]+);base64,(.+)$/.exec(localStorage.getItem(SAY) ?? '');
+    if (!m) return null;
+    const bin = atob(m[2]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: m[1] });
+  } catch {
+    return null;
+  }
+}
 
 export function voiceSupported(): boolean {
   return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
@@ -69,6 +89,20 @@ export async function enableVoice(timeoutMs = 0): Promise<boolean> {
   return true;
 }
 
+/**
+ * The microphone can be opened without the browser asking anything: the permission already stands, and the player
+ * has not answered "sounds only" on the page. (Inside the headset view a browser prompt would cover the show.)
+ */
+export async function micAllowed(): Promise<boolean> {
+  try {
+    if (!voiceSupported() || localStorage.getItem('coconuts.voiceAsk') === 'no') return false;
+    const p = await navigator.permissions?.query({ name: 'microphone' as PermissionName });
+    return p?.state === 'granted';
+  } catch {
+    return false; // a browser that will not say is treated as one that would ask
+  }
+}
+
 /** The loudest moment of the take so far, 0..1: a take that never rose above the room is not sent anywhere. */
 let peak = 0;
 let meter: { stop: () => void } | null = null;
@@ -116,7 +150,9 @@ function mimeType(): string {
 
 /** Open the microphone and start recording; it stops by itself after `maxMs`. False when there is nothing to record with. */
 export async function startListening(maxMs = 6000, onAutoStop?: () => void): Promise<boolean | 'off'> {
-  if (recorder || opening || !voiceSupported()) return false;
+  if (recorder || opening || scripted || !voiceSupported()) return false;
+  scripted = scriptedTake();
+  if (scripted) return true; // (no clock on this take: whoever films lets go of the megaphone)
   opening = true;
   calledOff = false;
   const s = await acquire(4000);
@@ -150,11 +186,16 @@ export async function startListening(maxMs = 6000, onAutoStop?: () => void): Pro
 
 /** A take is being recorded, or the microphone is being opened for one. */
 export function listening(): boolean {
-  return !!recorder || opening;
+  return !!recorder || opening || !!scripted;
 }
 
 /** Stop and hand back what was recorded (null when nothing was). The microphone is closed again. */
 export function stopListening(): Promise<Blob | null> {
+  if (scripted) {
+    const take = scripted;
+    scripted = null;
+    return Promise.resolve(take);
+  }
   if (stopTimer) clearTimeout(stopTimer);
   stopTimer = null;
   if (opening) calledOff = true; // let go before the microphone had opened

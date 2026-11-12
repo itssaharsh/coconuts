@@ -26,6 +26,13 @@ const TABLE_BELOW = 0.25;
 // stands in front of the stage; the theatre behind it, its floor a hand's breadth below the eye line.
 const SERIAL_TABLE_AHEAD = 0.46;
 const SERIAL_TABLE_BELOW = 0.38;
+/**
+ * A real desk stands 72 to 76 cm high. For someone sitting low the table would come out level with it or inside it,
+ * and props inside a real desk cannot be patted; so for a seated player it never stands lower than this (its top a
+ * few centimetres clear of a desk). Someone sitting on the floor gets it by eye height alone.
+ */
+const SEATED_EYE_MIN = 1.0;
+const TABLE_FLOOR_MIN = 0.775;
 const THEATRE_AHEAD = 0.88;
 const THEATRE_FLOOR_BELOW = 0.24;
 // ...and blown up to the size of the wall: further off and lower, so a seated player looks down into a room-wide stage
@@ -60,12 +67,15 @@ export class Stage {
   /** Lies on the table top: where a character who leaves the picture lands and runs (metres; z toward the player). */
   readonly desk = new Group();
   private ahead: number;
+  /** The Serial's seating (see TABLE_FLOOR_MIN). */
+  private serialSeat = false;
   private below: number;
   /** 0 = the toy on the desk, 1 = wall size; eased, fast enough to hide inside a lightning flash. */
   private bigness = 0;
   private wantBig = 0;
 
   constructor(readonly serial = false) {
+    this.serialSeat = serial;
     this.ahead = serial ? SERIAL_TABLE_AHEAD : TABLE_AHEAD;
     this.below = serial ? SERIAL_TABLE_BELOW : TABLE_BELOW;
     this.root.name = 'coconuts-stage';
@@ -182,6 +192,7 @@ export class Stage {
     fwd.normalize();
     this.root.position.copy(eye).addScaledVector(fwd, this.ahead);
     this.root.position.y = eye.y - this.below;
+    if (this.serialSeat && eye.y >= SEATED_EYE_MIN) this.root.position.y = Math.max(this.root.position.y, TABLE_FLOOR_MIN);
     this.root.rotation.set(0, Math.atan2(fwd.x, fwd.z) + Math.PI, 0);
   }
 

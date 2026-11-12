@@ -46,8 +46,11 @@ export async function ensureAudio(): Promise<AudioContext | null> {
       limiter.attack.value = 0.002;
       limiter.release.value = 0.12;
       master.connect(limiter).connect(ctx.destination);
-      recDest = ctx.createMediaStreamDestination();
-      limiter.connect(recDest);
+      if (soundForced()) {
+        // the mix as a stream, only where a tool records it
+        recDest = ctx.createMediaStreamDestination();
+        limiter.connect(recDest);
+      }
       console.log('AUDIO ready', ctx.sampleRate);
     }
     // resume() can stay pending until the browser has seen a gesture (a session begun from the browser's own

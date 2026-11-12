@@ -212,6 +212,14 @@ export class Theatre {
   private raining = false;
   private warmFrames = 0;
   /**
+   * The floating cards' materials, kept between uses. A sprite's shader lives only while some material uses it: made
+   * and thrown away with every sound word, it was being built again at each sound, exactly when the player acts.
+   */
+  private spriteMats: SpriteMaterial[] = [];
+  /** An actor being drawn for a few frames the way it looks outside the picture, to build that look's shader early. */
+  private freeWarm: { actor: Actor; frames: number } | null = null;
+  private freeWarmed = false;
+  /**
    * The house lights are up: the player's own room is to be seen (somebody has left the picture and is in it).
    * Whoever dims the room for the show reads this.
    */
@@ -510,6 +518,27 @@ export class Theatre {
     this.home(a);
     this.stage.add(a.root);
     a.onStage = true;
+    // behind a closed curtain or iris: the moment to build the look an actor has outside the picture (see warmFree)
+    if (!this.freeWarmed && !this.freeWarm && (this.curtainOpen < 0.02 || this.irisOpen < 0.02)) this.warmFree(a);
+  }
+
+  /**
+   * An actor that leaves the picture swaps to a look with no wings to cut it off, and the first drawing of that look
+   * builds its shader: at the thief's leap, the one moment that must not stall. So an actor on the stage is drawn that
+   * way for a few frames while nobody can see it, once for each view (a headset's shaders are its own).
+   */
+  private warmFree(a: Actor): void {
+    this.freeWarm = { actor: a, frames: 3 };
+    a.setFree(true);
+  }
+
+  /** A material for a floating card, from the spares when there is one. */
+  private spriteMat(map: Texture, depthTest: boolean): SpriteMaterial {
+    const m = this.spriteMats.pop() ?? new SpriteMaterial({ toneMapped: false, transparent: true, depthWrite: false });
+    m.map = map;
+    m.depthTest = depthTest;
+    m.opacity = 1;
+    return m;
   }
 
   removeActor(a: Actor): void {
@@ -554,6 +583,7 @@ export class Theatre {
       },
       () =>
         call(() => {
+          if (this.freeWarm?.actor === a) this.freeWarm = null; // it is leaving in earnest
           a.onStage = false;
           this.onSound?.('whoosh');
           this.react('gasp', 4);
@@ -755,6 +785,14 @@ export class Theatre {
   warm(): void {
     this.warmFrames = 3;
     this.fx?.warm(3);
+    this.freeWarmed = false;
+    // the floating cards' shader too: one card, unseen, for the same few frames
+    const s = new Sprite(this.spriteMat(emoteCard('!'), false));
+    s.scale.setScalar(0.01);
+    s.position.set(0, 1, BACK_Z);
+    s.renderOrder = -1;
+    this.stage.add(s);
+    this.floaters.push({ sprite: s, life: 0.05, total: 0.05, rise: 0, base: 0.01 });
   }
 
   /** A storm breaks over the scene (or passes). Rain falls only under the sky; a room keeps it outside. */
@@ -792,7 +830,7 @@ export class Theatre {
   }
 
   emote(actor: Actor, emote: Emote): void {
-    const s = new Sprite(new SpriteMaterial({ toneMapped: false, map: emoteCard(emote), transparent: true, depthWrite: false }));
+    const s = new Sprite(this.spriteMat(emoteCard(emote), true));
     actor.head(s.position);
     if (emote === 'skull') this.react('gasp', 8); // the dead are up
     s.scale.setScalar(1.5);
@@ -803,7 +841,7 @@ export class Theatre {
 
   /** Every sound is seen as well as heard: a comic word bursts at the foot of the stage. */
   soundWord(prop: PropId, kind?: string): void {
-    const s = new Sprite(new SpriteMaterial({ toneMapped: false, map: wordCard(soundWordFor(prop, kind)), transparent: true, depthWrite: false, depthTest: false }));
+    const s = new Sprite(this.spriteMat(wordCard(soundWordFor(prop, kind)), false));
     const side = this.floaters.length % 2 ? 1 : -1;
     s.position.set(side * (3.3 + Math.random() * 1.4), 0.7 + Math.random() * 0.9, FRONT_Z + 0.3);
     s.scale.set(3.0, 1.15, 1);
@@ -878,6 +916,11 @@ export class Theatre {
       this.flashMesh.visible = f > 0.01;
       film.flash.value = f;
     }
+    if (this.freeWarm && --this.freeWarm.frames <= 0) {
+      this.freeWarm.actor.setFree(false);
+      this.freeWarm = null;
+      this.freeWarmed = true;
+    }
     // a first drawing of the flash and the iris, unseen, builds their shaders before a reel needs them
     if (this.warmFrames > 0) {
       this.warmFrames--;
@@ -899,7 +942,7 @@ export class Theatre {
       f.sprite.position.y += f.rise * dt;
       if (f.life <= 0) {
         this.stage.remove(f.sprite);
-        m.dispose(); // the card's texture is kept for the next time
+        this.spriteMats.push(m); // kept for the next card (and the card's texture with its own cache)
         this.floaters.splice(i, 1);
       }
     }

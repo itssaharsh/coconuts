@@ -11,6 +11,13 @@ export interface Sample {
  * Fires on each downward reversal of a held object: the hand moves down, then stops or comes back up.
  * That is a coconut shell meeting the other one, or a shoe meeting the ground.
  */
+/**
+ * The detectors below take speed from one sample to the next. They were tuned on samples about a thirtieth of a
+ * second apart; a headset feeds them two or three times as often, and the same few millimetres of tracking jitter
+ * would then read as two or three times the speed. Samples closer together than this are passed over.
+ */
+const MIN_STEP_S = 0.028;
+
 export class StrikeDetector {
   private prev: Sample | null = null;
   private vy = 0;
@@ -35,7 +42,7 @@ export class StrikeDetector {
       return null;
     }
     const dt = s.t - this.prev.t;
-    if (dt <= 0) return null;
+    if (dt < MIN_STEP_S) return null;
     const vyRaw = (s.y - this.prev.y) / dt;
     this.vy = this.vy * 0.4 + vyRaw * 0.6; // light smoothing against tracking jitter
     this.prev = s;
@@ -72,7 +79,8 @@ export class ShakeMeter {
       this.prev = s;
       return 0;
     }
-    const dt = Math.max(1e-3, s.t - this.prev.t);
+    const dt = s.t - this.prev.t;
+    if (dt < MIN_STEP_S) return this.level;
     const dx = s.x - this.prev.x;
     const dy = s.y - this.prev.y;
     const dz = s.z - this.prev.z;
@@ -122,10 +130,10 @@ export class PatGate {
   private count = 0;
 
   constructor(
-    public travel = 0.03, // m the fingertip must have come in the last `window` seconds
-    public window = 0.7,
+    public travel = 0.025, // m the fingertip must have come in the last `window` seconds
+    public window = 0.9,
     public speed = 0.2, // m/s that counts as a pat whatever the travel
-    private size = 64,
+    private size = 96, // (the window at 90 samples a second, and to spare)
   ) {
     this.p = new Float32Array(size * 3);
     this.t = new Float64Array(size);
@@ -137,6 +145,14 @@ export class PatGate {
   }
 
   feed(t: number, x: number, y: number, z: number): void {
+    if (this.count > 0) {
+      // a fingertip does not jump: a step this long in one sample is the tracking finding the hand again somewhere
+      // else, and what came before says nothing about how it got here
+      const j = (this.head - 1 + this.size) % this.size;
+      const step = Math.hypot(x - this.p[j * 3], y - this.p[j * 3 + 1], z - this.p[j * 3 + 2]);
+      const dt = t - this.t[j];
+      if (step > 0.12 || (step > 0.06 && dt > 0 && step / dt > 8)) this.reset();
+    }
     const i = this.head;
     this.p[i * 3] = x;
     this.p[i * 3 + 1] = y;
@@ -177,5 +193,72 @@ export class PatGate {
   /** How fast the fingertip was moving as it arrived, m/s (a hard knock is a slam). */
   arrival(): number {
     return this.measure().fast;
+  }
+}
+
+/** A fingertip this near a piece's own shape touches it (metres). */
+export const TOUCH_IN = 0.012;
+/**
+ * A finger sinks a centimetre or three into a prop that is not there, and a drummer lifts no further than that
+ * between pats. So a touch is followed as a stroke: once the finger has come this far back up out of it, the pat is
+ * over, and from there this far down again is the next one, without the finger ever leaving the prop.
+ */
+export const TOUCH_LIFT = 0.02;
+export const TOUCH_DROP = 0.012;
+/** A return this soon after the lift is drumming and needs no other proof that it was meant. */
+const DRUM_S = 1.2;
+
+/**
+ * One fingertip on one piece, from the moment it touches until it is clear of it. Feed it, every frame, how far the
+ * fingertip is from the piece's shape: metres, negative inside (the depth under the nearest face).
+ */
+export class Stroke {
+  /** The finger has come back up out of its stroke: its next way down is a new pat. */
+  lifted = false;
+  private deep: number;
+  private high: number;
+  private liftedAt = 0;
+
+  /** `live`: the touch counted when it began (a creeping or resting finger's does not). */
+  constructor(
+    public readonly id: string,
+    depth: number,
+    public live: boolean,
+  ) {
+    this.deep = depth;
+    this.high = depth;
+  }
+
+  /**
+   * 'pat': the finger struck again, or a touch that had not counted now does. 'lift': a pat that counted is over.
+   * `arrival` is the fingertip's speed just now (m/s), `fast` the speed that makes a pat of any touch, and `meant`
+   * says whether a slow return should count (asked only then).
+   */
+  feed(depth: number, t: number, pinching: boolean, arrival: number, fast: number, meant: () => boolean): 'pat' | 'lift' | null {
+    if (!this.lifted) {
+      if (depth < this.deep) this.deep = depth;
+      if (!this.live && !pinching && this.high - depth >= 0.01 && arrival >= fast) {
+        // it crept in and did not count; now it presses on in earnest: a pat after all
+        this.live = true;
+        return 'pat';
+      }
+      if (depth - this.deep >= TOUCH_LIFT) {
+        // up out of the stroke: the pat is over, and the next way down is a new one
+        const was = this.live;
+        this.lifted = true;
+        this.high = depth;
+        this.liftedAt = t;
+        return was ? 'lift' : null;
+      }
+      return null;
+    }
+    if (depth > this.high) this.high = depth;
+    if (pinching || depth > TOUCH_IN || this.high - depth < TOUCH_DROP) return null;
+    // down again: a quick return is drumming; a slow one has to be as deliberate as a first touch
+    this.live = t - this.liftedAt < DRUM_S || meant();
+    this.lifted = false;
+    this.deep = depth;
+    this.high = depth;
+    return this.live ? 'pat' : null;
   }
 }
