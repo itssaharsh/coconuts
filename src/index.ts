@@ -3,7 +3,10 @@ import { ensureAudio, recordStream } from './foley/sound';
 import { VisibilityState, World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
 import { FoleySystem, setFoleyHooks, type FoleyApi } from './foley/system';
+import { applySdkFixes } from './foley/sdk-fixes';
 import { mountSerialLanding } from './landing/serial-landing';
+
+applySdkFixes();
 
 let api: FoleyApi | null = null;
 setFoleyHooks({
