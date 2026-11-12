@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { REEL_1 } from '../src/serial/chapter1';
+import { REEL_1, REEL_1_FINALE } from '../src/serial/chapter1';
 import { DERIVED_MARKS, type Beat, type CastEntry, type Reel, type SetInfo, validateReel } from '../src/serial/schema';
 
 const SET_IDS = ['camp', 'gate', 'graveyard', 'hall', 'inn', 'vault'];
@@ -34,6 +34,9 @@ const good = (...beats: Beat[]): Reel => reel([...beats, ding(), ding()]);
 describe('validateReel', () => {
   it('accepts the hand-written REEL_1 against the real catalogue', () => {
     expect(validateReel(REEL_1, cat)).toEqual([]);
+    // (and its end by itself, which a filmed run may start on)
+    expect(validateReel(REEL_1_FINALE, cat)).toEqual([]);
+    expect(REEL_1_FINALE.beats.filter((b) => b.k === 'cue').map((b) => (b.k === 'cue' ? b.prop : ''))).toEqual(['bell', 'glass', 'whistle']);
   });
 
   it('accepts the small base reel', () => {

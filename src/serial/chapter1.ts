@@ -250,3 +250,24 @@ export const REEL_1: Reel = {
 };
 
 export const CHAPTER_1: Reel[] = [REEL_1];
+
+/**
+ * The end of reel one by itself (the last blow of the duel, and the breakout), for filming and testing it without the
+ * two minutes before it: `?reel=finale` in a dev build or an automated browser. Not part of the serial.
+ */
+export const REEL_1_FINALE: Reel = {
+  ...REEL_1,
+  id: 'c1r1-finale',
+  sub: 'The end of the duel.',
+  set: 'vault',
+  tint: 'amber',
+  cast: [
+    { id: 'thief', char: 'rogue_hooded', at: 'duel_a', item: 'dagger' },
+    { ...KNIGHT, at: 'duel_b' },
+  ],
+  beats: [
+    { k: 'fx', fx: 'grow' },
+    { k: 'wait', secs: 1.5 },
+    ...REEL_1.beats.slice(REEL_1.beats.findIndex((b) => b.k === 'cue' && b.label === 'Ring: the last blow!')),
+  ],
+};

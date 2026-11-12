@@ -345,6 +345,12 @@ export class Serial {
     return true;
   }
 
+  /** Put a finished reel on the stage, ready for the clapper (a filmed or tested run may start on one). */
+  async previewReel(reel: Reel): Promise<void> {
+    this.reels.push(reel);
+    await this.prepare(this.reels.length - 1);
+  }
+
   /** A plan made into a reel, or null when it does not check against the pieces or the sets. */
   private stage(plan: ReelPlan | undefined, id: string): Reel | null {
     if (!plan || checkPlan(plan).length) return null;

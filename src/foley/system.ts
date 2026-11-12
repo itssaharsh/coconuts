@@ -22,6 +22,7 @@ import { DESK_ROUTE, PROP_IDS } from './types';
 import { Serial, type SerialState } from '../serial/serial';
 import type { Waiting } from '../serial/player';
 import { type ReelPlan, WRITTEN } from '../serial/pieces';
+import { REEL_1_FINALE } from '../serial/chapter1';
 
 const tmpP = new Vector3();
 const tmpM = new Matrix4();
@@ -235,6 +236,7 @@ export class FoleySystem extends createSystem({
         .then(() => {
           // (a test or capture run may ask for one of the written reels instead of reel one)
           const want = startReel();
+          if (want === 'finale') return serial.previewReel(REEL_1_FINALE).then(() => console.log('SERIAL starts on the end of reel one'));
           const plan = want ? (WRITTEN as Record<string, ReelPlan | undefined>)[want] : undefined;
           if (plan) return serial.preview(plan).then((ok) => console.log('SERIAL starts on the written reel for', want, ok ? '' : '(it did not stage)'));
         })
