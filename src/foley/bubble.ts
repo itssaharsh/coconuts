@@ -1,4 +1,4 @@
-// Paper-tag speech bubbles drawn on canvas textures: the Director's lines and the take summary.
+// Paper-tag speech bubbles drawn on canvas textures: the slate's lines over the table.
 import { CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, SRGBColorSpace, Vector3 } from 'three';
 
 const PX_PER_M = 1600; // canvas pixels per metre of bubble

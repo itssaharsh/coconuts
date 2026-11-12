@@ -1,7 +1,6 @@
-// The stage: the table with its props, clapperboard and tiles, and the screen, as one root group.
+// The stage: the table with its props, clapperboard and tiles, and the toy theatre's mount, as one root group.
 import { CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, Quaternion, SRGBColorSpace, Vector3 } from 'three';
 import { dress, mergeByFinish, modelStats } from './models';
-import { Screen } from './screen';
 import { PALETTE, TABLE_D, TABLE_H, TABLE_W, buildClapper, buildMegaphone, buildProp, buildTable, buildTile, mat, nameHitBoxes } from './toys';
 import { PROPS, type PropId } from './types';
 
@@ -18,14 +17,10 @@ export interface PropPiece {
   pulse: number;
 }
 
-const SCREEN_AHEAD = 1.3;
-const SCREEN_LIFT = 0.15; // screen centre 15 cm above eye height, so the lane under it clears most props
-const TABLE_AHEAD = 0.75;
-const TABLE_BELOW = 0.25;
-// The Serial's seating: the table nearer and at desk height, so every prop is inside a seated reach and none of them
-// stands in front of the stage; the theatre behind it, its floor a hand's breadth below the eye line.
-const SERIAL_TABLE_AHEAD = 0.46;
-const SERIAL_TABLE_BELOW = 0.38;
+// The seating: the table near and at desk height, so every prop is inside a seated reach and none of them stands in
+// front of the stage; the theatre behind it, its floor a hand's breadth below the eye line.
+const TABLE_AHEAD = 0.46;
+const TABLE_BELOW = 0.38;
 /**
  * A real desk stands 72 to 76 cm high. For someone sitting low the table would come out level with it or inside it,
  * and props inside a real desk cannot be patted; so for a seated player it never stands lower than this (its top a
@@ -46,13 +41,12 @@ const TILES: { id: PieceId; label: string }[] = [
   { id: 'tile-volume', label: 'Vol 100' },
   { id: 'tile-redo', label: 'Redo' },
 ];
-/** The Serial's fourth tile: the theatre at wall size or back on the desk, whenever the player likes. */
+/** The fourth tile: the theatre at wall size or back on the desk, whenever the player likes. */
 const SIZE_TILE: { id: PieceId; label: string } = { id: 'tile-size', label: 'Stage big' };
 
 export class Stage {
   readonly root = new Group();
   readonly table: Group;
-  readonly screen = new Screen();
   readonly pieces = new Map<string, PropPiece>();
   private byObject = new WeakMap<Object3D, PropPiece>();
   private doorSwing = 0;
@@ -62,25 +56,18 @@ export class Stage {
   private thunderPhase = 0;
   /** True once every Blender model is in (or has failed): the stage's final shape. */
   dressed = false;
-  /** Where the toy theatre stands (the Serial); its origin is the centre of the opening's bottom edge. */
+  /** Where the toy theatre stands; its origin is the centre of the opening's bottom edge. */
   readonly theatreMount = new Group();
   /** Lies on the table top: where a character who leaves the picture lands and runs (metres; z toward the player). */
   readonly desk = new Group();
-  private ahead: number;
-  /** The Serial's seating (see TABLE_FLOOR_MIN). */
-  private serialSeat = false;
-  private below: number;
   /** 0 = the toy on the desk, 1 = wall size; eased, fast enough to hide inside a lightning flash. */
   private bigness = 0;
   private wantBig = 0;
 
-  constructor(readonly serial = false) {
-    this.serialSeat = serial;
-    this.ahead = serial ? SERIAL_TABLE_AHEAD : TABLE_AHEAD;
-    this.below = serial ? SERIAL_TABLE_BELOW : TABLE_BELOW;
+  constructor() {
     this.root.name = 'coconuts-stage';
     this.theatreMount.name = 'theatre-mount';
-    this.theatreMount.position.set(0, this.below - THEATRE_FLOOR_BELOW, -(THEATRE_AHEAD - this.ahead));
+    this.theatreMount.position.set(0, TABLE_BELOW - THEATRE_FLOOR_BELOW, -(THEATRE_AHEAD - TABLE_AHEAD));
     this.root.add(this.theatreMount);
     this.table = buildTable();
     this.root.add(this.table);
@@ -106,22 +93,17 @@ export class Stage {
       this.table.add(tile);
       this.addPiece(t.id, tile);
     });
-    if (serial) {
-      // the Serial's own things stand down the table's left edge, clear of the props: the size tile at the back,
-      // the Director's megaphone in the middle (the clapper is at the front)
-      const size = buildTile(SIZE_TILE.label);
-      size.name = SIZE_TILE.id;
-      size.position.set(-TABLE_W / 2 + 0.04, TABLE_H, -TABLE_D / 2 + 0.06);
-      this.table.add(size);
-      this.addPiece(SIZE_TILE.id, size);
-      const megaphone = buildMegaphone();
-      megaphone.position.set(-TABLE_W / 2 + 0.04, TABLE_H, -0.01);
-      this.table.add(megaphone);
-      this.addPiece('megaphone', megaphone);
-    }
-    this.screen.group.position.set(0, TABLE_BELOW + SCREEN_LIFT, -(SCREEN_AHEAD - TABLE_AHEAD));
-    this.screen.group.visible = !serial; // the theatre takes the film screen's place
-    this.root.add(this.screen.group);
+    // the size tile and the Director's megaphone stand down the table's left edge, clear of the props: the size tile at
+    // the back, the megaphone in the middle (the clapper is at the front)
+    const size = buildTile(SIZE_TILE.label);
+    size.name = SIZE_TILE.id;
+    size.position.set(-TABLE_W / 2 + 0.04, TABLE_H, -TABLE_D / 2 + 0.06);
+    this.table.add(size);
+    this.addPiece(SIZE_TILE.id, size);
+    const megaphone = buildMegaphone();
+    megaphone.position.set(-TABLE_W / 2 + 0.04, TABLE_H, -0.01);
+    this.table.add(megaphone);
+    this.addPiece('megaphone', megaphone);
     void this.dressAll();
   }
 
@@ -150,9 +132,6 @@ export class Stage {
     }
     const clapper = this.pieces.get('clapper');
     if (clapper) jobs.push(dress(clapper.root, 'clapper').then(fold));
-    // the frame's opening is centred 0.28 m above its base, and the film plane has to sit behind its back face
-    const frame = this.screen.group.getObjectByName('screen-frame');
-    if (frame) jobs.push(dress(frame, 'screen', { y: -0.28, z: 0.02 }));
     await Promise.all(jobs);
     const s = modelStats();
     this.dressed = true;
@@ -184,15 +163,15 @@ export class Stage {
     return undefined;
   }
 
-  /** Place the stage relative to the viewer: the table ahead of and below the eyes (how far depends on the show), facing them. */
+  /** Place the stage relative to the viewer: the table ahead of and below the eyes, facing them. */
   placeFrom(eye: Vector3, forward: Vector3): void {
     const fwd = forward.clone();
     fwd.y = 0;
     if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1);
     fwd.normalize();
-    this.root.position.copy(eye).addScaledVector(fwd, this.ahead);
-    this.root.position.y = eye.y - this.below;
-    if (this.serialSeat && eye.y >= SEATED_EYE_MIN) this.root.position.y = Math.max(this.root.position.y, TABLE_FLOOR_MIN);
+    this.root.position.copy(eye).addScaledVector(fwd, TABLE_AHEAD);
+    this.root.position.y = eye.y - TABLE_BELOW;
+    if (eye.y >= SEATED_EYE_MIN) this.root.position.y = Math.max(this.root.position.y, TABLE_FLOOR_MIN);
     this.root.rotation.set(0, Math.atan2(fwd.x, fwd.z) + Math.PI, 0);
   }
 
@@ -276,8 +255,8 @@ export class Stage {
       const b = this.bigness * this.bigness * (3 - 2 * this.bigness);
       this.theatreMount.position.set(
         0,
-        this.below - (THEATRE_FLOOR_BELOW + (BIG_FLOOR_BELOW - THEATRE_FLOOR_BELOW) * b),
-        -(THEATRE_AHEAD + (BIG_AHEAD - THEATRE_AHEAD) * b - this.ahead),
+        TABLE_BELOW - (THEATRE_FLOOR_BELOW + (BIG_FLOOR_BELOW - THEATRE_FLOOR_BELOW) * b),
+        -(THEATRE_AHEAD + (BIG_AHEAD - THEATRE_AHEAD) * b - TABLE_AHEAD),
       );
     }
     const k = Math.min(1, dt * 14);

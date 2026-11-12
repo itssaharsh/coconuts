@@ -5,7 +5,7 @@ import { BufferAttribute, type BufferGeometry, Group, Matrix4, Mesh, MeshStandar
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { PropId } from './types';
 
-export type ModelKind = PropId | 'clapper' | 'table' | 'screen';
+export type ModelKind = PropId | 'clapper' | 'table';
 
 const FILES: Record<ModelKind, string> = {
   coconuts: 'coconut_pair.glb',
@@ -16,7 +16,6 @@ const FILES: Record<ModelKind, string> = {
   glass: 'glass_bag.glb',
   clapper: 'clapperboard.glb',
   table: 'table.glb',
-  screen: 'screen_frame.glb',
 };
 
 /** The moving parts the primitives carry as groups; the models bring their own under the same names. */
@@ -49,7 +48,7 @@ export async function dress(group: Object3D, kind: ModelKind, offset?: { x?: num
   model.name = `model-${kind}`;
   model.traverse((o) => {
     if (o instanceof Mesh) {
-      o.castShadow = kind !== 'table' && kind !== 'screen';
+      o.castShadow = kind !== 'table';
       o.receiveShadow = kind === 'table';
     }
   });

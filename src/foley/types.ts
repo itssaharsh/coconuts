@@ -1,4 +1,4 @@
-// Shared foley types: props, hits, takes.
+// Shared foley types: props and hits.
 
 export type PropId = 'coconuts' | 'door' | 'bell' | 'thunder' | 'whistle' | 'glass';
 
@@ -46,7 +46,7 @@ export const DESK_ROUTE: { unit: number; path: [number, number][]; off: [number,
 
 export type HitKind = 'clop' | 'knock' | 'slam' | 'ding' | 'rumble' | 'whistle' | 'crash';
 
-/** One recorded event of a take. `t` is seconds into the clip. */
+/** One sound made on a prop. `t` is always 0: nothing keeps a clock for the hits (the HIT log line prints it). */
 export interface HitEvent {
   t: number;
   prop: PropId;
@@ -55,10 +55,4 @@ export interface HitEvent {
   v: number;
   /** Which hand, when known. */
   hand?: 'left' | 'right' | 'gaze';
-}
-
-export interface Take {
-  clipId: string;
-  events: HitEvent[];
-  startedAt: string;
 }
