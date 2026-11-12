@@ -64,48 +64,67 @@ if (backend === 'gemini' && N > MAX_GEMINI) {
 // ---- varied requests ------------------------------------------------------------------------------
 
 const PROPS = ['coconuts', 'door', 'bell', 'thunder', 'whistle', 'glass'];
-const SPOKEN = [
-  'The thief hides in the market and a bull gets loose',
-  'The skeletons throw a dance in the graveyard',
-  'The Duke hires the thief to steal back his own crown',
-  'The knight’s horse turns out to be the real hero',
-  'A wizard in a bottle at the inn',
-  'The butler did it',
-  'Everyone hides in the vault and waits for midnight',
-  'Make the thief fall in love with a skeleton',
-  'Send in a robot with a laser',
+/** Spoken pitches; the first asks for something the company cannot stage. */
+const SPOKEN = ['A dragon attacks the castle', 'The thief hides in the market and a bull gets loose', 'Make the thief fall in love with a skeleton'];
+
+/** What reel one's sounds really did (the client's facts), in the order they land. */
+const REEL_ONE_DID = [
+  'door: opened the castle gate',
+  'coconuts: carried the knight down the road',
+  'bell: woke the thief, who thought it was supper',
+  'thunder: burst the toy theatre open to the size of the wall',
+  'door: slammed the door in the thief’s face',
+  'bell: rang every blow of the duel',
+  'glass: broke the picture and let the thief out of it, onto the player’s table',
+  'whistle: sent the thief over the edge of the table',
 ];
-/** Ways reel one can have gone; the last is today's ending, where the thief leaps out of the theatre onto the desk. */
-const REEL_ONE = [
-  { title: 'The Midnight Knock', wrote: ['Knock for him', 'Thunder! He hides.', 'Slam it shut!', 'Ring: the last blow!', 'Smash! He jumps!'], flags: ['thief_scared'], cliffhanger: 'The thief has the faster horse.' },
-  { title: 'The Midnight Knock', wrote: ['Knock for him', 'A bell! “Supper?”', 'Ring: the last blow!'], flags: ['thief_hungry'], cliffhanger: 'The thief has the faster horse.' },
+const REEL_ONE = {
+  title: 'The Midnight Knock',
+  wrote: ['Knock for him', 'Clop the coconuts', 'A bell! “Supper?”', 'Shake the thunder!', 'Slam it shut!', 'Ring: the last blow!', 'Smash! He jumps!', 'Whistle him off the edge'],
+  did: REEL_ONE_DID,
+  flags: ['thief_hungry', 'thief_out'],
+  cliffhanger: 'The thief is loose in your room.',
+};
+/** Reel one when the player missed the last cue: the whistle did nothing, so five props were used. */
+const REEL_ONE_MISSED = { ...REEL_ONE, wrote: REEL_ONE.wrote.slice(0, 7), did: REEL_ONE_DID.slice(0, 7) };
+/** Later reels, with the facts their sounds would report. */
+const HISTORY = [
   {
-    title: 'The Midnight Knock',
-    wrote: ['Knock for him', 'Hooves! “The Duke!”', 'Ring: the last blow!', 'Smash! He jumps!', 'Whistle him off the edge'],
-    flags: ['thief_fooled', 'thief_out'],
-    cliffhanger: 'The thief is loose in your room.',
+    title: 'The Chase',
+    wrote: ['Clop the coconuts', 'A tune. A little dance.', 'Shake the thunder', 'Ring: the last blow!'],
+    did: ['coconuts: outran the wolves on the north road', 'whistle: woke the brute, who danced to it', 'thunder: made the camp fire spit', 'bell: rang every blow of the duel with the brute'],
+    flags: ['woke_merry'],
+    cliffhanger: 'The thief runs for the graveyard.',
+  },
+  {
+    title: 'The Graveyard Shortcut',
+    wrote: ['Shake the thunder', 'Ring: the last blow!', 'Whistle for help'],
+    did: ['thunder: raised two skeletons from their graves', 'bell: rang every blow of the duel with the skeleton', 'whistle: called the thief out of hiding'],
+    flags: [],
+    cliffhanger: 'The dead do not stay down.',
+  },
+  {
+    title: 'Last Orders',
+    wrote: ['Knock for him', 'Ring the bell!', 'Ring: the last blow!', 'Smash a bottle!'],
+    did: ['door: knocked up the innkeeper', 'bell: rang for a round of drinks', 'bell: rang every blow of the duel with the thief', 'glass: smashed a bottle and made everyone jump'],
+    flags: [],
+    cliffhanger: 'The thief was never the thief.',
   },
 ];
-const HISTORY = [
-  { title: 'The Chase', wrote: ['Clop the coconuts', 'A tune. A little dance.', 'Ring: the last blow!'], flags: ['woke_merry'], cliffhanger: 'The thief runs for the graveyard.' },
-  { title: 'The Graveyard Shortcut', wrote: ['Shake the thunder', 'Ring: the last blow!', 'bell instead of whistle'], flags: [], cliffhanger: 'The dead do not stay down.' },
-  { title: 'Last Orders', wrote: ['Knock for him', 'Ring the bell!', 'Smash a bottle!'], flags: [], cliffhanger: 'The thief was never the thief.' },
-  { title: 'The Duke at Home', wrote: ['Knock for him', 'Slam it shut!'], flags: [], cliffhanger: 'Locked in with the Duke.' },
-];
 
+/**
+ * The 24 requests: reels 2, 3 and 4 in turn; 21 prop pitches across all six props and three spoken pitches (one for a
+ * dragon); every one with facts for the reel before it (reel one's real facts, every other time without the whistle).
+ */
 function request(i) {
-  const depth = 1 + (i % 4); // one to four earlier reels: reels 2 to 5
-  const story = [REEL_ONE[(i >> 1) % 3], ...HISTORY.slice(i % 3, i % 3 + depth - 1)].slice(0, 4);
-  const kind = i % 3; // 0: a prop pitch, 1: a spoken sentence, 2: a spoken sentence while sounding a prop
-  const round = Math.floor(i / 3); // every kind meets every prop and every sentence in turn
-  const prop = PROPS[round % 6];
-  const pitch =
-    kind === 0
-      ? { prop, text: core.STOCK_PITCH[prop] }
-      : kind === 1
-        ? { text: SPOKEN[round % SPOKEN.length], spoken: true }
-        : { prop: PROPS[(round + 3) % 6], text: SPOKEN[(round + 4) % SPOKEN.length], spoken: true };
-  return { reel: story.length + 1, pitch, story };
+  const reel = 2 + (i % 3);
+  const one = i % 2 ? REEL_ONE_MISSED : REEL_ONE;
+  const later = [HISTORY[i % 3], HISTORY[(i + 1) % 3]];
+  const story = [one, ...later.slice(0, reel - 2)];
+  const spoken = { 5: 0, 13: 1, 21: 2 }[i];
+  const prop = PROPS[i % 6];
+  const pitch = spoken !== undefined ? { text: SPOKEN[spoken], spoken: true } : { prop, text: core.STOCK_PITCH[prop] };
+  return { reel, pitch, story };
 }
 
 // ---- a mock backend: the same paths with scripted answers (good, bad then repaired, bad twice) -----------------
@@ -182,7 +201,10 @@ for (let i = 0; i < N; i++) {
     source: answer.source,
     ms: Math.round(ms),
     trace,
-    checks: pieces.checkPlan(plan).length === 0 && core.serverChecks(plan, req).length === 0,
+    // the written fallback is exempt from the last-reel variety rule (it is never checked at run time)
+    checks: pieces.checkPlan(plan).length === 0 && (answer.source === 'written' || core.serverChecks(plan, req).length === 0),
+    noteFacts: core.checkNoteFacts(answer.note, req),
+    cues: core.reelCues(plan),
     soundingProps: new Set(sounds).size,
     soundingPieces: plan.scenes.flatMap((s) => s.pieces).filter((p) => core.pieceSound(p.piece) !== null).length,
     featuresPitch: !req.pitch.prop || sounds.includes(req.pitch.prop),

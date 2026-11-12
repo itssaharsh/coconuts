@@ -28,10 +28,18 @@ import {
   WORD_LIMITS,
   writeReel,
   writtenAnswer,
+  checkNoteFacts,
+  cleanDid,
+  factNote,
+  notePropsNamed,
+  PIECE_CUES,
+  reelCues,
+  varietyChecks,
+  VARIETY,
 } from '../api/_lib/reel-core';
 import { GET, geminiBackend, handleReel, handleWarm, POST, type ReelDeps, WARM_DAILY_CAP, WARM_EVERY_MS, type WarmDeps } from '../api/reel';
 import { PROP_IDS, type PropId } from '../src/foley/types';
-import { assemble, checkPlan, PITCHES_2, type ReelPlan, SET_IDS, WRITTEN } from '../src/serial/pieces';
+import { assemble, checkPlan, PITCHES_2, type ReelPlan, SET_IDS, WRITTEN, WRITTEN_MORE } from '../src/serial/pieces';
 import { DERIVED_MARKS, CHARACTERS, type SetInfo, validateReel } from '../src/serial/schema';
 
 type Message = Anthropic.Beta.Messages.BetaMessage;
@@ -56,6 +64,18 @@ const STORY = [
   { title: 'The Midnight Knock', wrote: ['Knock for him', 'Thunder! He hides.', 'Ring: the last blow!'], flags: ['thief_scared'], cliffhanger: 'The thief has the faster horse.' },
 ];
 const REQ: ReelRequest = { reel: 2, pitch: { prop: 'thunder', text: 'A storm in the graveyard' }, story: STORY };
+/** What reel one's sounds really did, as the client reports it. */
+const REEL_ONE_DID = [
+  'door: opened the castle gate',
+  'coconuts: carried the knight down the road',
+  'bell: woke the thief, who thought it was supper',
+  'thunder: burst the toy theatre open to the size of the wall',
+  'door: slammed the door in the thief’s face',
+  'bell: rang every blow of the duel',
+  'glass: broke the picture and let the thief out of it, onto the player’s table',
+];
+/** A request whose last reel has facts: no whistle among them. */
+const REQ_DID: ReelRequest = { ...REQ, story: [{ ...STORY[0], did: REEL_ONE_DID }] };
 
 const KNIGHT = { id: 'knight', char: 'knight', items: ['sword_1handed', 'shield_round'] };
 const GOOD = {
@@ -613,6 +633,171 @@ describe('Gemini (mocked)', () => {
     const second = gem.mock.calls[1][0];
     expect(second.startsWith(systemPrompt())).toBe(true);
     expect(second).toMatch(/this set has no door/);
+  });
+});
+
+describe('what the sounds did (did)', () => {
+  it('is read, cleaned and kept: known props only, at most 12 of at most 110 characters, never an error', () => {
+    expect(cleanDid(['glass: broke it', 'GLASS : smashed\u0007 it', 'drum: no', 5, `bell: ${'x'.repeat(120)}`, 'whistle:', 'just words'])).toEqual(['glass: broke it', 'glass: smashed it']);
+    expect(cleanDid(Array.from({ length: 20 }, (_, i) => `door: knock ${i}`))).toHaveLength(12);
+    expect(cleanDid('glass: broke it')).toBeUndefined();
+    expect(cleanDid([])).toBeUndefined();
+    const ok = parseReelRequest({ ...REQ, story: [{ ...STORY[0], did: ['glass: broke it', 'nonsense', 7] }] });
+    expect(ok).toEqual({ req: { ...REQ, story: [{ ...STORY[0], did: ['glass: broke it'] }] } });
+    const odd = parseReelRequest({ ...REQ, story: [{ ...STORY[0], did: 'glass: broke it' }] });
+    expect(odd).toEqual({ req: { ...REQ, story: [STORY[0]] } });
+  });
+
+  it('goes into the user turn, labelled as facts, and only when there are some', () => {
+    const turn = JSON.parse(userTurn(REQ_DID));
+    expect(turn.story[0].sound_facts).toEqual(REEL_ONE_DID);
+    expect(JSON.parse(userTurn(REQ)).story[0]).not.toHaveProperty('sound_facts');
+    expect(systemPrompt()).toMatch(/`sound_facts` are FACTS about what each of the player's sounds did/);
+  });
+
+  it('a note that names a prop must name one the last reel used, and only one', () => {
+    expect(notePropsNamed('Your glass broke the picture.')).toEqual(['glass']);
+    expect(notePropsNamed('Hooves, a knock and a ring.')).toEqual(['coconuts', 'door', 'bell']);
+    expect(checkNoteFacts('Your glass broke the picture. The thief took the hint.', REQ_DID)).toEqual([]);
+    expect(checkNoteFacts('Your whistle let him out.', REQ_DID).join()).toMatch(/names the whistle, but the whistle did nothing/);
+    expect(checkNoteFacts('Your glass let him out and your bell rang him home.', REQ_DID).join()).toMatch(/names 2 props/);
+    // owning up names no prop, and is always allowed
+    expect(checkNoteFacts('No dragons in our company tonight. The spider auditioned.', REQ_DID)).toEqual([]);
+    // no facts (an older client): nothing to hold the note to
+    expect(checkNoteFacts('Your whistle let him out.', REQ)).toEqual([]);
+  });
+
+  it('a wrong note goes to the repair turn; a second wrong note is mended from the facts, not thrown away', async () => {
+    const wrong = { ...GOOD_SLOTS, note: 'Your whistle let him out of the picture.' };
+    const right = { ...GOOD_SLOTS, note: 'Your glass broke the picture. He took the hint.' };
+    const a = scripted(msg(JSON.stringify(wrong)), msg(JSON.stringify(right)));
+    const r1 = await run(REQ_DID, [claudeBackend(a.create)]);
+    expect(r1.answer).toMatchObject({ source: 'claude', note: 'Your glass broke the picture. He took the hint.' });
+    expect(r1.trace?.tries[0]).toMatchObject({ ok: true, repaired: true });
+    expect(String(a.calls[1].params.messages[2].content)).toMatch(/the whistle did nothing/);
+
+    const b = scripted(msg(JSON.stringify(wrong)), msg(JSON.stringify(wrong)));
+    const r2 = await run({ ...REQ_DID, pitch: { prop: 'glass', text: 'Break into the vault' } }, [claudeBackend(b.create)]);
+    // (GOOD has no glass piece, so for this one the plan fails too: written, with a factual note)
+    expect(r2.answer.note).toBe('Your glass broke the picture and let the thief out of it.');
+
+    const c = scripted(msg(JSON.stringify(wrong)), msg(JSON.stringify(wrong)));
+    const r3 = await run(REQ_DID, [claudeBackend(c.create)]);
+    expect(r3.answer.source).toBe('claude');
+    expect(r3.answer.plan).toEqual(GOOD.plan);
+    expect(r3.answer.note).toBe('Your thunder burst the toy theatre open to the size of the wall.'); // the pitched prop's fact
+    expect(r3.trace?.tries[0].mended?.join()).toMatch(/whistle/);
+
+    // the repair itself fails: the first plan still plays, with its note mended
+    const d = scripted(msg(JSON.stringify(wrong)), new Anthropic.APIConnectionError({ message: 'reset' }));
+    const r4 = await run({ ...REQ_DID }, [claudeBackend(d.create)], { deadlineMs: 4000 });
+    expect(r4.answer.source).toBe('claude');
+    expect(r4.answer.note).toMatch(/^Your thunder/);
+  });
+
+  it('the written fallback’s note is a fact: the pitched prop’s if it did something, else the last one', () => {
+    expect(writtenAnswer({ ...REQ_DID, pitch: { prop: 'coconuts', text: 'x' } }).note).toBe('Your coconuts carried the knight down the road.');
+    expect(writtenAnswer({ ...REQ_DID, pitch: { prop: 'bell', text: 'x' } }).note).toBe('Your bell rang every blow of the duel.');
+    expect(writtenAnswer({ ...REQ_DID, pitch: { prop: 'whistle', text: 'x' } }).note).toBe('Your glass broke the picture and let the thief out of it.');
+    expect(writtenAnswer({ ...REQ_DID, pitch: { text: 'a spoken pitch', spoken: true } }).note).toBe('Your glass broke the picture and let the thief out of it.');
+    expect(factNote('whistle', 'sent the thief over the edge of the player’s table')).toBe('Your whistle sent the thief over the edge of your table.');
+    for (const f of REEL_ONE_DID) {
+      const [prop, what] = f.split(': ');
+      const n = factNote(prop as PropId, what);
+      expect(words(n), n).toBeLessThanOrEqual(14);
+      expect(checkNoteFacts(n, REQ_DID)).toEqual([]);
+    }
+    // no facts: the canned lines, as before
+    expect(writtenAnswer(REQ).note).toBe('Your thunder scared a sleeper stiff. The serial remembers.');
+  });
+});
+
+describe('variety', () => {
+  const plan = (pieces: object[], set = 'vault'): ReelPlan =>
+    ({ title: 'Test', scenes: [{ set, cast: [KNIGHT, { id: 'thief', char: 'rogue_hooded' }, { id: 'guard', char: 'skeleton_minion' }], pieces }], cliffhanger: 'More to come.' }) as ReelPlan;
+
+  it('the cue table is what the stage puts on: every written reel’s cues, counted from the assembled reel', () => {
+    const extra = plan([{ piece: 'duel', a: 'knight', b: 'guard', blows: 3 }, { piece: 'smash', who: 'thief' }, { piece: 'knock', who: 'knight', opener: 'guard' }]);
+    for (const p of [...Object.values(WRITTEN), ...Object.values(WRITTEN_MORE), extra] as ReelPlan[]) {
+      const staged: Record<string, number> = {};
+      // a cue beat waits for its prop; the ride is its own beat, run on the coconuts
+      for (const b of assemble(p, 'x').beats) {
+        if (b.k === 'cue') staged[b.prop] = (staged[b.prop] ?? 0) + 1;
+        if (b.k === 'ride') staged.coconuts = (staged.coconuts ?? 0) + 1;
+      }
+      expect(reelCues(p), p.title).toEqual(staged);
+    }
+    for (const n of Object.keys(PIECE_GUIDE) as (keyof typeof PIECE_CUES)[]) {
+      const sound = PIECE_GUIDE[n].sound;
+      if (sound && sound !== 'any') expect(PIECE_CUES[n][sound], n).toBeGreaterThan(0);
+    }
+  });
+
+  it('every written reel passes the variety rules; the last-reel rule depends on the story, and the fallback is exempt from it', () => {
+    const all = [...Object.values(WRITTEN), ...Object.values(WRITTEN_MORE)];
+    for (const p of all) expect(varietyChecks(p), p.title).toEqual([]);
+    // with reel one's real facts (all six props) the last-reel rule asks nothing
+    const six: ReelRequest = { ...REQ, story: [{ ...STORY[0], did: [...REEL_ONE_DID, 'whistle: sent the thief over the edge of the table'] }] };
+    for (const p of all) expect(varietyChecks(p, six), p.title).toEqual([]);
+    // without the whistle (the player missed it) five written reels use only props reel one already used: they fail
+    // that one rule, and the written fallback (never checked at run time) plays them anyway
+    const failing = all.filter((p) => varietyChecks(p, REQ_DID).length).map((p) => p.title);
+    expect(failing).toEqual(['The Chase', 'Market Day', 'The Duke at Home', 'Breaking In', 'Last Orders']);
+    for (const p of all) expect(varietyChecks(p, REQ_DID).every((e) => /last reel already used/.test(e)), p.title).toBe(true);
+    expect(writtenAnswer({ ...REQ_DID, pitch: { prop: 'coconuts', text: 'x' } }).plan).toEqual(WRITTEN.coconuts);
+  });
+
+  it('a duel or a boss, never both; at most three cues on a prop', () => {
+    const both = plan([{ piece: 'duel', a: 'knight', b: 'guard' }, { piece: 'smash', who: 'thief' }, { piece: 'boss', hero: 'knight' }]);
+    expect(varietyChecks(both).join()).toMatch(/a duel or a boss, never both/);
+    const bells = plan([{ piece: 'duel', a: 'knight', b: 'guard', blows: 3 }, { piece: 'toast' }, { piece: 'smash', who: 'thief' }, { piece: 'slam', who: 'guard' }]);
+    expect(varietyChecks(bells).join()).toMatch(/the bell is cued 4 times; at most 3/);
+  });
+
+  it('enough different props: four with five or more sounding pieces, three otherwise', () => {
+    const three = plan([{ piece: 'knock', who: 'knight', opener: 'guard' }, { piece: 'duel', a: 'knight', b: 'guard', blows: 1 }, { piece: 'smash', who: 'thief' }]);
+    expect(varietyChecks(three)).toEqual([]);
+    const two = plan([{ piece: 'knock', who: 'knight', opener: 'guard' }, { piece: 'slam', who: 'thief' }, { piece: 'smash', who: 'thief' }]);
+    expect(varietyChecks(two).join()).toMatch(/2 different props .*at least 3/);
+    const five = plan([
+      { piece: 'wake', who: 'knight', sleeper: 'guard' },
+      { piece: 'knock', who: 'thief', opener: 'guard' },
+      { piece: 'duel', a: 'knight', b: 'guard', blows: 1 },
+      { piece: 'smash', who: 'thief' },
+      { piece: 'slam', who: 'guard' },
+    ]);
+    expect(varietyChecks(five).join()).toMatch(/3 different props .*at least 4/);
+    expect(VARIETY).toEqual({ maxCuesPerProp: 3, propsWhenMany: 4, manyAt: 5, propsOtherwise: 3 });
+  });
+
+  it('at least one prop the last reel did not use, when it did not use all six', () => {
+    const p = plan([{ piece: 'knock', who: 'knight', opener: 'guard' }, { piece: 'duel', a: 'knight', b: 'guard', blows: 1 }, { piece: 'smash', who: 'thief' }]);
+    const used = (did: string[]): ReelRequest => ({ ...REQ, story: [{ ...STORY[0], did }] });
+    expect(varietyChecks(p, used(['door: x', 'bell: y', 'glass: z'])).join()).toMatch(/cue at least one other prop \(coconuts, thunder, whistle\)/);
+    expect(varietyChecks(p, used(['door: x', 'bell: y']))).toEqual([]);
+    expect(varietyChecks(p, used([...REEL_ONE_DID, 'whistle: sent the thief over the edge']))).toEqual([]); // all six: nothing to ask
+    expect(varietyChecks(p, REQ)).toEqual([]); // no facts
+  });
+
+  it('the server checks hold a model’s plan to the variety rules (so a failure goes to the repair turn)', async () => {
+    const both = { ...GOOD_SLOTS, plan: asAnswer({ ...(GOOD.plan as ReelPlan), scenes: [{ ...(GOOD.plan as ReelPlan).scenes[0], pieces: [...(GOOD.plan as ReelPlan).scenes[0].pieces.slice(0, 4), { piece: 'boss', hero: 'knight' }] }] }) };
+    const { create, calls } = scripted(msg(JSON.stringify(both)), msg(JSON.stringify(GOOD_SLOTS)));
+    const { answer, trace } = await run(REQ, [claudeBackend(create)]);
+    expect(answer.source).toBe('claude');
+    expect(trace?.tries[0].repaired).toBe(true);
+    expect(String(calls[1].params.messages[2].content)).toMatch(/never both/);
+  });
+
+  it('the prompt states the rules, the cue table, whole-sentence cards and owning up', () => {
+    const sys = systemPrompt();
+    expect(sys).toContain('- A reel has a duel or a boss, never both.');
+    expect(sys).toContain('at least 4 when the reel has 5 or more pieces that wait for a sound, at least 3 otherwise');
+    expect(sys).toContain('No prop is cued more than 3 times in a reel.');
+    expect(sys).toContain('- boss: thunder 1, bell 2, glass 1');
+    expect(sys).toContain('- duel: bell × blows (2 when blows is left out)');
+    expect(sys).toContain('Do not open the way the last reel opened');
+    expect(sys).toContain('- Bad: After the faster horse, at last!');
+    expect(sys).toContain('No dragons in our company tonight. The spider auditioned.');
   });
 });
 
