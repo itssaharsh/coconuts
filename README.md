@@ -26,7 +26,7 @@ Experience division.
 | The theatre: seven 3D sets (six by torch and moonlight, one sunny market), an endless road, nine rigged characters, a horse and six beasts, its own lighting and film look | real, in the build; CC0 kits baked by the scripts in `tools/serial/` |
 | The house | a small recorded audience behind your seat: it laughs when the knight goes over the horse's neck, gasps when the dead get up, and claps at the end of the reel |
 | Reel one (the gate, the ride, the robbers' den) | written by hand; every moment waits for the player's sound |
-| The film leaves its frame | at the end of reel one the thief steps out of the picture, lands on the player's own desk at toy size, runs between the props to the table's edge, and the slide whistle sends him over it (`src/serial/desk.ts`) |
+| The film leaves its frame | at the end of reel one the thief steps out of the picture, lands on the player's own desk at toy size, runs between the props to the table's edge, and the slide whistle sends him over it; bring a finger near him and he starts and looks at it (`src/serial/desk.ts`) |
 | Weather and debris | rain that starts on the player's thunder, ground mist, embers over fires, sparks where steel meets, dust, broken glass, confetti: four draw calls in all, lit and graded by the film's own shader (`src/serial/fx.ts`) |
 | The reels after it | planned by the Director (Claude) from the player's pitch and what their sounds did so far, then assembled from hand-staged pieces and checked; a written reel for every prop plays whenever the model is slow, wrong or absent |
 | The six props | hand interactions: a pat, a pinch from afar, gaze and pinch, or pick up and shake; recorded CC0 sounds with a synthesised fallback |
@@ -95,6 +95,19 @@ npx vite --config vite.stage.config.ts      # the theatre alone on http://127.0.
 python3 qa/stage/play.py out "written=thunder" bell 200   # a reel plays itself and saves a still at every wait
 node tools/director/serve.mjs               # the functions on http://127.0.0.1:8796 for the dev pages
 ```
+
+## How the video was filmed
+
+Every shot is the game running in Meta's desktop emulator (IWSDK), driven by `tools/video/capture-serial.mjs`. The
+emulator draws a few frames a second, so a capture runs the show in slow time: every drawn frame is a thirtieth of a
+second of the show, and an emulated hand pats the props in the same slow time. The frames played back at 30 a
+second are the show at its real speed; waits on the network (the Director, hearing) are held in the show for as
+long as they really took. The sound is laid under afterwards from the game's own log of what it played
+(`tools/video/soundtrack.py`), and `tools/video/cut.py` cuts the film from a storyboard.
+
+The emulator has no microphone. For the megaphone shot a recorded sentence is handed to the game in place of the
+microphone (in an automated browser only); the words then go through the real hearing function and the real
+Director, and the reel that follows is the one it wrote.
 
 Scripted emulator runs, with `npx iwsdk dev up --ai-mode agent --allow-browser-automation --headless` running:
 
