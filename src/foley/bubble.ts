@@ -1,10 +1,9 @@
-// Paper-tag speech bubbles drawn on canvas textures: the Director's lines and the take summary.
+// Paper-tag speech bubbles drawn on canvas textures: the slate's lines over the table.
 import { CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, SRGBColorSpace, Vector3 } from 'three';
 
 const PX_PER_M = 1600; // canvas pixels per metre of bubble
-const FONT = '600 42px "Instrument Sans", system-ui, sans-serif';
 const SMALL = '500 30px "Instrument Sans", system-ui, sans-serif';
-/** The slate that speaks for the show itself is a theatre ticket: the intertitles' face on cream, ruled in brass. */
+/** The slate speaks for the show itself, so it is a theatre ticket: the intertitles' face on cream, ruled in brass. */
 const TICKET = '400 42px "Limelight", "Instrument Sans", system-ui, serif';
 
 function wrap(g: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
@@ -31,10 +30,7 @@ export class Bubble {
   private here = new Vector3();
   private shown = false;
 
-  constructor(
-    public widthM = 0.42,
-    private tone: 'paper' | 'accent' = 'paper',
-  ) {
+  constructor(public widthM = 0.42) {
     this.group.name = 'bubble';
     // a paper tag is a readout: it draws over the props so a door or a sheet never hides a line
     this.material = new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, depthTest: false });
@@ -49,14 +45,13 @@ export class Bubble {
     const w = Math.round(this.widthM * PX_PER_M);
     const c = document.createElement('canvas');
     const g = c.getContext('2d')!;
-    const main = this.tone === 'accent' ? TICKET : FONT;
-    g.font = main;
+    g.font = TICKET;
     const lines = wrap(g, text, w - 120);
     const h = 60 + lines.length * 54 + (caption ? 44 : 0) + 40;
     c.width = w;
     c.height = h;
-    g.font = main;
-    g.fillStyle = this.tone === 'accent' ? '#F8EFDC' : '#FFFDF8';
+    g.font = TICKET;
+    g.fillStyle = '#F8EFDC';
     g.beginPath();
     g.roundRect(6, 6, w - 12, h - 12 - 18, 26);
     g.fill();
@@ -66,24 +61,22 @@ export class Bubble {
     g.lineTo(w / 2, h - 6);
     g.lineTo(w / 2 + 22, h - 30);
     g.fill();
-    g.strokeStyle = this.tone === 'accent' ? '#B58630' : '#E1D6C4';
-    g.lineWidth = this.tone === 'accent' ? 6 : 4;
+    g.strokeStyle = '#B58630';
+    g.lineWidth = 6;
     g.beginPath();
     g.roundRect(6, 6, w - 12, h - 12 - 18, 26);
     g.stroke();
-    if (this.tone === 'accent') {
-      // a second, thin rule inside the first, as on a ticket
-      g.lineWidth = 2;
-      g.beginPath();
-      g.roundRect(18, 18, w - 36, h - 36 - 18, 16);
-      g.stroke();
-    }
+    // a second, thin rule inside the first, as on a ticket
+    g.lineWidth = 2;
+    g.beginPath();
+    g.roundRect(18, 18, w - 36, h - 36 - 18, 16);
+    g.stroke();
     g.fillStyle = '#2B2320';
     g.textBaseline = 'top';
     lines.forEach((l, i) => g.fillText(l, 60, 44 + i * 54));
     if (caption) {
       g.font = SMALL;
-      g.fillStyle = this.tone === 'accent' ? '#6E5A40' : '#8A7A66';
+      g.fillStyle = '#6E5A40';
       g.fillText(caption, 60, 44 + lines.length * 54 + 10);
     }
     const tex = new CanvasTexture(c);

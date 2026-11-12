@@ -20,7 +20,6 @@ export const PALETTE = {
   steel: '#B8BEC4',
   kraft: '#C9A06A',
   glass: '#BFE3F2',
-  curtain: '#A8322A',
   accent: '#E8B24A',
   plank: '#D8B98A',
 } as const;
@@ -345,32 +344,4 @@ function tileFace(label: string): CanvasTexture {
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;
   return tex;
-}
-
-export function buildScreenFrame(w: number, h: number): Group {
-  const g = new Group();
-  g.name = 'screen-frame';
-  const t = 0.03;
-  const frameMat = mat(PALETTE.walnut, 0.6);
-  const parts: [number, number, number, number][] = [
-    [0, h / 2 + t / 2, w + 2 * t, t],
-    [0, -h / 2 - t / 2, w + 2 * t, t],
-    [-w / 2 - t / 2, 0, t, h],
-    [w / 2 + t / 2, 0, t, h],
-  ];
-  for (const [x, y, pw, ph] of parts) {
-    const m = new Mesh(new BoxGeometry(pw, ph, 0.02), frameMat);
-    m.position.set(x, y, 0);
-    g.add(m);
-  }
-  const swag = new Mesh(new BoxGeometry(w + 0.02, 0.06, 0.03), mat(PALETTE.curtain, 0.85));
-  swag.position.set(0, h / 2 - 0.02, 0.015);
-  g.add(swag);
-  for (const x of [-w / 3, 0, w / 3]) {
-    const can = new Mesh(new CylinderGeometry(0.012, 0.014, 0.02, 12), mat(PALETTE.brass, 0.4, 0.7));
-    can.rotation.x = Math.PI / 2.6;
-    can.position.set(x, -h / 2 - 0.04, 0.03);
-    g.add(can);
-  }
-  return g;
 }

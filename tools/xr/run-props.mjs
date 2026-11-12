@@ -186,8 +186,8 @@ async function main() {
       if (logs('^STAGE placed').filter((x) => x.endsWith('xr')).length > n0 || (attempt === 0 && active)) break;
     }
     const y = placedFor();
-    // the table sits 0.38 m under the eyes in the Serial, 0.25 m in the classic films
-    if (y !== null && (Math.abs(y - (HEAD.y - 0.38)) < 0.02 || Math.abs(y - (HEAD.y - 0.25)) < 0.02)) break;
+    // the table sits 0.38 m under the eyes
+    if (y !== null && Math.abs(y - (HEAD.y - 0.38)) < 0.02) break;
     log('stage placed for another height', y, '- entering again');
     iw(['xr', 'exit']);
     await sleep(1500);

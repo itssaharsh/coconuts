@@ -6,7 +6,14 @@ import './serial.css';
 import { ensureAudio } from '../foley/sound';
 import { enableVoice, hearingOn, voiceSupported, voiceWanted } from '../foley/voice';
 import { followSerial } from './framing';
-import type { EngineBridge } from './landing';
+
+/** What the page needs from the engine. */
+interface EngineBridge {
+  xrSupported: () => Promise<boolean>;
+  launchXR: () => void;
+  /** The Serial's state (boot | loading | ready | playing | pitch | writing), or null before it exists. */
+  serialState: () => string | null;
+}
 
 type Phase = 'loading' | 'ready' | 'playing' | 'pitch' | 'writing' | 'next';
 

@@ -1,23 +1,18 @@
-// FoleySystem: places the stage, loads the clip, turns pinches, pokes and hand motion on props into hits,
-// records the take, replays it against the film, and runs the tiles and the Director's bubbles.
+// FoleySystem: places the stage, turns pinches, pokes and hand motion on props into sounds for the Serial,
+// and runs the tiles and the slate.
 import { Hovered, Pressed, RayInteractable, VisibilityState, createSystem, type Entity } from '@iwsdk/core';
 import { BackSide, Box3, Matrix4, Mesh, MeshBasicMaterial, Object3D, Quaternion, SphereGeometry, Vector3 } from 'three';
 import { Bubble } from './bubble';
-import { CueTracker, type Cue } from './cues';
-import { automationRun, captureMode, serialMode, startReel } from './env';
+import { automationRun, captureMode, startReel } from './env';
 import { frameSerial } from '../landing/framing';
-import { Lane } from './lane';
 import { modelStats } from './models';
-import { Recorder, encodeTake } from './recorder';
-import { Replayer, schedule } from './replay';
 import { HOUSE_SOUNDS } from './samples';
 import * as sound from './sound';
 import * as voice from './voice';
 import { Stage, THEATRE_SMALL } from './stage';
-import { SCREEN_H } from './screen';
 import { TABLE_H } from './toys';
 import { PatGate, ShakeMeter, SlideTracker, StrikeDetector, Stroke, TOUCH_IN, isDrop } from './triggers';
-import type { HitEvent, PropId, Take } from './types';
+import type { HitEvent, PropId } from './types';
 import { DESK_ROUTE, PROP_IDS } from './types';
 import { Serial, type SerialState } from '../serial/serial';
 import type { Waiting } from '../serial/player';
@@ -32,35 +27,16 @@ const tmpQ = new Quaternion();
 const tmpF = new Vector3();
 const tmpU = new Vector3();
 
-export type Mode = 'idle' | 'take' | 'ended' | 'replay';
-
 export interface FoleyApi {
-  stage: Stage;
-  loadClip: (id: string, url: string, cues?: Cue[], posterUrl?: string) => Promise<void>;
-  cues: () => CueTracker | null;
-  startTake: () => Promise<void>;
-  replay: () => Promise<void>;
-  replayTake: (take: Take) => Promise<void>;
-  lastTake: () => Take | null;
-  mode: () => Mode;
-  /** True once the stage has been placed for the current viewpoint. */
-  placed: () => boolean;
-  /** The Director speaks: a bubble over the theatre, optionally for a set time. */
-  say: (text: string, caption?: string, seconds?: number) => void;
-  log: (...a: unknown[]) => void;
-  /** The Serial, when that is the show: the clapper rolls its reels. */
-  serial: () => Serial | null;
-  roll: () => Promise<void>;
+  /** The Serial: the clapper rolls its reels. */
+  serial: () => Serial;
 }
 
 export interface FoleyHooks {
   onReady: (api: FoleyApi) => void;
-  onHit: (hit: HitEvent, api: FoleyApi) => void;
-  onTakeStart: (api: FoleyApi) => void;
-  onTakeEnd: (take: Take, api: FoleyApi) => void;
 }
 
-let hooks: FoleyHooks = { onReady: () => {}, onHit: () => {}, onTakeStart: () => {}, onTakeEnd: () => {} };
+let hooks: FoleyHooks = { onReady: () => {} };
 export function setFoleyHooks(h: FoleyHooks): void {
   hooks = h;
 }
@@ -104,13 +80,12 @@ export class FoleySystem extends createSystem({
   pressed: { required: [RayInteractable, Pressed] },
   hovered: { required: [RayInteractable, Hovered] },
 }) {
-  private serialOn = serialMode();
   /** A capture run: a fixed step of show time for every drawn frame, and a log of every sound for the soundtrack. */
   private capture = captureMode();
   private showClock = 0;
   private frameNo = 0;
-  private stage = new Stage(this.serialOn);
-  private serial: Serial | null = null;
+  private stage = new Stage();
+  private serial!: Serial;
   /** What the stage is waiting for, so its prop can glow on the table. */
   private wanted: Waiting | null = null;
   private wantedPulse = 0;
@@ -171,20 +146,12 @@ export class FoleySystem extends createSystem({
   /** The invisible hit boxes of the grabbable props: what a near pinch has to be close to. */
   private hitBoxes = new Map<PropId, Object3D>();
   private api!: FoleyApi;
-  private clipId: string | null = null;
-  private mode: Mode = 'idle';
-  private recorder = new Recorder();
-  private last: Take | null = null;
-  private replayer: Replayer | null = null;
   private strike = new StrikeDetector();
   private shake = new ShakeMeter();
   private slide = new SlideTracker();
   private clopSide: 0 | 1 = 0;
   private lastSourceSync = 0;
-  private lane = new Lane();
-  private tracker: CueTracker | null = null;
-  private director = new Bubble(0.46, 'paper');
-  private slate = new Bubble(0.3, 'accent');
+  private slate = new Bubble(0.3);
   private volumeStep = 0;
   private lastRumbleMark: number | undefined;
   private lastWhistleMark: number | undefined;
@@ -199,77 +166,66 @@ export class FoleySystem extends createSystem({
   private pressNext = new Set<string>();
 
   init(): void {
-    if (this.serialOn) {
-      // the Serial: the toy theatre stands where the film screen would; the Director's tag hangs by its left pillar
-      const base = import.meta.env.BASE_URL;
-      this.serial = new Serial(`${base}serial/`, `${base}models/screen_frame.glb`, {
-        onState: (s) => this.onSerialState(s),
-        onWaiting: (w) => {
-          this.wanted = w;
-          this.wantedPulse = 0;
-        },
-        // the stage's own sounds come from the stage; the audience's from behind the player's seat
-        onStage: (cue) => (HOUSE_SOUNDS.has(cue) ? sound.playStage(cue, cue === 'applause' ? 0.9 : 0.55, 'house') : sound.playStage(cue)),
-        onScale: (big) => {
-          this.stage.setTheatreBig(big);
-          this.stage.setTileLabel('size', big ? 'Stage small' : 'Stage big');
-          console.log('STAGE size', big ? 'wall' : 'desk');
-        },
-        onNote: (note) => console.log('DIRECTOR note', note), // the theatre shows it on a card before the reel
-
-      });
-      this.serial.theatre.setSize(THEATRE_SMALL);
-      this.stage.theatreMount.add(this.serial.theatre.group);
-      this.serial.theatre.setDesk(this.stage.desk, DESK_ROUTE); // the film can spill onto the player's own desk
-      // drawn first and behind everything, so it darkens only what is not ours: the room
-      this.house = new Mesh(
-        new SphereGeometry(7, 24, 14),
-        new MeshBasicMaterial({ color: 0x06050b, transparent: true, opacity: 0, side: BackSide, depthWrite: false, toneMapped: false }),
-      );
-      this.house.name = 'house-lights';
-      this.house.renderOrder = -1000;
-      this.house.frustumCulled = false;
-      this.stage.root.add(this.house);
-      const serial = this.serial;
-      void serial
-        .init()
-        .then(() => {
-          // (a test or capture run may ask for one of the written reels instead of reel one)
-          const want = startReel();
-          if (want === 'finale') return serial.previewReel(REEL_1_FINALE).then(() => console.log('SERIAL starts on the end of reel one'));
-          const plan = want ? (WRITTEN as Record<string, ReelPlan | undefined>)[want] : undefined;
-          if (plan) return serial.preview(plan).then((ok) => console.log('SERIAL starts on the written reel for', want, ok ? '' : '(it did not stage)'));
-        })
-        .catch((e) => console.warn('SERIAL init failed', e instanceof Error ? e.message : e));
-      // without a headset the page is still playable: six keys are the six props, the space bar is the clapper
-      const keys: Record<string, PropId> = { c: 'coconuts', d: 'door', b: 'bell', t: 'thunder', w: 'whistle', g: 'glass' };
-      const onKey = (e: KeyboardEvent) => {
-        if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-        const tag = (e.target as HTMLElement | null)?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        const prop = keys[e.key.toLowerCase()];
-        if (prop) {
-          void sound.ensureAudio();
-          this.hit({ t: 0, prop, kind: ONE_SHOT[prop], v: 1 });
-        } else if (e.key === ' ' || e.key === 'Enter') {
-          if ((e.target as HTMLElement | null)?.tagName === 'BUTTON') return; // a focused button keeps its own key
-          e.preventDefault();
-          void this.rollSerial(true);
-        }
-      };
-      window.addEventListener('keydown', onKey);
-      this.cleanupFuncs.push(() => window.removeEventListener('keydown', onKey));
-    } else {
-      this.lane.group.position.set(0, -(SCREEN_H / 2) - 0.105, 0.03); // just under the frame's footlights
-      this.lane.group.rotation.x = -0.28;
-      this.stage.screen.group.add(this.lane.group);
-      // the Director's tag hangs beside the theatre's left pillar; the slate sits at the table's far edge
-      this.director.group.position.set(-0.5, 0.05, 0.02); // inside the glasses' view with room for its width
-      this.stage.screen.group.add(this.director.group);
-    }
-    // the slate sits at the table's far edge; in the Serial it stands over the clapper it talks about, clear of the props
-    if (this.serialOn) this.slate.group.position.set(-0.27, TABLE_H + 0.15, 0.09);
-    else this.slate.group.position.set(0.0, TABLE_H + 0.02, -0.14);
+    // the toy theatre stands behind the table
+    const base = import.meta.env.BASE_URL;
+    this.serial = new Serial(`${base}serial/`, `${base}models/screen_frame.glb`, {
+      onState: (s) => this.onSerialState(s),
+      onWaiting: (w) => {
+        this.wanted = w;
+        this.wantedPulse = 0;
+      },
+      // the stage's own sounds come from the stage; the audience's from behind the player's seat
+      onStage: (cue) => (HOUSE_SOUNDS.has(cue) ? sound.playStage(cue, cue === 'applause' ? 0.9 : 0.55, 'house') : sound.playStage(cue)),
+      onScale: (big) => {
+        this.stage.setTheatreBig(big);
+        this.stage.setTileLabel('size', big ? 'Stage small' : 'Stage big');
+        console.log('STAGE size', big ? 'wall' : 'desk');
+      },
+      onNote: (note) => console.log('DIRECTOR note', note), // the theatre shows it on a card before the reel
+    });
+    this.serial.theatre.setSize(THEATRE_SMALL);
+    this.stage.theatreMount.add(this.serial.theatre.group);
+    this.serial.theatre.setDesk(this.stage.desk, DESK_ROUTE); // the film can spill onto the player's own desk
+    // drawn first and behind everything, so it darkens only what is not ours: the room
+    this.house = new Mesh(
+      new SphereGeometry(7, 24, 14),
+      new MeshBasicMaterial({ color: 0x06050b, transparent: true, opacity: 0, side: BackSide, depthWrite: false, toneMapped: false }),
+    );
+    this.house.name = 'house-lights';
+    this.house.renderOrder = -1000;
+    this.house.frustumCulled = false;
+    this.stage.root.add(this.house);
+    const serial = this.serial;
+    void serial
+      .init()
+      .then(() => {
+        // (a test or capture run may ask for one of the written reels instead of reel one)
+        const want = startReel();
+        if (want === 'finale') return serial.previewReel(REEL_1_FINALE).then(() => console.log('SERIAL starts on the end of reel one'));
+        const plan = want ? (WRITTEN as Record<string, ReelPlan | undefined>)[want] : undefined;
+        if (plan) return serial.preview(plan).then((ok) => console.log('SERIAL starts on the written reel for', want, ok ? '' : '(it did not stage)'));
+      })
+      .catch((e) => console.warn('SERIAL init failed', e instanceof Error ? e.message : e));
+    // without a headset the page is still playable: six keys are the six props, the space bar is the clapper
+    const keys: Record<string, PropId> = { c: 'coconuts', d: 'door', b: 'bell', t: 'thunder', w: 'whistle', g: 'glass' };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      const prop = keys[e.key.toLowerCase()];
+      if (prop) {
+        void sound.ensureAudio();
+        this.hit({ t: 0, prop, kind: ONE_SHOT[prop], v: 1 });
+      } else if (e.key === ' ' || e.key === 'Enter') {
+        if ((e.target as HTMLElement | null)?.tagName === 'BUTTON') return; // a focused button keeps its own key
+        e.preventDefault();
+        void this.rollSerial(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    this.cleanupFuncs.push(() => window.removeEventListener('keydown', onKey));
+    // the slate stands over the clapper it talks about, clear of the props
+    this.slate.group.position.set(-0.27, TABLE_H + 0.15, 0.09);
     this.stage.table.add(this.slate.group);
 
     this.rootEntity = this.world.createTransformEntity(this.stage.root, { persistent: true });
@@ -291,22 +247,7 @@ export class FoleySystem extends createSystem({
         e.addComponent(RayInteractable);
       }
     }
-    this.stage.screen.onEnded = () => this.endTake();
-    this.api = {
-      stage: this.stage,
-      loadClip: (id, url, cues, posterUrl) => this.loadClip(id, url, cues, posterUrl),
-      cues: () => this.tracker,
-      startTake: () => this.startTake(),
-      replay: () => this.replay(),
-      replayTake: (take) => this.replayTake(take),
-      lastTake: () => this.last,
-      mode: () => this.mode,
-      placed: () => this.placed,
-      say: (text, caption = '', seconds = 6) => this.director.say(text, caption, seconds),
-      log: (...a) => console.log(...a),
-      serial: () => this.serial,
-      roll: () => this.rollSerial(),
-    };
+    this.api = { serial: () => this.serial };
     let lastVis = this.world.visibilityState.value;
     this.cleanupFuncs.push(
       this.world.visibilityState.subscribe((v) => {
@@ -403,7 +344,6 @@ export class FoleySystem extends createSystem({
     if (locked !== this.soundLocked) console.log(locked ? 'AUDIO locked: waiting for a pinch' : 'AUDIO free');
     this.soundLocked = locked;
     const serial = this.serial;
-    if (!serial) return;
     if (serial.state !== 'playing') this.onSerialState(serial.state);
     else if (!locked) this.slate.hide();
     else this.slate.say('No sound yet', this.soundHint(), 0);
@@ -417,7 +357,6 @@ export class FoleySystem extends createSystem({
   /** The slate at the table's edge says what the clapper will do next. */
   private onSerialState(s: SerialState): void {
     const serial = this.serial;
-    if (!serial) return;
     serial.filmed = this.capture;
     // with a microphone allowed, the pitch card says a pitch can be spoken
     serial.pitchFooter = voice.voiceWanted() ? 'Make its sound, or hold the megaphone and say anything' : 'Make its sound to choose';
@@ -448,7 +387,6 @@ export class FoleySystem extends createSystem({
    */
   private async rollSerial(fromKey = false): Promise<void> {
     const serial = this.serial;
-    if (!serial) return;
     if (serial.state === 'playing') {
       if (fromKey) this.pauseSerial();
       return;
@@ -461,7 +399,7 @@ export class FoleySystem extends createSystem({
 
   private pauseSerial(): void {
     const serial = this.serial;
-    if (!serial || serial.state !== 'playing') return;
+    if (serial.state !== 'playing') return;
     const paused = serial.togglePause();
     this.stage.setTileLabel('pause', paused ? 'Resume' : 'Pause');
     this.musicOn = !paused;
@@ -469,133 +407,35 @@ export class FoleySystem extends createSystem({
     console.log(paused ? 'REEL pause' : 'REEL resume');
   }
 
-  private async loadClip(id: string, url: string, cues: Cue[] = [], posterUrl?: string): Promise<void> {
-    this.clipId = id;
-    this.mode = 'idle';
-    this.last = null;
-    this.tracker = cues.length ? new CueTracker(cues) : null;
-    this.lane.setTracker(this.tracker);
-    this.slate.hide();
-    await this.stage.screen.load(id, url, posterUrl);
-  }
-
-  private async startTake(): Promise<void> {
-    if (!this.clipId) return;
-    await sound.ensureAudio();
-    sound.clapperSnap();
-    this.stage.snapClapper();
-    const ok = await this.stage.screen.play(0);
-    if (!ok) return;
-    this.recorder.start(this.clipId);
-    this.tracker?.reset();
-    this.slate.hide();
-    this.mode = 'take';
-    console.log('TAKE start', this.clipId);
-    hooks.onTakeStart(this.api);
-  }
-
-  private endTake(): void {
-    sound.stopHeld();
-    if (this.mode === 'replay') {
-      this.mode = 'ended';
-      console.log('REPLAY done');
-      this.slate.say('Played back.', 'Pinch the clapper to play it again', 5);
-      return;
-    }
-    const take = this.recorder.stop();
-    this.mode = 'ended';
-    if (!take) return;
-    this.last = take;
-    const summary = this.tracker ? this.tracker.summary() : `${take.events.length} sounds`;
-    console.log('TAKE code', encodeTake(take), 'hits', take.events.length, summary);
-    this.slate.say(summary, 'Pinch the clapper to play it back', 0);
-    hooks.onTakeEnd(take, this.api);
-  }
-
-  private async replay(): Promise<void> {
-    if (this.last) await this.replayTake(this.last);
-  }
-
-  private async replayTake(take: Take): Promise<void> {
-    if (take.clipId !== this.clipId) return;
-    await sound.ensureAudio();
-    const ok = await this.stage.screen.play(0);
-    if (!ok) return;
-    this.tracker?.reset();
-    this.slate.hide();
-    this.replayer = new Replayer(schedule(take), (e) => {
-      sound.playHit(e);
-      this.stage.flash(e.prop, 0.9);
-      this.animateProp(e);
-      this.tracker?.register(e);
-    });
-    this.mode = 'replay';
-    console.log('REPLAY start', take.events.length);
-  }
-
-  private redo(): void {
-    sound.stopHeld();
-    this.stage.screen.pause();
-    this.stage.screen.showLeader();
-    this.recorder.stop();
-    this.tracker?.reset();
-    this.mode = 'idle';
-    this.slate.hide();
-    console.log('TAKE redo');
-  }
-
   private onTile(id: string): void {
-    if (this.serial && id !== 'tile-volume') {
-      if (id === 'tile-size') {
-        if (this.narrowView) this.slate.say('The stage stays on the desk here', 'This display is too narrow for the wall', 4);
-        else this.serial.theatre.grow(!this.serial.theatre.isBig);
+    if (id === 'tile-volume') {
+      this.volumeStep = (this.volumeStep + 1) % VOLUME_STEPS.length;
+      sound.setMasterVolume(VOLUME_STEPS[this.volumeStep]);
+      this.stage.setTileLabel('volume', VOLUME_STEPS[this.volumeStep] === 0 ? 'Muted' : `Vol ${Math.round(VOLUME_STEPS[this.volumeStep] * 100)}`);
+      console.log('VOLUME', VOLUME_STEPS[this.volumeStep]);
+    } else if (id === 'tile-size') {
+      if (this.narrowView) this.slate.say('The stage stays on the desk here', 'This display is too narrow for the wall', 4);
+      else this.serial.theatre.grow(!this.serial.theatre.isBig);
+    } else if (id === 'tile-pause') this.pauseSerial();
+    else if (id === 'tile-redo') {
+      const over = this.serial.state === 'ready' && this.serial.resuming;
+      const again = this.serial.state === 'playing' || this.serial.state === 'pitch';
+      if (!over && !again) return;
+      // starting again throws the reel away: a tile brushed by a sleeve must not do that, so it asks twice
+      if (performance.now() > this.redoArmedUntil) {
+        this.redoArmedUntil = performance.now() + 4000;
+        this.slate.say(over ? 'Start the serial again?' : 'Start this reel again?', 'Tap Redo once more', 4);
+        return;
       }
-      else if (id === 'tile-pause') this.pauseSerial();
-      else if (id === 'tile-redo') {
-        const over = this.serial.state === 'ready' && this.serial.resuming;
-        const again = this.serial.state === 'playing' || this.serial.state === 'pitch';
-        if (!over && !again) return;
-        // starting again throws the reel away: a tile brushed by a sleeve must not do that, so it asks twice
-        if (performance.now() > this.redoArmedUntil) {
-          this.redoArmedUntil = performance.now() + 4000;
-          this.slate.say(over ? 'Start the serial again?' : 'Start this reel again?', 'Tap Redo once more', 4);
-          return;
-        }
-        this.redoArmedUntil = 0;
-        this.slate.hide();
-        if (over) {
-          console.log('SERIAL start over');
-          void this.serial.startOver();
-        } else {
-          console.log('REEL redo');
-          void this.serial.restart();
-        }
+      this.redoArmedUntil = 0;
+      this.slate.hide();
+      if (over) {
+        console.log('SERIAL start over');
+        void this.serial.startOver();
+      } else {
+        console.log('REEL redo');
+        void this.serial.restart();
       }
-      return;
-    }
-    switch (id) {
-      case 'tile-pause':
-        if (this.mode === 'take' || this.mode === 'replay') {
-          if (this.stage.screen.playing) {
-            this.stage.screen.pause();
-            this.stage.setTileLabel('pause', 'Resume');
-            console.log('TAKE pause');
-          } else {
-            void this.stage.screen.play(this.stage.screen.currentTime);
-            this.stage.setTileLabel('pause', 'Pause');
-            console.log('TAKE resume');
-          }
-        }
-        break;
-      case 'tile-volume':
-        this.volumeStep = (this.volumeStep + 1) % VOLUME_STEPS.length;
-        sound.setMasterVolume(VOLUME_STEPS[this.volumeStep]);
-        this.stage.setTileLabel('volume', VOLUME_STEPS[this.volumeStep] === 0 ? 'Muted' : `Vol ${Math.round(VOLUME_STEPS[this.volumeStep] * 100)}`);
-        console.log('VOLUME', VOLUME_STEPS[this.volumeStep]);
-        break;
-      case 'tile-redo':
-        this.redo();
-        break;
     }
   }
 
@@ -603,23 +443,8 @@ export class FoleySystem extends createSystem({
     // the pinch that has just picked a prop up may also have had its ray on something else: that is not a press
     if (!touch && this.patClock - this.grabbedAt < 0.12 && !this.held.has(id)) return;
     if (id === 'clapper') {
-      console.log('PICK clapper', this.serial ? this.serial.state : this.mode);
-      if (this.serial) {
-        void this.rollSerial();
-        return;
-      }
-      if (this.mode === 'take' || this.mode === 'replay') {
-        if (this.stage.screen.playing) {
-          this.stage.screen.pause();
-          console.log('TAKE pause');
-        } else {
-          void this.stage.screen.play(this.stage.screen.currentTime);
-        }
-      } else if (this.mode === 'ended' && this.last) {
-        void this.replay();
-      } else {
-        void this.startTake();
-      }
+      console.log('PICK clapper', this.serial.state);
+      void this.rollSerial();
       return;
     }
     if (id.startsWith('tile-')) {
@@ -645,7 +470,7 @@ export class FoleySystem extends createSystem({
       }
     }
     if (prop === 'door') return; // a pinched door fires on release: a short press knocks, a held press slams (a touched one: see touchStart)
-    this.hit({ t: this.stage.screen.currentTime, prop, kind: ONE_SHOT[prop], v: 1, hand: 'right' });
+    this.hit({ t: 0, prop, kind: ONE_SHOT[prop], v: 1, hand: 'right' });
   }
 
   /** How far a hand's pinch point is from a grabbable prop's hit box. */
@@ -731,7 +556,7 @@ export class FoleySystem extends createSystem({
         const tableTop = this.stage.table.getWorldPosition(tmpU).y + TABLE_H;
         const hgt = piece.root.getWorldPosition(tmpP).y - tableTop;
         const vy = this.lastVy.get('glass') ?? 0;
-        if (isDrop(hgt, -vy)) this.hit({ t: this.stage.screen.currentTime, prop: 'glass', kind: 'crash', v: Math.min(1, 0.5 + hgt * 2) });
+        if (isDrop(hgt, -vy)) this.hit({ t: 0, prop: 'glass', kind: 'crash', v: Math.min(1, 0.5 + hgt * 2) });
       }
     }
     this.lastY.delete(prop);
@@ -741,7 +566,6 @@ export class FoleySystem extends createSystem({
   /** The megaphone is held: between reels, with a microphone, the player says what happens next. */
   private megaphoneDown(): void {
     const serial = this.serial;
-    if (!serial) return;
     this.stage.flash('megaphone', 1);
     if (serial.state !== 'pitch') {
       this.slate.say('The megaphone is for between reels', 'Hold it then, and say what happens next', 4);
@@ -767,7 +591,7 @@ export class FoleySystem extends createSystem({
 
   private async megaphoneUp(): Promise<void> {
     const serial = this.serial;
-    if (!serial || !voice.listening()) return;
+    if (!voice.listening()) return;
     const blob = await voice.stopListening();
     if (!blob) {
       if (serial.state === 'pitch') serial.pitchNote('Not heard. Hold the megaphone and speak, or make a sound.');
@@ -794,7 +618,7 @@ export class FoleySystem extends createSystem({
     if (id !== 'door') return;
     const slam = heldMs >= SLAM_HOLD_MS;
     this.stage.swingDoor(slam ? 1 : 0.35);
-    this.hit({ t: this.stage.screen.currentTime, prop: 'door', kind: slam ? 'slam' : 'knock', v: slam ? 1 : 0.8, hand: 'right' });
+    this.hit({ t: 0, prop: 'door', kind: slam ? 'slam' : 'knock', v: slam ? 1 : 0.8, hand: 'right' });
   }
 
   /** The prop moves with its sound: the bell's button dips, the door rattles or slams, the sheet shivers. */
@@ -808,14 +632,8 @@ export class FoleySystem extends createSystem({
     sound.playHit(hit);
     this.stage.flash(hit.prop);
     if (hit.prop !== 'door') this.animateProp(hit); // the door swings where its press ends
-    if (this.mode === 'take') {
-      this.recorder.add(hit);
-      const landed = this.tracker?.register(hit);
-      if (landed) console.log('CUE hit', landed.cue.label, (landed.offset ?? 0).toFixed(2));
-    }
     console.log('HIT', hit.prop, hit.kind, hit.t.toFixed(2), hit.v.toFixed(2));
-    this.serial?.sound(hit.prop, hit.kind, hit.v);
-    hooks.onHit(hit, this.api);
+    this.serial.sound(hit.prop, hit.kind, hit.v);
   }
 
   /** The piece's own shape (what can be seen of it), as a box in its own space: what a fingertip touches. */
@@ -964,7 +782,7 @@ export class FoleySystem extends createSystem({
       void sound.ensureAudio();
       const slam = this.pats[hand].arrival() > SLAM_SPEED;
       this.stage.swingDoor(slam ? 1 : 0.35);
-      this.hit({ t: this.stage.screen.currentTime, prop: 'door', kind: slam ? 'slam' : 'knock', v: slam ? 1 : 0.8, hand });
+      this.hit({ t: 0, prop: 'door', kind: slam ? 'slam' : 'knock', v: slam ? 1 : 0.8, hand });
       return;
     }
     this.onPressStart(id, undefined, true);
@@ -1031,7 +849,7 @@ export class FoleySystem extends createSystem({
           const v = this.strike.feed(sample);
           if (v !== null) {
             this.clopSide = this.clopSide === 0 ? 1 : 0;
-            this.hit({ t: this.stage.screen.currentTime, prop: 'coconuts', kind: 'clop', v, hand: this.clopSide ? 'left' : 'right' });
+            this.hit({ t: 0, prop: 'coconuts', kind: 'clop', v, hand: this.clopSide ? 'left' : 'right' });
           }
           break;
         }
@@ -1042,14 +860,9 @@ export class FoleySystem extends createSystem({
           this.stage.setThunderShake(level);
           if (level > 0.35 && now - (this.lastRumbleMark ?? -1) > 0.5) {
             this.lastRumbleMark = now;
-            const ev: HitEvent = { t: this.stage.screen.currentTime, prop: 'thunder', kind: 'rumble', v: level };
-            if (this.recorder.open) {
-              this.recorder.add(ev);
-              const landed = this.tracker?.register(ev);
-              if (landed) console.log('CUE hit', landed.cue.label);
-            }
+            const ev: HitEvent = { t: 0, prop: 'thunder', kind: 'rumble', v: level };
             console.log('HIT thunder rumble', ev.t.toFixed(2), level.toFixed(2));
-            this.serial?.sound('thunder', 'rumble', level);
+            this.serial.sound('thunder', 'rumble', level);
           }
           break;
         }
@@ -1059,17 +872,12 @@ export class FoleySystem extends createSystem({
           this.stage.setWhistleSlide(pitch);
           if (now - (this.lastWhistleMark ?? -1) > 0.4) {
             this.lastWhistleMark = now;
-            const ev: HitEvent = { t: this.stage.screen.currentTime, prop: 'whistle', kind: 'whistle', v: pitch };
-            if (this.recorder.open) {
-              this.recorder.add(ev);
-              const landed = this.tracker?.register(ev);
-              if (landed) console.log('CUE hit', landed.cue.label);
-            }
+            const ev: HitEvent = { t: 0, prop: 'whistle', kind: 'whistle', v: pitch };
             console.log('HIT whistle slide', ev.t.toFixed(2), pitch.toFixed(2));
             // the stage hears the held whistle about once a second, not at every mark
             if (now - this.lastWhistleToStage > 0.9) {
               this.lastWhistleToStage = now;
-              this.serial?.sound('whistle', 'whistle', pitch);
+              this.serial.sound('whistle', 'whistle', pitch);
             }
           }
           break;
@@ -1103,7 +911,7 @@ export class FoleySystem extends createSystem({
       this.stage.placeFrom(tmpP, tmpF);
       this.frameBrowserCamera();
       this.placed = true;
-      this.serial?.theatre.warm();
+      this.serial.theatre.warm();
       console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'browser');
       return;
     }
@@ -1128,7 +936,7 @@ export class FoleySystem extends createSystem({
     this.placedFwd.normalize();
     this.movedFor = 0;
     this.placed = true;
-    this.serial?.theatre.warm(); // the headset's programs are its own (stereo): build them now, behind the curtain
+    this.serial.theatre.warm(); // the headset's programs are its own (stereo): build them now, behind the curtain
     this.fitView();
     console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'yaw', +this.stage.root.rotation.y.toFixed(2), 'xr');
   }
@@ -1144,7 +952,6 @@ export class FoleySystem extends createSystem({
    */
   private fitView(): void {
     const serial = this.serial;
-    if (!serial) return;
     const eye = this.world.renderer.xr.getCamera().cameras[0];
     const m = eye?.projectionMatrix.elements;
     if (!m || !(m[0] > 0)) return;
@@ -1180,7 +987,7 @@ export class FoleySystem extends createSystem({
       this.placeTimer = 1; // the pose is already tracked: no need to wait for it to settle again
     }
     // only while the player is really looking: under the system menu the headset draws the page a few times a second
-    if (this.serial && !automationRun() && this.world.visibilityState.value === VisibilityState.Visible) {
+    if (!automationRun() && this.world.visibilityState.value === VisibilityState.Visible) {
       const t = this.serial.theatre;
       const big = this.stage.theatreBig;
       if (!big) this.frameAvg = 1 / 72;
@@ -1210,22 +1017,10 @@ export class FoleySystem extends createSystem({
     }
   }
 
-  /** The landing's camera: wide screens see the stage from the right so it sits beside the copy; phones see it head-on. */
+  /** The page's camera: the stage framed into the rectangle the page keeps for it (see frameSerial). */
   private frameBrowserCamera(): void {
     const cam = this.world.camera;
-    const wide = window.innerWidth > 900;
-    if (this.serialOn) {
-      frameSerial(cam, wide);
-      return;
-    }
-    if (wide) {
-      cam.position.set(0.42, 1.62, 1.45);
-      cam.lookAt(-0.62, 1.0, -0.95);
-    } else {
-      cam.position.set(0.0, 1.55, 2.2);
-      cam.lookAt(0.0, 1.02, -0.9);
-    }
-    cam.updateMatrixWorld(true);
+    frameSerial(cam, window.innerWidth > 900);
   }
 
   private syncAudioSpace(time: number): void {
@@ -1243,16 +1038,15 @@ export class FoleySystem extends createSystem({
         if (piece.id === 'clapper' || piece.id.startsWith('tile-')) continue;
         sound.placeSource(piece.id as PropId, piece.root.getWorldPosition(tmpP));
       }
-      sound.placeSource('director', this.director.group.getWorldPosition(tmpP));
-      if (this.serial) {
-        sound.placeSource('stage', this.stage.theatreMount.getWorldPosition(tmpP));
-        // the house: a metre and a half behind where the player sits, facing the stage with them
-        this.stage.root.getWorldPosition(tmpU);
-        tmpF.set(this.placedEye.x - tmpP.x, 0, this.placedEye.z - tmpP.z);
-        if (tmpF.lengthSq() < 1e-6) tmpF.set(0, 0, 1);
-        tmpF.normalize();
-        sound.placeSource('house', tmpU.set(this.placedEye.x, Math.max(1, this.placedEye.y), this.placedEye.z).addScaledVector(tmpF, 1.5));
-      }
+      // the clapper's snap comes from the 'director' source, which has always stood at the world's origin here
+      sound.placeSource('director', tmpP.set(0, 0, 0));
+      sound.placeSource('stage', this.stage.theatreMount.getWorldPosition(tmpP));
+      // the house: a metre and a half behind where the player sits, facing the stage with them
+      this.stage.root.getWorldPosition(tmpU);
+      tmpF.set(this.placedEye.x - tmpP.x, 0, this.placedEye.z - tmpP.z);
+      if (tmpF.lengthSq() < 1e-6) tmpF.set(0, 0, 1);
+      tmpF.normalize();
+      sound.placeSource('house', tmpU.set(this.placedEye.x, Math.max(1, this.placedEye.y), this.placedEye.z).addScaledVector(tmpF, 1.5));
     }
   }
 
@@ -1309,52 +1103,48 @@ export class FoleySystem extends createSystem({
     this.firePendingPats(time);
     this.trackHeld(time, dt);
     this.easeHome(dt);
-    if (this.mode === 'replay' && this.replayer) this.replayer.tick(this.stage.screen.currentTime);
-    if (this.serial) {
-      if (this.redoArmedUntil && performance.now() > this.redoArmedUntil) {
-        this.redoArmedUntil = 0;
-        this.onSerialState(this.serial.state); // the question went unanswered: the slate says again what it said
+    if (this.redoArmedUntil && performance.now() > this.redoArmedUntil) {
+      this.redoArmedUntil = 0;
+      this.onSerialState(this.serial.state); // the question went unanswered: the slate says again what it said
+    }
+    // under the system menu, or with the headset off the face, the reel holds its breath
+    if (!away) this.serial.update(dt);
+    // the theatre's size follows its mount (desk or wall)
+    const size = this.stage.theatreSize;
+    if (Math.abs(size - this.serial.theatre.scale) > 1e-4) {
+      this.serial.theatre.setSize(size);
+    }
+    if (this.house) {
+      // down with the curtain's rise, up again between reels; lightning on the stage lights the room for an instant
+      const t = this.serial.theatre;
+      // (the room stays present: it is the auditorium; and when somebody leaves the picture the house lights come up)
+      const want = t.houseUp ? 0.07 : (0.24 + 0.34 * t.curtainLevel) * (1 - 0.85 * t.flashLevel);
+      const m = this.house.material as MeshBasicMaterial;
+      m.opacity += (want - m.opacity) * Math.min(1, dt * 3);
+    }
+    if (this.serial.state === 'playing' && time - this.lastPerfLog > 8) {
+      this.lastPerfLog = time;
+      const r = this.world.renderer.info.render;
+      console.log('PERF serial calls', r.calls, 'triangles', r.triangles, 'dt', dt.toFixed(3));
+    }
+    // the prop the stage is waiting for glows on the table; at an open moment they all do, in turn
+    if (this.serial.state === 'ready') {
+      // the clapper is the way in: it glows until the reel rolls
+      this.wantedPulse -= dt;
+      if (this.wantedPulse <= 0) {
+        this.wantedPulse = 0.85;
+        this.stage.flash('clapper', 0.9);
       }
-      // under the system menu, or with the headset off the face, the reel holds its breath
-      if (!away) this.serial.update(dt);
-      // the theatre's size follows its mount (desk or wall)
-      const size = this.stage.theatreSize;
-      if (Math.abs(size - this.serial.theatre.scale) > 1e-4) {
-        this.serial.theatre.setSize(size);
+    } else if (this.wanted) {
+      this.wantedPulse -= dt;
+      if (this.wantedPulse <= 0) {
+        this.wantedPulse = 0.85;
+        const props = this.wanted.prop ? [this.wanted.prop] : (this.wanted.options ?? PROP_IDS);
+        for (const p of props) this.stage.flash(p, 0.85);
+        if (this.serial.state === 'pitch' && voice.voiceWanted()) this.stage.flash('megaphone', 0.85);
       }
-      if (this.house) {
-        // down with the curtain's rise, up again between reels; lightning on the stage lights the room for an instant
-        const t = this.serial.theatre;
-        // (the room stays present: it is the auditorium; and when somebody leaves the picture the house lights come up)
-        const want = t.houseUp ? 0.07 : (0.24 + 0.34 * t.curtainLevel) * (1 - 0.85 * t.flashLevel);
-        const m = this.house.material as MeshBasicMaterial;
-        m.opacity += (want - m.opacity) * Math.min(1, dt * 3);
-      }
-      if (this.serial.state === 'playing' && time - this.lastPerfLog > 8) {
-        this.lastPerfLog = time;
-        const r = this.world.renderer.info.render;
-        console.log('PERF serial calls', r.calls, 'triangles', r.triangles, 'dt', dt.toFixed(3));
-      }
-      // the prop the stage is waiting for glows on the table; at an open moment they all do, in turn
-      if (this.serial.state === 'ready') {
-        // the clapper is the way in: it glows until the reel rolls
-        this.wantedPulse -= dt;
-        if (this.wantedPulse <= 0) {
-          this.wantedPulse = 0.85;
-          this.stage.flash('clapper', 0.9);
-        }
-      } else if (this.wanted) {
-        this.wantedPulse -= dt;
-        if (this.wantedPulse <= 0) {
-          this.wantedPulse = 0.85;
-          const props = this.wanted.prop ? [this.wanted.prop] : (this.wanted.options ?? PROP_IDS);
-          for (const p of props) this.stage.flash(p, 0.85);
-          if (this.serial.state === 'pitch' && voice.voiceWanted()) this.stage.flash('megaphone', 0.85);
-        }
-      }
-    } else this.lane.update(this.stage.screen.currentTime);
+    }
     const viewer: Object3D = inXR ? this.player.head : this.world.camera;
-    this.director.update(dt, viewer);
     this.slate.update(dt, viewer);
     this.syncAudioSpace(time);
     this.stage.update(dt);

@@ -21,22 +21,6 @@ export function soundForced(): boolean {
 }
 
 /**
- * Which show is on: the Serial (the toy theatre, the default) or the classic films (`?films`). Kept in localStorage for
- * the same reason as the sound flag; `?serial` goes back to the default.
- */
-export function serialMode(): boolean {
-  if (typeof location === 'undefined') return true;
-  const q = new URLSearchParams(location.search);
-  try {
-    if (q.has('films')) localStorage.setItem('coconuts.show', 'films');
-    else if (q.has('serial')) localStorage.removeItem('coconuts.show');
-    return localStorage.getItem('coconuts.show') !== 'films';
-  } catch {
-    return !q.has('films');
-  }
-}
-
-/**
  * `?capture` makes every drawn frame a thirtieth of a second of the show, however long the frame took: the slow
  * emulator then yields a smooth film once its frames are played back at 30 a second. `?nocapture` turns it off.
  */

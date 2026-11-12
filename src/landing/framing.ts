@@ -55,7 +55,7 @@ function frameElement(): HTMLElement | null {
   return null;
 }
 
-/** The target rectangle in the canvas's own pixels, or null when the page has none (the classic films page). */
+/** The target rectangle in the canvas's own pixels, or null when the page has none. */
 function frameRect(): { rect: Rect; view: { w: number; h: number } } | null {
   const el = frameElement();
   const canvas = document.querySelector<HTMLCanvasElement>('#scene-container canvas');
