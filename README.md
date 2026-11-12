@@ -32,7 +32,7 @@ Experience division.
 | The six props | hand interactions: a pat, a pinch from afar, gaze and pinch, or pick up and shake; recorded CC0 sounds with a synthesised fallback |
 | Speaking a pitch | optional: hold the megaphone; speech-to-text by Gemini, with AssemblyAI raced in when Gemini is slow (about 2.6 s); the page asks once, before the first curtain, whether the Director may hear you; off without a microphone or the keys, and the pitch cards always work |
 | Wall size | the player's thunder bursts the toy theatre to the size of the wall; a tile switches back, and it stays small if the headset cannot keep its frame rate |
-| Headset testing | the IWSDK desktop emulator only (Quest 3 profile, and the Meta VR Glasses profile for gaze and pinch); no physical headset was available to the builder |
+| Headset testing | the IWSDK desktop emulator only (Quest 3 profile, and the Meta VR Glasses profile for gaze and pinch); no physical headset was available to the builder. What to check first on a real one: `docs/headset-checklist.md` |
 
 ## How it plays
 
@@ -47,7 +47,7 @@ Experience division.
 3. **What happens next?** Three pitches, each on a prop. Sound one, or hold the megaphone and say your own.
    The Director writes the reel; it rolls by itself.
 4. **Come back.** The serial keeps its place in the browser: next time the marquee says "Previously…" and the
-   clapper goes on with the story.
+   clapper goes on with the story. (On a headset that is passed round, the page offers reel one again.)
 
 Every prop answers four ways, so nothing depends on one kind of tracking: an open hand's pat, a pinch from
 afar, gaze and pinch (Meta VR Glasses), or pick it up and shake. A stage kept waiting asks twice (the actor
@@ -115,7 +115,9 @@ node tools/xr/run-props.mjs                                                # eve
   (reels, pitches, the Director, the saved place), `tasks.ts` (a cooperative scheduler: no timers, so a reel
   can be stepped and tested).
 - `src/foley/`: the table, the props and the hands. `system.ts` is the one ECS system: it places the stage for
-  the player's eyes, turns pats, pinches and hand motion into sounds, and feeds them to the stage.
+  the player's eyes, turns pats, pinches and hand motion into sounds, and feeds them to the stage. `triggers.ts`
+  holds the hand-motion detectors as pure classes (a pat as a stroke, a strike, a shake, a deliberate touch
+  against a resting hand), tested with synthetic traces at headset rates.
 - `api/`: the Director (`reel.ts`) and hearing (`hear.ts`).
 - `tools/serial/`, `assets-src/`: the asset pipeline (Blender and glTF-Transform scripts that bake the sets and
   strip the characters). `tools/audio/`: the cuts of the recorded sounds. `tools/xr/`: emulator drivers.
@@ -126,7 +128,8 @@ Hands only, no controllers. Seated, everything inside a two-foot radius.
 
 - One hand is enough, and no grip is needed: a pat or a far pinch sounds every prop; the clapper and the tiles
   answer a touch. A hand that only rests or drifts over the table is not a pat: a touch counts when the finger
-  came there on purpose, and the tile that starts a reel again asks twice.
+  came there on purpose, and the tile that starts a reel again asks twice. Drumming needs only a small lift: a
+  finger that comes two centimetres back up and goes down again has patted again.
 - Eyes do the aiming on Meta VR Glasses: look at a prop and pinch once with either hand.
 - Nothing is timed: the stage waits, asks again, then goes on. Every sound is also seen (a sound word on the
   stage, a card that names what it did). When the headset comes off or the system menu opens, the reel holds.
