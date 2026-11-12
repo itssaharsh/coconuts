@@ -1,4 +1,5 @@
 // Hand-motion detectors, written as pure classes so tests can feed them synthetic traces.
+import type { Box3, Vector3 } from 'three';
 
 export interface Sample {
   t: number; // seconds
@@ -146,12 +147,12 @@ export class PatGate {
 
   feed(t: number, x: number, y: number, z: number): void {
     if (this.count > 0) {
-      // a fingertip does not jump: a step this long in one sample is the tracking finding the hand again somewhere
-      // else, and what came before says nothing about how it got here
+      // a fingertip does not jump: a step this fast is the tracking finding the hand again somewhere else, and what
+      // came before says nothing about how it got here (a fast reach over a stalled frame is slower than this)
       const j = (this.head - 1 + this.size) % this.size;
       const step = Math.hypot(x - this.p[j * 3], y - this.p[j * 3 + 1], z - this.p[j * 3 + 2]);
       const dt = t - this.t[j];
-      if (step > 0.12 || (step > 0.06 && dt > 0 && step / dt > 8)) this.reset();
+      if (step > 0.06 && (dt <= 0 || step / dt > 5)) this.reset();
     }
     const i = this.head;
     this.p[i * 3] = x;
@@ -193,6 +194,11 @@ export class PatGate {
   /** How fast the fingertip was moving as it arrived, m/s (a hard knock is a slam). */
   arrival(): number {
     return this.measure().fast;
+  }
+
+  /** The hand has only just appeared (or jumped): there is no history to judge it by. */
+  fresh(): boolean {
+    return this.count < 3;
   }
 }
 
@@ -236,6 +242,14 @@ export class Stroke {
    * says whether a slow return should count (asked only then).
    */
   feed(depth: number, t: number, pinching: boolean, arrival: number, fast: number, meant: () => boolean): 'pat' | 'lift' | null {
+    if (pinching) {
+      // a pinching hand is picking something up or pressing from afar (and a fingertip moves as it pinches): the
+      // stroke starts afresh from wherever the finger is when the pinch opens
+      this.lifted = false;
+      this.deep = depth;
+      this.high = depth;
+      return null;
+    }
     if (!this.lifted) {
       if (depth < this.deep) this.deep = depth;
       if (!this.live && !pinching && this.high - depth >= 0.01 && arrival >= fast) {
@@ -262,4 +276,51 @@ export class Stroke {
     this.high = depth;
     return this.live ? 'pat' : null;
   }
+}
+
+/** How far a point is from a box (both in the box's own space): negative inside, by the depth under the nearest face. */
+export function depthIn(box: Box3, p: Vector3): number {
+  const d = box.distanceToPoint(p);
+  if (d > 0) return d;
+  return -Math.min(p.x - box.min.x, box.max.x - p.x, p.y - box.min.y, box.max.y - p.y, p.z - box.min.z, box.max.z - p.z);
+}
+
+/**
+ * The face of a box a point comes in by: 0..5 = -x, +x, -y, +y, -z, +z (the face it is furthest outside of; inside,
+ * the nearest face). A touch is measured against this face for as long as it lasts, so a finger that pushes on through
+ * a thin piece is going deeper, not coming back up out of the far side.
+ */
+export function entryFace(box: Box3, p: Vector3): number {
+  let face = 3;
+  let far = -Infinity;
+  for (let a = 0; a < 3; a++) {
+    const lo = box.min.getComponent(a) - p.getComponent(a);
+    const hi = p.getComponent(a) - box.max.getComponent(a);
+    if (lo > far) {
+      far = lo;
+      face = 2 * a;
+    }
+    if (hi > far) {
+      far = hi;
+      face = 2 * a + 1;
+    }
+  }
+  return face;
+}
+
+/** How far a point is out past one face of a box (metres; negative once it is through the face, however far). */
+export function depthPast(box: Box3, p: Vector3, face: number): number {
+  const a = face >> 1;
+  return face & 1 ? p.getComponent(a) - box.max.getComponent(a) : box.min.getComponent(a) - p.getComponent(a);
+}
+
+/** How far a point is outside a box's footprint seen along one axis (0 when it is over or under the face). */
+export function besideBy(box: Box3, p: Vector3, axis: number): number {
+  let s = 0;
+  for (let i = 0; i < 3; i++) {
+    if (i === axis) continue;
+    const o = Math.max(box.min.getComponent(i) - p.getComponent(i), 0, p.getComponent(i) - box.max.getComponent(i));
+    s += o * o;
+  }
+  return Math.sqrt(s);
 }

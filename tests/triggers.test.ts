@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PatGate, ShakeMeter, SlideTracker, StrikeDetector, Stroke, isDrop, type Sample } from '../src/foley/triggers';
+import { Box3, Vector3 } from 'three';
+import { PatGate, ShakeMeter, SlideTracker, StrikeDetector, Stroke, TOUCH_IN, besideBy, depthIn, depthPast, entryFace, isDrop, type Sample } from '../src/foley/triggers';
 
 function trace(fn: (t: number) => { x?: number; y: number; z?: number }, seconds: number, hz = 72): Sample[] {
   const out: Sample[] = [];
@@ -239,5 +240,107 @@ describe('Stroke: one fingertip on one prop, down, up and down again', () => {
     const s = new Stroke('megaphone', -0.02, true);
     const got = run(s, 1, (t) => (t < 0.5 ? -0.02 + wobble(t) * 0.5 : -0.02 + 0.08 * (t - 0.5)));
     expect(got).toEqual({ pats: 0, lifts: 1 });
+  });
+});
+
+/**
+ * The touch loop of the game, reduced to one fingertip and one piece: in reach of the shape (TOUCH_IN) a stroke starts,
+ * measured past the face the finger came in by; it lasts while the finger is over or through that face and less than
+ * 3.5 cm clear of it.
+ */
+function touchRun(box: Box3, path: (t: number) => [number, number, number], secs: number, o: { pinch?: (t: number) => boolean } = {}) {
+  let stroke: Stroke | null = null;
+  let face = 3;
+  let pats = 0;
+  let lifts = 0;
+  const p = new Vector3();
+  for (let i = 0; i <= secs * 72; i++) {
+    const t = i / 72;
+    p.set(...path(t));
+    const pinching = o.pinch?.(t) ?? false;
+    if (stroke) {
+      const past = depthPast(box, p, face);
+      if (Math.max(past, besideBy(box, p, face >> 1)) <= 0.035) {
+        const did = stroke.feed(past, t, pinching, 1, 0.2, () => true);
+        if (did === 'pat') pats++;
+        else if (did === 'lift') lifts++;
+        continue;
+      }
+      stroke = null;
+    }
+    if (depthIn(box, p) <= TOUCH_IN) {
+      face = entryFace(box, p);
+      stroke = new Stroke('piece', depthPast(box, p, face), !pinching);
+      if (!pinching) pats++;
+    }
+  }
+  return { pats, lifts };
+}
+
+describe('a touch measured against the face it came in by', () => {
+  // a round tile on the table rim: 5 cm across, 1 cm thick
+  const tile = new Box3(new Vector3(-0.025, 0, -0.025), new Vector3(0.025, 0.01, 0.025));
+  // the little door's leaf with its base: 5 cm deep in all
+  const door = new Box3(new Vector3(-0.03, 0, -0.025), new Vector3(0.03, 0.09, 0.025));
+
+  it('the face a finger comes in by is the one it is furthest outside of', () => {
+    expect(entryFace(tile, new Vector3(0, 0.05, 0))).toBe(3); // from above: +y
+    expect(entryFace(door, new Vector3(0, 0.05, 0.08))).toBe(5); // from the player's side: +z
+    expect(depthPast(tile, new Vector3(0, -0.04, 0), 3)).toBeCloseTo(-0.05); // through the tile, and on: deeper
+    expect(besideBy(tile, new Vector3(0.035, 0.02, 0), 1)).toBeCloseTo(0.01);
+  });
+
+  it('pressing on through a thin tile is one press, not two', () => {
+    for (const reach of [0.025, 0.06]) {
+      // down from 5 cm above to `reach` below the face and back, in half a second each way
+      const got = touchRun(tile, (t) => [0, t < 0.5 ? 0.06 - (0.05 + reach) * (t / 0.5) : 0.01 - reach + (0.05 + reach) * Math.min(1, (t - 0.5) / 0.5), 0], 1.2);
+      expect(got.pats).toBe(1);
+    }
+  });
+
+  it('knocking through the door is one knock', () => {
+    for (const reach of [0.02, 0.08]) {
+      const got = touchRun(door, (t) => [0, 0.05, t < 0.3 ? 0.08 - (0.055 + reach) * (t / 0.3) : 0.025 - reach + (0.055 + reach) * Math.min(1, (t - 0.3) / 0.3)], 0.8);
+      expect(got.pats).toBe(1);
+    }
+  });
+
+  it('drumming on a prop with small lifts still counts every stroke', () => {
+    const shells = new Box3(new Vector3(-0.06, 0, -0.04), new Vector3(0.06, 0.05, 0.04));
+    const got = touchRun(shells, (t) => [0, 0.045 + 0.0125 * Math.cos(2 * Math.PI * 4 * t) + (t < 0.05 ? 0.03 : 0), 0], 1);
+    expect(got.pats).toBeGreaterThanOrEqual(4);
+  });
+
+  it('a finger resting on a prop while the hand pinches does not sound it again when the pinch opens', () => {
+    // resting 1 cm into the bell; the pinch lifts the fingertip 2 cm for half a second, then it settles back
+    const bell = new Box3(new Vector3(-0.04, 0, -0.04), new Vector3(0.04, 0.05, 0.04));
+    const got = touchRun(
+      bell,
+      (t) => [0, t < 0.2 ? 0.07 - 0.03 * (t / 0.2) : t < 1 ? 0.04 : t < 1.5 ? 0.06 : 0.04, 0],
+      2.5,
+      { pinch: (t) => t >= 0.9 && t < 1.6 },
+    );
+    expect(got.pats).toBe(1); // the first touch, and nothing for the pinch
+  });
+});
+
+describe('PatGate and a stalled frame', () => {
+  it('a fast reach over a frame that stalled for 80 ms is still a reach', () => {
+    const g = new PatGate();
+    let t = 0;
+    for (; t < 0.5; t += 1 / 72) g.feed(t, 0.1, 0.95, -0.4);
+    g.feed(t + 0.08, 0.1, 0.95 - 0.16, -0.4); // 2 m/s across the stall
+    g.feed(t + 0.08 + 1 / 72, 0.1, 0.95 - 0.165, -0.4);
+    expect(g.fresh()).toBe(false);
+    expect(g.deliberate()).toBe(true);
+  });
+
+  it('a hand found again 30 cm away in one frame starts afresh', () => {
+    const g = new PatGate();
+    let t = 0;
+    for (; t < 0.5; t += 1 / 72) g.feed(t, 0.3, 0.95, -0.2);
+    g.feed(t + 1 / 72, 0.05, 0.85, -0.4);
+    expect(g.fresh()).toBe(true);
+    expect(g.deliberate()).toBe(false);
   });
 });

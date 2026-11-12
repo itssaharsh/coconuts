@@ -11,7 +11,7 @@ import * as sound from './sound';
 import * as voice from './voice';
 import { Stage, THEATRE_SMALL } from './stage';
 import { TABLE_H } from './toys';
-import { PatGate, ShakeMeter, SlideTracker, StrikeDetector, Stroke, TOUCH_IN, isDrop } from './triggers';
+import { PatGate, ShakeMeter, SlideTracker, StrikeDetector, Stroke, TOUCH_IN, besideBy, depthIn, depthPast, entryFace, isDrop } from './triggers';
 import type { HitEvent, PropId } from './types';
 import { DESK_ROUTE, PROP_IDS } from './types';
 import { Serial, type SerialState } from '../serial/serial';
@@ -68,12 +68,6 @@ const SLAM_SPEED = 1.1;
 type Hand = 'left' | 'right';
 const HANDS: Hand[] = ['right', 'left'];
 
-/** How far a point is from a box (both in the box's own space): negative inside, by the depth under the nearest face. */
-function depthIn(box: Box3, p: Vector3): number {
-  const d = box.distanceToPoint(p);
-  if (d > 0) return d;
-  return -Math.min(p.x - box.min.x, box.max.x - p.x, p.y - box.min.y, box.max.y - p.y, p.z - box.min.z, box.max.z - p.z);
-}
 const VOLUME_STEPS = [1, 0.6, 0.25, 0];
 
 export class FoleySystem extends createSystem({
@@ -112,6 +106,12 @@ export class FoleySystem extends createSystem({
   private handSeen: Record<Hand, boolean> = { left: false, right: false };
   /** Seconds each hand has been out of sight while it holds a prop. */
   private lostFor: Record<Hand, number> = { left: 0, right: 0 };
+  /** When each hand came back into sight (show seconds); a pinch that "opens" in the first moments back is the tracking, not the player. */
+  private seenSince: Record<Hand, number> = { left: 0, right: 0 };
+  /** The face of the touched piece each fingertip came in by (see entryFace). */
+  private touchFace: Record<Hand, number> = { left: 3, right: 3 };
+  /** The prop each hand has just put down: the fingertip that let go of it is still on it, and that is not a pat. */
+  private letGo: Record<Hand, { id: string; at: number } | null> = { left: null, right: null };
   /** When a pinch last picked a prop up (show seconds): that pinch is not also a press from afar. */
   private grabbedAt = -1;
   /** The way the player faced when the stage was placed, flat on the floor. */
@@ -320,9 +320,9 @@ export class FoleySystem extends createSystem({
     this.world.renderer.xr.getReferenceSpace()?.addEventListener('reset', () => this.reposition());
     // a session begun from the browser's own button has had no gesture on the page, and a fingertip's touch is not
     // one: the first pinch is (which of these events counts as the gesture is the browser's choice, so all of them ask)
-    const free = (): void => {
+    const free = (e: Event): void => {
       if (sound.audioContext()?.state === 'running') return;
-      this.lockedPinches++;
+      if (e.type === 'selectstart' || e.type === 'squeezestart') this.lockedPinches++; // (one pinch is three events)
       void sound.ensureAudio().then(() => this.checkSound(true));
     };
     for (const type of ['selectstart', 'select', 'selectend', 'squeezestart', 'squeeze'] as const) session.addEventListener(type, free);
@@ -343,6 +343,7 @@ export class FoleySystem extends createSystem({
     if (locked === this.soundLocked && !(locked && again)) return;
     if (locked !== this.soundLocked) console.log(locked ? 'AUDIO locked: waiting for a pinch' : 'AUDIO free');
     this.soundLocked = locked;
+    if (this.redoArmedUntil) return; // the Redo question stays up; when it lapses the slate says the state's line again
     const serial = this.serial;
     if (serial.state !== 'playing') this.onSerialState(serial.state);
     else if (!locked) this.slate.hide();
@@ -518,7 +519,9 @@ export class FoleySystem extends createSystem({
       const holding = this.pinchHeld[hand];
       if (holding && (s.end || (!s.active && !s.start))) {
         this.pinchHeld[hand] = null;
-        this.endHold(holding);
+        // (in the first moments after the tracking found the hand again an open pinch may be the tracking's, not the
+        // player's: the prop goes home without the sound of a drop)
+        this.endHold(holding, this.patClock - this.seenSince[hand] < 0.3);
       }
     }
   }
@@ -552,6 +555,7 @@ export class FoleySystem extends createSystem({
     const h = this.held.get(prop);
     if (!h) return;
     this.held.delete(prop);
+    if (!lost) this.letGo[h.hand] = { id: prop, at: this.patClock };
     console.log('RELEASE', prop, lost ? '(the hand went out of sight)' : '');
     if (prop === 'thunder') sound.rumbleStop();
     if (prop === 'whistle') sound.whistleStop();
@@ -576,6 +580,7 @@ export class FoleySystem extends createSystem({
       this.slate.say('The megaphone is for between reels', 'Hold it then, and say what happens next', 4);
       return;
     }
+    if (voice.listening()) return; // already held (by the other hand): the take goes on
     if (!voice.voiceWanted()) {
       // not allowed on the page. The headset view is no place for the browser's question (it would cover the show), so
       // the microphone is taken up here only when the permission already stands and the player has not said no
@@ -700,6 +705,7 @@ export class FoleySystem extends createSystem({
           // a runtime that will not say: the place is all there is to go on
         }
       }
+      if (seen && !this.handSeen[hand]) this.seenSince[hand] = this.patClock;
       this.handSeen[hand] = seen;
     }
   }
@@ -713,42 +719,71 @@ export class FoleySystem extends createSystem({
       const pinching = s.active || s.start;
       let on: string | null = null;
       let depth = Infinity;
+      let face = 3;
       if (tracked) {
+        // the nearest new piece within reach, and the touched one measured past the face the finger came in by
         let best = Infinity;
+        let mine = false;
+        let mineDepth = Infinity;
         for (const piece of this.stage.pieces.values()) {
           if (this.held.has(piece.id)) continue;
           const box = this.shapeOf(piece.id);
           if (!box) continue;
-          const d = depthIn(box, piece.root.worldToLocal(tmpU.copy(tmpP)));
-          const mine = cur?.id === piece.id;
-          if (d <= (mine ? TOUCH_OUT : TOUCH_IN) && (mine ? -Infinity : d) < best) {
-            best = mine ? -Infinity : d; // what is already touched stays touched until the finger is clear of it
-            on = piece.id;
-            depth = d;
+          const p = piece.root.worldToLocal(tmpU.copy(tmpP));
+          if (cur?.id === piece.id) {
+            // still touched while the finger is over (or through) that face and less than TOUCH_OUT clear of it
+            const f = this.touchFace[hand];
+            const past = depthPast(box, p, f);
+            if (Math.max(past, besideBy(box, p, f >> 1)) <= TOUCH_OUT) {
+              mine = true;
+              mineDepth = past;
+            }
+            continue;
           }
+          const d = depthIn(box, p);
+          if (d <= TOUCH_IN && d < best) {
+            best = d;
+            on = piece.id;
+            face = entryFace(box, p);
+            depth = depthPast(box, p, face);
+          }
+        }
+        // what is touched stays touched until the finger is clear of it, unless the finger has gone on into another
+        // piece while it was up off this one
+        if (mine && !(on !== null && best <= 0 && mineDepth > 0)) {
+          on = cur!.id;
+          depth = mineDepth;
+          face = this.touchFace[hand];
         }
       }
       if (cur && on === cur.id) {
-        // still on the piece it touched: its stroke is followed down, back up, and down again
+        // held to speak: the megaphone is let go by taking the finger off it, not by the hand relaxing on it
+        if (cur.id === 'megaphone' && cur.live && !cur.lifted) continue;
+        // its stroke is followed down, back up, and down again
         const gate = this.pats[hand];
-        const did = cur.feed(depth, this.patClock, pinching, gate.arrival(), gate.speed, () => automationRun() || this.patFilterOff || gate.deliberate());
+        const quiet = pinching || this.settling(hand, cur.id);
+        const did = cur.feed(depth, this.patClock, quiet, gate.arrival(), gate.speed, () => automationRun() || this.patFilterOff || gate.deliberate());
         if (did === 'pat') this.pat(cur.id, hand);
-        else if (did === 'lift') this.touchEnd(cur.id);
+        else if (did === 'lift') this.touchEnd(cur.id, hand);
         continue;
       }
-      if (cur?.live && !cur.lifted) this.touchEnd(cur.id);
+      if (cur?.live && !cur.lifted) this.touchEnd(cur.id, hand);
       if (!on) {
         this.touching[hand] = null;
         continue;
       }
-      // a pinching hand is picking something up or pressing from afar; a hand that only rests or drifts is not patting
-      const live = !pinching && (automationRun() || this.patFilterOff || this.pats[hand].deliberate());
+      // a pinching hand is picking something up or pressing from afar; a hand that only rests or drifts is not patting,
+      // and nor is the finger that has just let go of the prop it was holding
+      const quiet = pinching || this.settling(hand, on);
+      const live = !quiet && (automationRun() || this.patFilterOff || this.pats[hand].deliberate());
+      this.touchFace[hand] = face;
       this.touching[hand] = new Stroke(on, depth, live);
       if (live) this.pat(on, hand);
-      else if (!pinching) {
+      else if (!quiet) {
         console.log('TOUCH ignored (a resting hand)', on);
-        // (five refusals and not one touch taken yet: on this headset the filter is wrong about hands, so it steps aside)
-        if (++this.patsRefused >= 5 && this.patsTaken === 0) {
+        // (five refusals of hands with a history, and not one touch taken yet: on this headset the filter is wrong
+        // about hands, so it steps aside; a hand that has only just come into sight is no evidence either way)
+        if (!this.pats[hand].fresh() && ++this.patsRefused >= 5 && this.patsTaken === 0) {
           this.patFilterOff = true;
           console.log('TOUCH filter off: it had refused every touch');
         }
@@ -759,8 +794,20 @@ export class FoleySystem extends createSystem({
   /** A touch that counts: it sounds now, or (the props a hand also picks up) in a moment, unless a pinch closes first. */
   private pat(id: string, hand: Hand): void {
     this.patsTaken++;
+    const waiting = this.pendingPat[hand];
+    if (waiting) {
+      // patted again before the wait was over: that was no pick-up, it sounds now
+      this.pendingPat[hand] = null;
+      this.touchStart(waiting.id, hand);
+    }
     if (PAT_WAITS.has(id)) this.pendingPat[hand] = { id, at: this.patClock };
     else this.touchStart(id, hand);
+  }
+
+  /** The prop this hand has just put down, while the finger that let go of it may still be on it. */
+  private settling(hand: Hand, id: string): boolean {
+    const g = this.letGo[hand];
+    return !!g && g.id === id && this.patClock - g.at < 0.5;
   }
 
   /**
@@ -773,7 +820,7 @@ export class FoleySystem extends createSystem({
       const p = this.pendingPat[hand];
       if (!p) continue;
       const s = this.input.xr.getSelectState(hand);
-      if (s.active || s.start || this.held.has(p.id)) this.pendingPat[hand] = null;
+      if (s.active || s.start || this.held.has(p.id) || !this.handSeen[hand]) this.pendingPat[hand] = null;
       else if (time - p.at >= PAT_WAIT_S) {
         this.pendingPat[hand] = null;
         this.touchStart(p.id, hand);
@@ -793,8 +840,11 @@ export class FoleySystem extends createSystem({
     this.onPressStart(id, undefined, true);
   }
 
-  private touchEnd(id: string): void {
-    if (id === 'megaphone') void this.megaphoneUp();
+  private touchEnd(id: string, hand: Hand): void {
+    if (id !== 'megaphone') return;
+    const other = this.touching[hand === 'left' ? 'right' : 'left'];
+    if (other?.id === 'megaphone' && other.live && !other.lifted) return; // the other hand still holds it
+    void this.megaphoneUp();
   }
 
   /** Presses are tracked per frame so the door can tell a tap from a hold. */
@@ -984,7 +1034,8 @@ export class FoleySystem extends createSystem({
     const dxz = Math.hypot(tmpP.x - this.placedEye.x, tmpP.z - this.placedEye.z);
     // (leaning in over the table to watch what runs across it brings the head forward and down: that is not a new seat)
     const toward = (tmpP.x - this.placedEye.x) * this.placedFwd.x + (tmpP.z - this.placedEye.z) * this.placedFwd.z;
-    const away = tmpP.y > 0.3 && (dy > 0.28 || dxz > 0.9) && toward < 0.1 && this.held.size === 0;
+    const leaning = toward >= 0.1 && dy < 0.4 && dxz < 0.6;
+    const away = tmpP.y > 0.3 && (dy > 0.28 || dxz > 0.9) && !leaning && this.held.size === 0;
     this.movedFor = away ? this.movedFor + dt : 0;
     if (this.movedFor > 1.6) {
       console.log('STAGE placing again: the seat moved', dy.toFixed(2), dxz.toFixed(2));
@@ -1085,10 +1136,10 @@ export class FoleySystem extends createSystem({
           this.pats[hand].feed(time, tmpP.x, tmpP.y, tmpP.z);
         }
       }
-      if (this.soundLocked && sound.audioContext()?.state === 'running') this.checkSound();
       // a finger that goes near the little figure out on the table: it notices
       if (this.serial) for (const hand of HANDS) if (this.handSeen[hand]) this.serial.theatre.poke(this.pinchPoint(hand, tmpP));
     }
+    if (this.soundLocked && (!inXR || sound.audioContext()?.state === 'running')) this.checkSound();
     if (!inXR && window.innerWidth !== this.lastW) {
       this.lastW = window.innerWidth;
       this.frameBrowserCamera();
