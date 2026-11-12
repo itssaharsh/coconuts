@@ -277,7 +277,7 @@ export class Serial {
     console.log('PITCH chosen', pitch.prop ?? 'spoken', pitch.text);
     let answer: ReelAnswer | null = null;
     try {
-      answer = await this.ask({ reel: number, pitch, story: this.story });
+      answer = await this.realTime(this.ask({ reel: number, pitch, story: this.story }));
     } catch {
       answer = null;
     }
@@ -307,6 +307,27 @@ export class Serial {
       await this.pause(4);
     }
     await this.roll();
+  }
+
+  /** The show's own clock: seconds of `update` time. */
+  private clock = 0;
+  /**
+   * A filmed run draws the show slower than the wall clock, so an answer that took four real seconds would flash by
+   * in the film. When this is set, a wait on the network lasts as long in the show as it really took.
+   */
+  filmed = false;
+
+  /** Await `work`; in a filmed run, then wait out in the show's time whatever it took in real time. */
+  async realTime<T>(work: Promise<T>): Promise<T> {
+    if (!this.filmed) return work;
+    const wall = performance.now();
+    const show = this.clock;
+    try {
+      return await work;
+    } finally {
+      const owed = (performance.now() - wall) / 1000 - (this.clock - show);
+      if (owed > 0.05) await this.pause(owed);
+    }
   }
 
   private pauses: { left: number; done: () => void }[] = [];
@@ -358,6 +379,7 @@ export class Serial {
   }
 
   update(dt: number): void {
+    this.clock += dt;
     this.player.update(dt);
     this.theatre.update(dt);
     for (let i = this.pauses.length - 1; i >= 0; i--) {

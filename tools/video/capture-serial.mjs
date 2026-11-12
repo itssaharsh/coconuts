@@ -6,6 +6,7 @@
 // would have played (tools/video/soundtrack.py).
 //
 //   node tools/video/capture-serial.mjs --out qa/film/reel1 [--until pitch|end] [--reels 1] [--pitch thunder] [--open bell] [--start bell] [--tilt -8] [--size 1920x1080]
+//   node tools/video/capture-serial.mjs --out qa/film/say --resume qa/voice/after-reel1.json --say qa/voice/pitch.webm --until end
 //
 // For frames that are the headset view and nothing else, start the runtime at the film's size first:
 //   iwsdk dev up --ai-mode agent --allow-browser-automation --headless --screenshot-width 1920 --screenshot-height 1080
@@ -34,6 +35,20 @@ const tilt = Number(opt('tilt', -8));
 const stopAt = opt('stop-at', null) ? new RegExp(String(opt('stop-at')), 'i') : null;
 // --start bell: the first clapper rolls that prop's written reel instead of reel one (for clips of the later reels)
 const startOn = String(opt('start', '') || '');
+// --say clip.webm: at the first pitch the megaphone is held and this recording is what it hears (a capture has no
+//   microphone); the words go to the real hearing function and the real Director
+const sayFile = opt('say', null) ? String(opt('say')) : '';
+// --resume story.json: start from a saved story, so the clapper goes straight to "What happens next?"
+const resumeFile = opt('resume', null) ? String(opt('resume')) : '';
+const AUDIO_TYPES = { webm: 'audio/webm', wav: 'audio/wav', ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4' };
+const FLAGS = {
+  CAPTURE: '1',
+  REEL: startOn,
+  VOICE: opt('voice', false) || sayFile ? '1' : '0',
+  SAY: sayFile ? `data:${AUDIO_TYPES[sayFile.split('.').pop()] ?? 'audio/webm'};base64,${readFileSync(sayFile).toString('base64')}` : '',
+  SAVE: resumeFile ? JSON.stringify(JSON.parse(readFileSync(resumeFile, 'utf8'))) : '',
+};
+const FLAGS_OFF = { CAPTURE: '0', REEL: '', VOICE: '0', SAY: '', SAVE: '' };
 const [W, H] = String(opt('size', '1920x1080')).split('x').map(Number);
 const maxSeconds = Number(opt('max', 3000));
 rmSync(out, { recursive: true, force: true });
@@ -110,7 +125,7 @@ function centreOf(name) {
   const c0 = t.center ?? t.box?.center ?? t.worldPosition ?? t.position;
   const c = Array.isArray(c0) ? { x: c0[0], y: c0[1], z: c0[2] } : c0;
   const size = t.size ?? t.box?.size ?? { x: 0.1, y: 0.1, z: 0.1 };
-  return { ...c, bottom: c.y - size.y / 2 };
+  return { ...c, bottom: c.y - size.y / 2, top: c.y + size.y / 2 };
 }
 
 /** Move the right hand's fingertip to a point over `showSecs` of the show (the emulator animates in its own time). */
@@ -155,9 +170,21 @@ async function pat(prop, times = 1) {
   reach(REST, 0.45);
 }
 
+/** Rest the fingertip on a piece for `showSecs` of the show, then lift it (the megaphone is held while speaking). */
+async function hold(prop, showSecs) {
+  const c = centreOf(targetName(prop));
+  const over = { x: c.x, y: c.bottom + 0.15, z: c.z + 0.05 };
+  const on = { x: c.x, y: c.bottom + 0.06, z: c.z + 0.02 };
+  reach(over, 0.45);
+  reach(on, 0.12, 'linear');
+  await sleep(showSecs * slow * 1000);
+  reach(over, 0.15, 'linear');
+  reach(REST, 0.45);
+}
+
 async function main() {
   await waitReady();
-  log(JSON.stringify(iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '1', REEL: startOn, VOICE: opt('voice', false) ? '1' : '0' })?.data?.result ?? {}));
+  log(JSON.stringify(iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, FLAGS)?.data?.result ?? {}));
   iw(['browser', 'reload']);
   await sleep(5000);
   await waitReady();
@@ -200,6 +227,9 @@ async function main() {
   await pat('clapper');
   let lastWait = 0;
   let reelsDone = 0;
+  let pitched = 0; // pitch cards seen
+  let said = false;
+  let endedAt = 0;
   const begun = Date.now();
   while (Date.now() - begun < maxSeconds * 1000) {
     collect(t0);
@@ -207,19 +237,25 @@ async function main() {
     const ends = since('^REEL end', t0).length;
     if (ends > reelsDone) {
       reelsDone = ends;
-      let offer = null;
-      for (let i = 0; i < 30 && !offer; i++) {
-        offer = since('^PITCH [a-z]+:', t0).pop() ?? null;
-        if (!offer) await sleep(1000);
-      }
+      endedAt = Date.now();
+    }
+    // a pitch card: after a reel, or straight after the clapper when the take starts from a saved story
+    const offers = since('^PITCH [a-z]+:', t0);
+    if (offers.length > pitched) {
+      pitched = offers.length;
       if (until === 'end' && reelsDone >= reels) break;
       // hold on the card long enough to read it
       await sleep(3.5 * slow * 1000);
-      if (reelsDone >= reels || !offer) break;
-      const offered = offer.message.replace(/^PITCH /, '').split(' | ').map((x) => x.split(':')[0].trim());
-      await pat(pitchProp && offered.includes(pitchProp) ? pitchProp : offered[1] ?? offered[0]);
+      if (reelsDone >= reels) break;
+      const offered = offers[offers.length - 1].message.replace(/^PITCH /, '').split(' | ').map((x) => x.split(':')[0].trim());
+      if (sayFile && !said) {
+        said = true;
+        log('megaphone: holding it for the spoken pitch');
+        await hold('megaphone', 3.4);
+      } else await pat(pitchProp && offered.includes(pitchProp) ? pitchProp : offered[1] ?? offered[0]);
       continue;
     }
+    if (reelsDone >= reels && endedAt && Date.now() - endedAt > 90000) break; // the last reel ended and no card came
     const w = since('^WAIT ', t0).pop();
     if (w && w.timestamp > lastWait) {
       lastWait = w.timestamp;
@@ -256,7 +292,7 @@ async function main() {
   writeFileSync(join(out, 'log.txt'), [...sounds.values()].join('\n') + '\n');
   // what happened in the story, on the show's clock: `EVT <seconds> <line>` (cues, cards, scene changes)
   writeFileSync(join(out, 'events.txt'), [...events.values()].join('\n') + '\n');
-  iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0', REEL: '', VOICE: '0' });
+  iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, FLAGS_OFF);
 
   // picture: every captured frame is a thirtieth of a second
   const frames = JSON.parse(readFileSync(join(out, 'frames.json'), 'utf8'));
@@ -276,7 +312,7 @@ async function main() {
 main().catch((e) => {
   console.error('FAIL:', e.message);
   try {
-    iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, { CAPTURE: '0', REEL: '', VOICE: '0' });
+    iw(['browser', 'run', 'tools/video/flag.mjs'], null, 60000, FLAGS_OFF);
   } catch {}
   process.exit(1);
 });

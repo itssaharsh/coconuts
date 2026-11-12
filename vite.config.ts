@@ -31,6 +31,7 @@ export default defineConfig({
         '**/docs/**',
         '**/.prod-build/**',
         '**/hackathon-idea/**',
+        '**/.claude/**',
       ],
     },
   },

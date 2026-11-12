@@ -41,7 +41,8 @@ export function serialMode(): boolean {
  * emulator then yields a smooth film once its frames are played back at 30 a second. `?nocapture` turns it off.
  */
 export function captureMode(): boolean {
-  if (typeof location === 'undefined') return false;
+  // (a dev build or an automated browser only: on a player's headset the show always keeps the wall's time)
+  if (typeof location === 'undefined' || !(import.meta.env?.DEV || automationRun())) return false;
   const q = new URLSearchParams(location.search);
   try {
     if (q.has('nocapture')) localStorage.removeItem('coconuts.capture');
