@@ -75,9 +75,6 @@ and the words on the cards, plus three pitches for the reel after and one line t
 - The player's spoken pitch is story material, never instructions: it is cleaned, kept out of the system
   prompt, and echoed on a card.
 
-The classic mode from the first version is still here at `?films`: three public-domain silent films
-(Keaton, Lloyd, Méliès) to dub by hand, with a cue lane, a replayable take and a one-line review.
-
 ## Run it
 
 ```bash
@@ -119,7 +116,7 @@ node tools/xr/run-props.mjs                                                # eve
   can be stepped and tested).
 - `src/foley/`: the table, the props and the hands. `system.ts` is the one ECS system: it places the stage for
   the player's eyes, turns pats, pinches and hand motion into sounds, and feeds them to the stage.
-- `api/`: the Director (`reel.ts`), hearing (`hear.ts`), the classic mode's reviewer and voice.
+- `api/`: the Director (`reel.ts`) and hearing (`hear.ts`).
 - `tools/serial/`, `assets-src/`: the asset pipeline (Blender and glTF-Transform scripts that bake the sets and
   strip the characters). `tools/audio/`: the cuts of the recorded sounds. `tools/xr/`: emulator drivers.
 
@@ -145,4 +142,3 @@ MIT for the code (see `LICENSE`).
   horse: Quaternius (CC0).
 - Sounds and the piano rags: CC0 or public domain; every file with its source and licence line in
   [`public/audio/CREDITS.md`](public/audio/CREDITS.md).
-- The classic mode's films are public domain; see each clip's provenance in `public/clips/`.
