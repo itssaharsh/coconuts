@@ -1,13 +1,13 @@
 # Coconuts: the Serial
 
-A toy theatre on your desk plays a silent-film serial, and you make every sound in it. Mixed reality for Meta
+A toy theatre in your room plays a silent-film serial, and you make every sound in it. Mixed reality for Meta
 Quest and Meta VR Glasses, hands only, seated, in the headset's browser (Meta's Immersive Web SDK, WebXR).
 
 Six foley props sit on a small table in front of you: coconut shells, a little door, a desk bell, a thunder
 sheet, a slide whistle and a bag of glass. The stage waits for you. The knight raises his fist at the castle
 gate and nothing happens until you knock; his horse runs only as fast as you clop; the sleeping thief wakes
-differently for every sound. Your thunder bursts the toy theatre open to the size of your wall, and at the end of
-the first reel your crash of glass breaks the picture itself: the thief jumps out of the theatre onto your desk,
+differently for every sound. Your thunder bursts the toy theatre open to the size of a wall, and at the end of
+the first reel your crash of glass breaks the picture itself: the thief jumps out of the theatre onto the prop table in front of you,
 runs between your props, and waits at the table's edge for your slide whistle. When a reel ends a card asks
 "What happens next?", you answer with a sound (or by holding the megaphone and saying it), and an AI Director
 writes the next reel around your answer.
@@ -26,12 +26,12 @@ Experience division.
 | The theatre: seven 3D sets (six by torch and moonlight, one sunny market), an endless road, nine rigged characters, a horse and six beasts, its own lighting and film look | real, in the build; CC0 kits baked by the scripts in `tools/serial/` |
 | The house | a small recorded audience behind your seat: it laughs when the knight goes over the horse's neck, gasps when the dead get up, and claps at the end of the reel |
 | Reel one (the gate, the ride, the robbers' den) | written by hand; every moment waits for the player's sound |
-| The film leaves its frame | at the end of reel one the thief steps out of the picture, lands on the player's own desk at toy size, runs between the props to the table's edge, and the slide whistle sends him over it; bring a finger near him and he starts and looks at it (`src/serial/desk.ts`) |
+| The film leaves its frame | at the end of reel one the thief steps out of the picture, lands on the prop table in front of the player at toy size, runs between the props to the table's edge, and the slide whistle sends him over it; bring a finger near him and he starts and looks at it (`src/serial/desk.ts`) |
 | Weather and debris | rain that starts on the player's thunder, ground mist, embers over fires, sparks where steel meets, dust, broken glass, confetti: four draw calls in all, lit and graded by the film's own shader (`src/serial/fx.ts`) |
 | The reels after it | planned by the Director (Claude) from the player's pitch and what their sounds did so far, then assembled from hand-staged pieces and checked; a written reel for every prop plays whenever the model is slow, wrong or absent |
 | The six props | hand interactions: a pat, a pinch from afar, gaze and pinch, or pick up and shake; recorded CC0 sounds with a synthesised fallback |
-| Speaking a pitch | optional: hold the megaphone; speech-to-text by Gemini, with AssemblyAI raced in when Gemini is slow (usually 2 to 3 s, up to 7); the page asks once, before the first curtain, whether the Director may hear you; off without a microphone or the keys, and the pitch cards always work |
-| Wall size | the player's thunder bursts the toy theatre to the size of the wall; a tile switches back, and it stays small if the headset cannot keep its frame rate |
+| Speaking a pitch | optional: hold the megaphone; speech-to-text by Gemini, with AssemblyAI raced in when Gemini is slow (2 to 8 s; about 8 in the filmed run); the page asks once, before the first curtain, whether the Director may hear you; off without a microphone or the keys, and the pitch cards always work |
+| Wall size | the player's thunder bursts the toy theatre to the size of a wall (3.2 m wide, 1.55 m away); a tile switches back, and it stays small if the headset cannot keep its frame rate |
 | Headset testing | the IWSDK desktop emulator only (Quest 3 profile, and the Meta VR Glasses profile for gaze and pinch); no physical headset was available to the builder. What to check first on a real one: `docs/headset-checklist.md` |
 
 ## How it plays
@@ -41,7 +41,7 @@ Experience division.
 2. **Reel one.** "A knight. A door." He walks to the gate and waits. Knock three times on the little door and
    the gate opens. "His horse runs on your hooves": clop the coconuts and the road slides by; stop, and the
    knight nearly goes over the horse's neck. In the robbers' den the thief sleeps on his loot: whatever you
-   sound wakes him in its own way. Your thunder bursts the theatre to the size of the wall; a slammed door, a
+   sound wakes him in its own way. Your thunder bursts the theatre to the size of a wall; a slammed door, a
    duel that rings on your bell. Then your crash of glass breaks the picture: the thief jumps down onto your
    desk, runs between your props, and stands at the edge until your slide whistle sends him over.
 3. **What happens next?** Three pitches, each on a prop. Sound one, or hold the megaphone and say your own.
@@ -49,8 +49,9 @@ Experience division.
 4. **Come back.** The serial keeps its place in the browser: next time the marquee says "Previously…" and the
    clapper goes on with the story. (On a headset that is passed round, the page offers reel one again.)
 
-Every prop answers four ways, so nothing depends on one kind of tracking: an open hand's pat, a pinch from
-afar, gaze and pinch (Meta VR Glasses), or pick it up and shake. A stage kept waiting asks twice (the actor
+Nothing depends on one kind of tracking: every prop answers an open hand's pat and a pinch from
+afar (on Meta VR Glasses, a look and a pinch), and the coconuts, the thunder sheet, the slide whistle and the glass
+can also be picked up and played. A stage kept waiting asks twice (the actor
 looks out at you, the prop glows), then takes any sound, then goes on by itself: no reel can stall.
 
 Tiles on the table rim pause, step the volume, start the reel again and switch the stage between desk and wall.
@@ -68,7 +69,7 @@ and the words on the cards, plus three pitches for the reel after and one line t
   against the set's marks). One repair turn; after that, or after 9 seconds, a written reel plays.
 - The Director's one line to the player (what their sounds did) is shown on the stage's own card before its reel.
 - Claude (`claude-opus-5-5` in fast mode, one structured-output call, low effort, cached system prompt; 3 to 7
-  seconds, about 5 in the filmed runs) is tried first, Gemini second, the written reels last. The function is warmed when a reel starts,
+  seconds; 6.8 in the filmed run) is tried first, Gemini second, the written reels last. The function is warmed when a reel starts,
   so the first answer is not the slowest. A per-IP limit and a daily cap bound the cost.
 - The Director is told what each of the player's sounds did, as facts, and its one line to the player has to be
   about one of them; a reel may not lean on one prop.
@@ -105,7 +106,8 @@ second are the show at its real speed; waits on the network (the Director, heari
 long as they really took. The sound is laid under afterwards from the game's own log of what it played
 (`tools/video/soundtrack.py`), and `tools/video/cut.py` cuts the film from a storyboard.
 
-The emulator has no microphone. For the megaphone shot a recorded sentence is handed to the game in place of the
+The emulator has no microphone. For the megaphone shot a synthesised voice line (Gemini text-to-speech, standing in
+for a player) is handed to the game in place of the
 microphone (in an automated browser only); the words then go through the real hearing function and the real
 Director, and the reel that follows is the one it wrote.
 
