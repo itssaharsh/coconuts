@@ -1,13 +1,18 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { claudeBackend, type CreateMessage } from '../api/_lib/claude';
+import { claudeBackend, type CreateMessage, RETRY_MIN_MS, speedRetryable, warmClaude } from '../api/_lib/claude';
 import {
   type Backend,
   bestProp,
   CAST_GUIDE,
+  checkNote,
+  checkPitches,
   DailyCap,
   judge,
+  normalizePlan,
+  pieceSound,
+  piecesForProp,
   parseReelRequest,
   PIECE_GUIDE,
   type ReelAnswer,
@@ -15,15 +20,18 @@ import {
   reelSchema,
   stockNote,
   stockPitches,
+  STOCK_PITCH,
   systemPrompt,
+  toAnswerPiece,
   type Trace,
   userTurn,
+  WORD_LIMITS,
   writeReel,
   writtenAnswer,
 } from '../api/_lib/reel-core';
-import { geminiBackend, handleReel, POST, type ReelDeps } from '../api/reel';
+import { GET, geminiBackend, handleReel, handleWarm, POST, type ReelDeps, WARM_DAILY_CAP, WARM_EVERY_MS, type WarmDeps } from '../api/reel';
 import { PROP_IDS, type PropId } from '../src/foley/types';
-import { assemble, checkPlan, type ReelPlan, SET_IDS, WRITTEN } from '../src/serial/pieces';
+import { assemble, checkPlan, PITCHES_2, type ReelPlan, SET_IDS, WRITTEN } from '../src/serial/pieces';
 import { DERIVED_MARKS, CHARACTERS, type SetInfo, validateReel } from '../src/serial/schema';
 
 type Message = Anthropic.Beta.Messages.BetaMessage;
@@ -69,12 +77,16 @@ const GOOD = {
     cliffhanger: 'The dead do not stay down.',
   },
   pitches: [
-    { prop: 'bell', text: 'Ask at the inn' },
+    { prop: 'bell', text: 'Ask at the market' },
     { prop: 'door', text: 'Knock at the Duke’s hall' },
     { prop: 'glass', text: 'Break into the vault' },
   ],
   note: 'Your thunder scared the thief stiff. He still shakes.',
 };
+/** A plan in the answer's own shape: actors in the `who` and `other` slots, `line` always there. */
+const asAnswer = (plan: ReelPlan) => ({ ...plan, scenes: plan.scenes.map((sc) => ({ ...sc, pieces: sc.pieces.map(toAnswerPiece) })) });
+/** GOOD the way the schema makes Claude write it. */
+const GOOD_SLOTS = { ...GOOD, plan: asAnswer(GOOD.plan as ReelPlan) };
 /** Fails checkPlan: a knock in the graveyard, which has no door. */
 const BAD = { ...GOOD, plan: { ...GOOD.plan, scenes: [{ ...GOOD.plan.scenes[0], pieces: [...GOOD.plan.scenes[0].pieces.slice(0, 4), { piece: 'knock', who: 'knight', opener: 'bones' }] }] } };
 
@@ -155,6 +167,7 @@ afterAll(() => {
   vi.restoreAllMocks();
 });
 afterEach(() => {
+  delete process.env.REEL_FAST;
   delete process.env.REEL_MODEL;
   delete process.env.REEL_DISABLED;
   delete process.env.REEL_DAILY_CAP;
@@ -282,7 +295,7 @@ describe('the written path', () => {
 
 describe('Claude (mocked SDK call)', () => {
   it('a good plan: served as written by Claude, with the documented request shape', async () => {
-    const { create, calls } = scripted(msg(JSON.stringify(GOOD)));
+    const { create, calls } = scripted(msg(JSON.stringify(GOOD_SLOTS)));
     const { res, answer, trace } = await run(REQ, [claudeBackend(create)]);
     expect(res.status).toBe(200);
     expectContract(answer);
@@ -298,10 +311,12 @@ describe('Claude (mocked SDK call)', () => {
     expect(params.system).toEqual([{ type: 'text', text: systemPrompt(), cache_control: { type: 'ephemeral' } }]);
     expect(params.messages).toEqual([{ role: 'user', content: userTurn(REQ) }]);
     expect(userTurn(REQ)).toBe(userTurn({ story: STORY, pitch: { text: REQ.pitch.text, prop: 'thunder' }, reel: 2 })); // fixed key order
-    expect(params.speed).toBeUndefined(); // fast mode only with REEL_FAST=1
+    expect(params.speed).toBe('fast'); // Opus 5.5 runs in fast mode by default (no beta header on this model)
+    expect(trace?.tries[0].speeds).toEqual(['fast']);
     expect(options.maxRetries).toBe(0);
     expect(options.signal).toBeInstanceOf(AbortSignal);
     expect(options.timeout).toBeLessThanOrEqual(9000);
+    expect(Number.isInteger(options.timeout)).toBe(true); // the SDK refuses a fractional timeout
   });
 
   it('logs usage (input, output, cache read) for every call', async () => {
@@ -399,13 +414,167 @@ describe('Claude (mocked SDK call)', () => {
     }
   });
 
-  it('REEL_MODEL picks the model; fallbacks only go to models that take them', async () => {
+  it('REEL_MODEL picks the model; fallbacks only go to models that take them; fast mode only on Opus 5.5', async () => {
     process.env.REEL_MODEL = 'claude-haiku-5-5';
     const { create, calls } = scripted(msg(JSON.stringify(GOOD)));
     await run(REQ, [claudeBackend(create)]);
     expect(calls[0].params.model).toBe('claude-haiku-5-5');
     expect(calls[0].params.fallbacks).toBeUndefined();
     expect(calls[0].params.betas).toBeUndefined();
+    expect(calls[0].params.speed).toBeUndefined();
+  });
+
+  it('REEL_FAST=0 runs Opus 5.5 at standard speed', async () => {
+    process.env.REEL_FAST = '0';
+    const { create, calls } = scripted(msg(JSON.stringify(GOOD_SLOTS)));
+    const { answer, trace } = await run(REQ, [claudeBackend(create)]);
+    expect(answer.source).toBe('claude');
+    expect(calls[0].params.speed).toBeUndefined();
+    expect(trace?.tries[0].speeds).toEqual(['standard']);
+  });
+
+  const apiErr = (status: number, message = 'nope') => Anthropic.APIError.generate(status, { type: 'error', error: { type: 'x', message } }, message, new Headers());
+
+  it('a fast call that fails quickly is tried once more at standard speed, and the trace says which speed answered', async () => {
+    const quick: Error[] = [apiErr(529, 'overloaded'), apiErr(503), apiErr(429, 'slow down'), apiErr(403), apiErr(400, 'speed fast is not available'), new Anthropic.APIConnectionError({ message: 'reset' })];
+    for (const err of quick) {
+      const { create, calls } = scripted(err, msg(JSON.stringify(GOOD_SLOTS), { usage: { ...usage, speed: 'standard' } }));
+      const { answer, trace } = await run(REQ, [claudeBackend(create)]);
+      expect(answer.source, err.message).toBe('claude');
+      expect(calls.map((c) => c.params.speed)).toEqual(['fast', undefined]);
+      expect(trace?.tries[0].speeds).toEqual(['standard']);
+      expect(trace?.tries[0].retried).toMatch(/^fast: /);
+      expect(calls.every((c) => Number.isInteger(c.options.timeout))).toBe(true);
+      // the standard call is the same request in every other respect
+      const { speed: _s, ...rest } = calls[0].params;
+      expect(calls[1].params).toEqual(rest);
+    }
+  });
+
+  it('no standard-speed retry for a timeout, an abort, a bad key, a missing model or an unrelated bad request', async () => {
+    expect(speedRetryable(new Anthropic.APIUserAbortError())).toBe(false);
+    expect(speedRetryable(new Anthropic.APIConnectionTimeoutError())).toBe(false);
+    for (const status of [401, 404]) expect(speedRetryable(apiErr(status))).toBe(false);
+    expect(speedRetryable(apiErr(400, 'max_tokens: must be positive'))).toBe(false);
+    for (const err of [apiErr(401), apiErr(400, 'messages: bad')]) {
+      const { create } = scripted(err, msg(JSON.stringify(GOOD_SLOTS)));
+      const { answer } = await run(REQ, [claudeBackend(create)]);
+      expect(answer.source).toBe('written');
+      expect(create).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('no standard-speed retry when less than RETRY_MIN_MS of the budget is left', async () => {
+    const { create } = scripted(apiErr(529), msg(JSON.stringify(GOOD_SLOTS)));
+    const { answer, trace } = await run(REQ, [claudeBackend(create)], { deadlineMs: RETRY_MIN_MS - 500 });
+    expect(answer.source).toBe('written');
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(trace?.tries[0].error).toMatch(/^server/);
+  });
+
+  it('the repair runs at the speed that answered', async () => {
+    const { create, calls } = scripted(apiErr(529), msg(JSON.stringify(BAD), { usage: { ...usage, speed: 'standard' } }), msg(JSON.stringify(GOOD_SLOTS), { usage: { ...usage, speed: 'standard' } }));
+    const { answer, trace } = await run(REQ, [claudeBackend(create)]);
+    expect(answer.source).toBe('claude');
+    expect(calls.map((c) => c.params.speed)).toEqual(['fast', undefined, undefined]);
+    expect(trace?.tries[0]).toMatchObject({ repaired: true, speeds: ['standard', 'standard'] });
+  });
+
+  it('budgets on a monotonic clock: a wall clock that jumps mid-reel does not cancel the repair', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      let n = 0;
+      const create = vi.fn<CreateMessage>(async () => {
+        n++;
+        if (n === 1) vi.setSystemTime(Date.now() + 60_000); // the wall clock leaps a minute during the first call
+        return msg(JSON.stringify(n === 1 ? BAD : GOOD_SLOTS));
+      });
+      const { answer, trace } = await run(REQ, [claudeBackend(create)]);
+      expect(answer.source).toBe('claude');
+      expect(trace?.tries[0].repaired).toBe(true);
+      expect(trace!.ms).toBeLessThan(9000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('the warm-up (GET /api/reel)', () => {
+  const get = (deps: Partial<WarmDeps>, ip = nextIp()) => handleWarm(new Request('http://x/api/reel', { method: 'GET', headers: { 'x-forwarded-for': ip } }), deps);
+  const fresh = (): Partial<WarmDeps> => ({ cap: new DailyCap(), state: { last: Number.NEGATIVE_INFINITY }, director: () => 'claude' });
+  const warmMsg = () => msg('', { stop_reason: 'max_tokens', content: [], usage: { ...usage, output_tokens: 1, cache_creation_input_tokens: 6800, cache_read_input_tokens: 0, speed: 'fast' } });
+
+  it('makes one tiny request with the reel’s own system prompt, cache breakpoint, schema, effort and speed', async () => {
+    const reel = scripted(msg(JSON.stringify(GOOD_SLOTS)));
+    await run(REQ, [claudeBackend(reel.create)]);
+    const { create, calls } = scripted(warmMsg());
+    const r = await warmClaude(20_000, create);
+    expect(r).toMatchObject({ speed: 'fast', usage: { cacheWrite: 6800, output: 1 } });
+    const w = calls[0].params;
+    const p = reel.calls[0].params;
+    expect(w.max_tokens).toBe(1);
+    expect(w.messages).toEqual([{ role: 'user', content: 'warm-up' }]);
+    // everything the cache and the grammar are keyed on is the same as a reel's
+    for (const k of ['model', 'system', 'output_config', 'speed', 'betas', 'fallbacks'] as const) expect(w[k], k).toEqual(p[k]);
+    expect(calls[0].options.maxRetries).toBe(0);
+  });
+
+  it('answers which backend a POST tries first, and warms only Claude', async () => {
+    const warm = vi.fn(async () => ({ model: 'claude-opus-5-5', speed: 'fast', usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 6800 } }));
+    for (const director of ['written', 'gemini'] as const) {
+      const res = await get({ ...fresh(), director: () => director, warm });
+      expect(await res.json()).toEqual({ ok: true, warmed: false, ms: 0, director });
+    }
+    expect(warm).not.toHaveBeenCalled();
+    // with no key at all (the environment of these tests) GET says the written reels play
+    const res = await GET(new Request('http://x/api/reel', { headers: { 'x-forwarded-for': nextIp() } }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, warmed: false, ms: 0, director: 'written' });
+    expect(res.headers.get('access-control-allow-methods')).toMatch(/GET/);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('warms at most once every four minutes per instance, and within its own daily cap', async () => {
+    let t = 1000;
+    const warm = vi.fn(async () => ({ model: 'claude-opus-5-5', speed: 'fast', usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 6800 } }));
+    const deps = { ...fresh(), warm, now: () => t };
+    expect(await (await get(deps)).json()).toMatchObject({ ok: true, warmed: true, director: 'claude' });
+    t += WARM_EVERY_MS - 1;
+    expect(await (await get(deps)).json()).toEqual({ ok: true, warmed: false, ms: 0, director: 'claude' });
+    t += 1;
+    expect(await (await get(deps)).json()).toMatchObject({ warmed: true });
+    expect(warm).toHaveBeenCalledTimes(2);
+    // the reel cap is not touched; the warm cap is its own
+    const cap = new DailyCap();
+    for (let i = 0; i < WARM_DAILY_CAP; i++) cap.take(WARM_DAILY_CAP);
+    t += WARM_EVERY_MS;
+    expect(await (await get({ ...deps, cap })).json()).toMatchObject({ warmed: false });
+    expect(warm).toHaveBeenCalledTimes(2);
+  });
+
+  it('never throws: a failed or hung warm call answers ok:false, at most 20 s later', async () => {
+    const failed = await get({ ...fresh(), warm: async () => Promise.reject(Object.assign(new Error('overloaded'), { kind: 'server' })) });
+    expect(failed.status).toBe(200);
+    expect(await failed.json()).toMatchObject({ ok: false, warmed: false, director: 'claude', error: 'server' });
+    const broken = await get({ ...fresh(), director: () => { throw new Error('boom'); } });
+    expect(await broken.json()).toEqual({ ok: false, warmed: false, ms: 0, director: 'written' });
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const { create } = scripted('hang');
+      const pending = get({ ...fresh(), warm: (ms) => warmClaude(ms, create) });
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await (await pending).json()).toMatchObject({ ok: false, warmed: false, error: 'timeout' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('is rate-limited per IP like POST', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 31; i++) statuses.push((await get({ ...fresh(), director: () => 'written' }, '203.0.113.77')).status);
+    expect(statuses.slice(0, 30).every((s) => s === 200)).toBe(true);
+    expect(statuses[30]).toBe(429);
   });
 });
 
@@ -528,11 +697,118 @@ describe('the prompt and the schema', () => {
     };
     walk(schema);
     expect(optional).toBeLessThanOrEqual(24);
-    expect(unions).toBeLessThanOrEqual(16);
+    // the per-piece union compiled to a grammar the API refused; a piece is one flat object, so there is no union
+    expect(unions).toBe(0);
+    // each optional field roughly doubles the grammar: no object has more than eight (eighteen were refused)
+    const most = (s: Record<string, unknown>): number => {
+      let n = 0;
+      if (s.type === 'object') {
+        const props = s.properties as Record<string, Record<string, unknown>>;
+        n = Object.keys(props).filter((k) => !(s.required as string[]).includes(k)).length;
+        for (const v of Object.values(props)) n = Math.max(n, most(v));
+      }
+      return s.items ? Math.max(n, most(s.items as Record<string, unknown>)) : n;
+    };
+    expect(most(schema)).toBeLessThanOrEqual(8);
+    const piece = (schema.properties as any).plan.properties.scenes.items.properties.pieces.items as Record<string, unknown>;
+    expect((piece.properties as any).piece.enum).toEqual(Object.keys(PIECE_GUIDE));
+    expect(piece.required).toEqual(['piece', 'who', 'other', 'line']);
     for (const prop of PROP_IDS) {
-      expect(conforms(schema, { ...writtenAnswer({ ...REQ, pitch: { prop, text: 'x' } }), source: undefined, plan: WRITTEN[prop] }).filter((e) => !e.includes('source'))).toEqual([]);
+      const a = { ...writtenAnswer({ ...REQ, pitch: { prop, text: 'x' } }), source: undefined, plan: asAnswer(WRITTEN[prop]) };
+      expect(conforms(schema, a).filter((e) => !e.includes('source'))).toEqual([]);
+      // and the answer's shape comes back to the written plan exactly
+      expect(normalizePlan(a.plan)).toEqual(WRITTEN[prop]);
     }
-    expect(conforms(schema, GOOD)).toEqual([]);
+    expect(conforms(schema, GOOD_SLOTS)).toEqual([]);
+  });
+
+  it('turns the role slots into each piece’s own fields, and drops what was left empty', () => {
+    const plan = normalizePlan({
+      title: 'Slots',
+      scenes: [
+        {
+          set: 'vault',
+          cast: [KNIGHT, { id: 'thief', char: 'rogue_hooded' }, { id: 'guard', char: 'skeleton_minion' }],
+          pieces: [
+            { piece: 'wake', who: 'knight', other: 'guard', line: '' },
+            { piece: 'knock', who: 'thief', other: 'guard', line: 'Who knocks?' },
+            { piece: 'duel', who: 'knight', other: 'thief', line: '', blows: 2, loser: 'who' },
+            { piece: 'card', who: '', other: '', line: 'Meanwhile.', sub: '' },
+            { piece: 'chase', who: 'thief', other: 'knight', line: '' },
+            { piece: 'boss', who: 'knight', other: '', line: '', beast: 'bull' },
+          ],
+        },
+      ],
+      cliffhanger: 'Gone.',
+    }) as ReelPlan;
+    expect(plan.scenes[0].pieces).toEqual([
+      { piece: 'wake', who: 'knight', sleeper: 'guard' },
+      { piece: 'knock', who: 'thief', opener: 'guard', line: 'Who knocks?' },
+      { piece: 'duel', a: 'knight', b: 'thief', blows: 2, loser: 'a' },
+      { piece: 'card', line: 'Meanwhile.' },
+      { piece: 'chase', runner: 'thief', chaser: 'knight' },
+      { piece: 'boss', hero: 'knight', beast: 'bull' },
+    ]);
+    // a card left without its line is not mended: it is sent back for the repair
+    const blank = { ...GOOD_SLOTS, plan: { ...GOOD_SLOTS.plan, scenes: [{ ...GOOD_SLOTS.plan.scenes[0], pieces: [{ piece: 'card', who: '', other: '', line: '' }, ...GOOD_SLOTS.plan.scenes[0].pieces.slice(1)] }] } };
+    expect(judge(JSON.stringify(blank), REQ).errors.join()).toMatch(/line: missing text/);
+    expect(judge(JSON.stringify(GOOD_SLOTS), REQ).answer?.plan).toEqual(GOOD.plan);
+  });
+
+  it('tells the Director about the market, its bull, and the thief who got out', () => {
+    const sys = systemPrompt();
+    expect(sys).toContain('- market (');
+    expect(sys).toMatch(/in the market the beast is "bull"/);
+    expect(sys).toContain('thief_out');
+    expect(sys).toContain('The thief is loose in your room.');
+    // the example answer is in the schema's shape
+    expect(sys).toContain('"piece":"wake","who":"knight","other":"seller","line":""');
+  });
+
+  it('states every word limit once, and the checks enforce exactly those limits', () => {
+    const sys = systemPrompt();
+    expect(sys).toContain(`- a piece's \`line\`: at most ${WORD_LIMITS.line} words; a card's \`sub\`: at most ${WORD_LIMITS.sub}.`);
+    expect(sys).toContain(`- the title: at most ${WORD_LIMITS.title}; the cliffhanger: at most ${WORD_LIMITS.cliffhanger}.`);
+    expect(sys).toContain(`- each pitch: at most ${WORD_LIMITS.pitch}; the note: at most ${WORD_LIMITS.note}.`);
+    expect(sys).toMatch(/count the words of every text/);
+    const ws = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join(' ');
+    const base = GOOD.plan as ReelPlan;
+    const withCard = (line: string, sub?: string): ReelPlan => ({ ...base, scenes: [{ ...base.scenes[0], pieces: [{ piece: 'card', line, ...(sub ? { sub } : {}) }, ...base.scenes[0].pieces.slice(1)] }] });
+    expect(checkPlan(withCard(ws(WORD_LIMITS.line)))).toEqual([]);
+    expect(checkPlan(withCard(ws(WORD_LIMITS.line + 1))).join()).toMatch(/line: at most/);
+    expect(checkPlan(withCard('ok', ws(WORD_LIMITS.sub)))).toEqual([]);
+    expect(checkPlan(withCard('ok', ws(WORD_LIMITS.sub + 1))).join()).toMatch(/sub: at most/);
+    expect(checkPlan({ ...base, title: ws(WORD_LIMITS.title) })).toEqual([]);
+    expect(checkPlan({ ...base, title: ws(WORD_LIMITS.title + 1) }).join()).toMatch(/title: at most/);
+    expect(checkPlan({ ...base, cliffhanger: ws(WORD_LIMITS.cliffhanger) })).toEqual([]);
+    expect(checkPlan({ ...base, cliffhanger: ws(WORD_LIMITS.cliffhanger + 1) }).join()).toMatch(/cliffhanger: at most/);
+    const pitches = (t: string) => [{ prop: 'bell', text: t }, { prop: 'door', text: 'x' }, { prop: 'glass', text: 'y' }];
+    expect(checkPitches(pitches(ws(WORD_LIMITS.pitch)))).toEqual([]);
+    expect(checkPitches(pitches(ws(WORD_LIMITS.pitch + 1)))).not.toEqual([]);
+    expect(checkNote(ws(WORD_LIMITS.note))).toEqual([]);
+    expect(checkNote(ws(WORD_LIMITS.note + 1))).not.toEqual([]);
+  });
+
+  it('the prop table is the pitch check’s own data, and the user turn repeats the pieces a pitched prop needs', () => {
+    const sys = systemPrompt();
+    for (const prop of PROP_IDS) {
+      const want = piecesForProp(prop);
+      expect(want.length, prop).toBeGreaterThan(0);
+      expect(sys).toContain(`- ${prop}: ${want.join(' or ')}`);
+      for (const p of Object.keys(PIECE_GUIDE)) expect(want.includes(p as never), `${prop} ${p}`).toBe(pieceSound(p) === prop);
+      // a plan whose only sounding piece for the prop is from the table passes the server's pitch check
+      expect(judge(JSON.stringify({ ...GOOD, plan: WRITTEN[prop] }), { ...REQ, pitch: { prop, text: 'x' } }).ok).toBe(true);
+    }
+    expect(JSON.parse(userTurn({ ...REQ, pitch: { prop: 'bell', text: 'A duel', spoken: true } })).pitch).toEqual({ prop: 'bell', text: 'A duel', spoken: true, needs: ['duel', 'toast'] });
+    expect(JSON.parse(userTurn({ ...REQ, pitch: { text: 'no prop' } })).pitch).toEqual({ text: 'no prop', spoken: false });
+    // every piece that waits for a sound is listed as one (the boss was missing once)
+    expect(sys).toContain('two to seven pieces wait for a sound (ride, knock, wake, duel, storm, smash, whistle, slam, toast, boss)');
+  });
+
+  it('the stock pitches say what the game says', () => {
+    for (const p of PITCHES_2) expect(STOCK_PITCH[p.prop]).toBe(p.text);
+    expect(systemPrompt()).not.toMatch(/Ask at the inn|The inn remembered/);
+    expect(bestProp('The thief hides in the market and a bull gets loose')).toBe('bell');
   });
 
   it('judges an answer the way the stage would', () => {

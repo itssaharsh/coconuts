@@ -63,9 +63,9 @@ export async function GET(request: Request): Promise<Response> {
     if (!text || text.length > 160 || voice !== 'director') return fail(400, 'Give a line of at most 160 characters.');
     const key = geminiKeys()[0];
     if (!key) return fail(503, 'The voice is not set up.');
-    const deadline = Date.now() + BUDGET_MS;
+    const deadline = performance.now() + BUDGET_MS;
     for (const [model, name] of ATTEMPTS) {
-      const left = deadline - Date.now();
+      const left = deadline - performance.now();
       if (left < 500) break;
       try {
         const wav = await speakOnce(key, model, name, text, left);

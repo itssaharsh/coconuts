@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // A local stand-in for the deployed functions, so the dev pages can talk to the reel Director:
-//   node tools/director/serve.mjs [--port 8796]
+//   node tools/director/serve.mjs [--port 8796]   (REEL_MODEL, REEL_FAST: from the environment, .env.local wins when it sets them)
 // then start a dev page with VITE_DIRECTOR_BASE=http://127.0.0.1:8796/ in its environment.
 // Keys are read from .env.local only (never from the shell, whose ANTHROPIC_API_KEY may belong to a coding agent);
 // with no key there the function answers with its written reels, which is still the real request path.
@@ -47,7 +47,11 @@ createServer(async (req, res) => {
   const started = Date.now();
   try {
     const request = new Request(url, { method: req.method, headers: req.headers, body: body.length ? body : undefined });
-    const out = await handler(request);
+    // the reel's trace (backend, repair, latency, tokens) rides back on a header, for tools/director/batch.mjs --url;
+    // only this local stand-in does that, the deployed function never sends it
+    let trace = null;
+    const out = url.pathname === '/api/reel' && req.method === 'POST' && mod.handleReel ? await mod.handleReel(request, { onTrace: (t) => (trace = t) }) : await handler(request);
+    if (trace) out.headers.set('x-reel-trace', encodeURIComponent(JSON.stringify(trace)));
     const buf = Buffer.from(await out.arrayBuffer());
     res.writeHead(out.status, Object.fromEntries(out.headers)).end(buf);
     console.log(req.method, url.pathname, out.status, `${Date.now() - started} ms`, buf.length, 'bytes');

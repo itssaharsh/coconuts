@@ -15,7 +15,7 @@ export function clientIp(request: Request): string {
 }
 
 /** Take one token for this IP; false when the bucket is empty. */
-export function allow(ip: string, now = Date.now()): boolean {
+export function allow(ip: string, now = performance.now()): boolean {
   const key = ip || 'unknown';
   let b = buckets.get(key);
   if (!b) {

@@ -1,7 +1,9 @@
 // POST /api/reel: the player's pitch and the story so far in, the next reel's plan out. Claude writes it when its key
 // is set, Gemini when Claude is absent or fails, and a written reel always stands in, so this never fails a reel:
 // every 200 carries a plan that passes checkPlan, three pitches on three props, and a note.
-import { claudeBackend } from './_lib/claude.js';
+// GET /api/reel: warm the Director before the player's first reel (the schema's grammar compiled, the system prompt
+// cached), at most once per instance every four minutes. It never writes a reel and never fails.
+import { claudeBackend, type WarmResult, warmClaude } from './_lib/claude.js';
 import { geminiJson, geminiKeys } from './_lib/gemini.js';
 import { allow, clientIp } from './_lib/ratelimit.js';
 import {
@@ -10,6 +12,7 @@ import {
   type CallOpts,
   DailyCap,
   DEADLINE_MS,
+  monoNow,
   parseReelRequest,
   type ReelRequest,
   type Trace,
@@ -20,7 +23,7 @@ import {
 const MAX_BODY = 8 * 1024;
 
 // any origin may ask (a dev build of the game, pointed at this deployment, is one); the rate limit is per IP
-const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -70,6 +73,16 @@ export function geminiBackend(call: typeof geminiJson = geminiJson): Backend {
   return { name: 'gemini', first: (system, user, opts) => ask(`${system}\n\n${GEMINI_TAIL}\n\nThe story so far and the pitch:\n${user}`, opts) };
 }
 
+export type Director = 'claude' | 'gemini' | 'written';
+
+/** The backend a POST would try first, from the environment. */
+export function firstDirector(): Director {
+  if (process.env.REEL_DISABLED === '1') return 'written';
+  if (process.env.ANTHROPIC_API_KEY?.trim()) return 'claude';
+  if (geminiKeys().length) return 'gemini';
+  return 'written';
+}
+
 /** The backends the environment has keys for, in order. */
 function envBackends(): Backend[] {
   const list: Backend[] = [];
@@ -109,7 +122,7 @@ export async function handleReel(request: Request, deps: Partial<ReelDeps> = {})
     if ('error' in parsed) return json({ error: parsed.error }, 400);
     req = parsed.req;
 
-    const t0 = Date.now();
+    const t0 = monoNow();
     let trace: Trace;
     let answer;
     const backends = d.backends();
@@ -126,7 +139,9 @@ export async function handleReel(request: Request, deps: Partial<ReelDeps> = {})
     } else {
       ({ answer, trace } = await writeReel(req, backends, { deadlineMs: d.deadlineMs }));
     }
-    trace.ms = Date.now() - t0;
+    trace.ms = Math.round(monoNow() - t0);
+    // a reel that reached Claude kept its prompt cache and grammar warm: no warm-up needed for a while
+    if (trace.tries.some((t) => t.backend === 'claude' && t.usage.length)) WARM.last = monoNow();
     console.log(
       'REEL',
       req.reel,
@@ -146,4 +161,62 @@ export async function handleReel(request: Request, deps: Partial<ReelDeps> = {})
 
 export function POST(request: Request): Promise<Response> {
   return handleReel(request);
+}
+
+// ---- the warm-up ------------------------------------------------------------------------------------
+
+/** One warm call per instance at most this often (the prompt cache lives five minutes). */
+export const WARM_EVERY_MS = 4 * 60_000;
+/** The warm call gives up after this. */
+export const WARM_TIMEOUT_MS = 20_000;
+/** Warm calls per UTC day per instance; separate from the reel cap. */
+export const WARM_DAILY_CAP = 200;
+
+/** When this instance last warmed Claude, or last wrote a reel with it (monotonic ms). */
+const WARM = { last: Number.NEGATIVE_INFINITY, cap: new DailyCap() };
+
+export interface WarmDeps {
+  warm: (timeoutMs: number) => Promise<WarmResult>;
+  director: () => Director;
+  cap: DailyCap;
+  /** Monotonic milliseconds. */
+  now: () => number;
+  /** The instance's memory of the last warm (a test passes its own). */
+  state: { last: number };
+}
+
+const WARM_DEFAULTS: WarmDeps = { warm: (ms) => warmClaude(ms), director: firstDirector, cap: WARM.cap, now: monoNow, state: WARM };
+
+/** The warm-up with its parts passed in; GET is this with the instance's own. Answers { ok, warmed, ms, director }. */
+export async function handleWarm(request: Request, deps: Partial<WarmDeps> = {}): Promise<Response> {
+  const d = { ...WARM_DEFAULTS, ...deps };
+  let director: Director = 'written';
+  try {
+    if (!allow(clientIp(request))) return json({ error: 'Too many requests at once. Try again in a minute.' }, 429);
+    director = d.director();
+    // only Claude has a grammar to compile and a prompt to cache; Gemini and the written reels need no warming
+    if (director !== 'claude') return json({ ok: true, warmed: false, ms: 0, director });
+    const t0 = d.now();
+    if (t0 - d.state.last < WARM_EVERY_MS) return json({ ok: true, warmed: false, ms: 0, director });
+    if (!d.cap.take(WARM_DAILY_CAP)) return json({ ok: true, warmed: false, ms: 0, director });
+    d.state.last = t0; // claimed before the call, so a second GET meanwhile does not warm twice
+    try {
+      const r = await d.warm(WARM_TIMEOUT_MS);
+      const ms = Math.round(d.now() - t0);
+      console.log('REEL warm', `${ms}ms`, r.model, r.speed);
+      return json({ ok: true, warmed: true, ms, director });
+    } catch (e) {
+      const ms = Math.round(d.now() - t0);
+      const kind = e instanceof Error && 'kind' in e ? String((e as { kind: unknown }).kind) : 'api';
+      console.log('REEL warm failed', `${ms}ms`, e instanceof Error ? e.message : String(e));
+      return json({ ok: false, warmed: false, ms, director, error: kind });
+    }
+  } catch (e) {
+    console.log('REEL warm failed', e instanceof Error ? e.message : String(e));
+    return json({ ok: false, warmed: false, ms: 0, director });
+  }
+}
+
+export function GET(request: Request): Promise<Response> {
+  return handleWarm(request);
 }
