@@ -42,6 +42,10 @@ const sayFile = opt('say', null) ? String(opt('say')) : '';
 const resumeFile = opt('resume', null) ? String(opt('resume')) : '';
 // --poke: before the whistle sends the thief off the table, a fingertip comes down beside him (he starts at it)
 const poke = !!opt('poke', false);
+// --lean 0.15 --desk-tilt -50: when the thief jumps onto the table the player leans in over it (the head comes this
+// many metres forward and two thirds of that down, and tips down this far), and sits back when he is gone
+const lean = Number(opt('lean', 0));
+const deskTilt = Number(opt('desk-tilt', -28));
 const AUDIO_TYPES = { webm: 'audio/webm', wav: 'audio/wav', ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4' };
 const FLAGS = {
   CAPTURE: '1',
@@ -138,6 +142,13 @@ function reach(position, showSecs, easing = 'minimum-jerk') {
 /** Tip the head down (negative degrees) or back level, over `showSecs` of the show. */
 function look(pitch, showSecs) {
   iw(['xr', 'animate-to'], { device: 'headset', orientation: { pitch, yaw: 0, roll: 0 }, duration: Math.max(0.05, showSecs / animRate), easing: 'minimum-jerk' }, 400000);
+}
+
+/** Lean in over the table by `by` metres (0 sits back), tipping the head to `pitch`, over `showSecs` of the show. */
+const SEAT = { x: 0, y: 1.2, z: 0 };
+function leanTo(by, pitch, showSecs) {
+  const position = { x: SEAT.x, y: SEAT.y - by * 0.67, z: SEAT.z - by };
+  iw(['xr', 'animate-to'], { device: 'headset', position, orientation: { pitch, yaw: 0, roll: 0 }, duration: Math.max(0.05, showSecs / animRate), easing: 'minimum-jerk' }, 400000);
 }
 
 /** How fast the emulator's animations run against the show's clock: time one, and compare with the slow-down. */
@@ -291,11 +302,17 @@ async function main() {
         await pat(play, Math.max(1, need - got));
         // the film breaks out: the player looks down at the desk, where the thief has landed, until he is over its edge
         if (/jumps/i.test(label)) {
-          await sleep(1.6 * slow * 1000);
-          look(tilt - 20, 0.7);
+          if (lean) {
+            await sleep(1.0 * slow * 1000);
+            leanTo(lean, deskTilt, 1.0);
+          } else {
+            await sleep(1.6 * slow * 1000);
+            look(tilt - 20, 0.7);
+          }
         } else if (/edge/i.test(label)) {
           await sleep(2.6 * slow * 1000);
-          look(tilt, 0.8);
+          if (lean) leanTo(0, tilt, 1.0);
+          else look(tilt, 0.8);
         }
       }
     } else await sleep(500);
