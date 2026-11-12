@@ -24,7 +24,7 @@ const until = opt('until', 'pitch');
 const reels = Number(opt('reels', 1));
 const pitchProp = opt('pitch', null);
 const openProp = opt('open', 'bell');
-const [W, H] = String(opt('size', '1280x720')).split('x').map(Number);
+const [W, H] = String(opt('size', '1920x1080')).split('x').map(Number);
 const maxSeconds = Number(opt('max', 3000));
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
@@ -106,6 +106,11 @@ function reach(position, showSecs, easing = 'minimum-jerk') {
   iw(['xr', 'animate-to'], { device: 'hand-right', position, duration: Math.max(0.05, showSecs / animRate), easing, anchor: 'index-tip', orientation: 'auto' }, 400000);
 }
 
+/** Tip the head down (negative degrees) or back level, over `showSecs` of the show. */
+function look(pitch, showSecs) {
+  iw(['xr', 'animate-to'], { device: 'headset', orientation: { pitch, yaw: 0, roll: 0 }, duration: Math.max(0.05, showSecs / animRate), easing: 'minimum-jerk' }, 400000);
+}
+
 /** How fast the emulator's animations run against the show's clock: time one, and compare with the slow-down. */
 function calibrate() {
   const t0 = Date.now();
@@ -172,7 +177,7 @@ async function main() {
   calibrate();
 
   const rec = spawn(process.execPath, ['tools/xr/record-cdp.mjs'], {
-    env: { ...process.env, REC_DIR: out, REC_SECONDS: String(maxSeconds), REC_FPS: '240', REC_W: String(W), REC_H: String(H) },
+    env: { ...process.env, REC_DIR: out, REC_SECONDS: String(maxSeconds), REC_FPS: '240', REC_W: String(W), REC_H: String(H), REC_QUALITY: '93' },
     stdio: ['ignore', 'inherit', 'inherit'],
   });
   await sleep(4000);
@@ -210,11 +215,20 @@ async function main() {
       // the player reads the cue for a moment before answering
       await sleep(0.9 * slow * 1000);
       const play = prop === 'any' ? openProp : prop;
+      const label = w.message.split(' ').slice(4).join(' ');
       if (kind === 'ride') {
         for (let i = 0; i < 4 && !since('^CUE (hit|miss) ride', lastWait).length; i++) await pat(play, 4);
       } else {
         const [got, need] = progress.split('/').map(Number);
         await pat(play, Math.max(1, need - got));
+        // the film breaks out: the player looks down at the desk, where the thief has landed, until he is over its edge
+        if (/jumps/i.test(label)) {
+          await sleep(1.6 * slow * 1000);
+          look(-24, 0.7);
+        } else if (/edge/i.test(label)) {
+          await sleep(2.6 * slow * 1000);
+          look(0, 0.8);
+        }
       }
     } else await sleep(500);
   }

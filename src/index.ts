@@ -1,4 +1,4 @@
-import { automationRun, serialMode, soundForced } from './foley/env';
+import { automationRun, captureMode, serialMode, soundForced } from './foley/env';
 import { ensureAudio, recordStream } from './foley/sound';
 import { VisibilityState, World } from '@iwsdk/core';
 import projectOptions from 'virtual:iwsdk-project';
@@ -83,7 +83,8 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   if (automationRun()) {
     // the emulator's headless browser renders in software: draw small and skip shadows so hand motion is sampled often enough to test
     // (a recording run, with the sound flag on, draws at half scale so the footage is sharp)
-    world.renderer.xr.setFramebufferScaleFactor(soundForced() ? 0.35 : 0.25);
+    // (a capture run is not in a hurry: every drawn frame is a frame of the film, so it draws sharper)
+    world.renderer.xr.setFramebufferScaleFactor(captureMode() ? 0.5 : soundForced() ? 0.35 : 0.25);
     world.renderer.setPixelRatio(1);
     world.renderer.shadowMap.enabled = false;
     console.log('RENDER low-fidelity (automation run)');

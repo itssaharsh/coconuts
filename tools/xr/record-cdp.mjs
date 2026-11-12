@@ -49,7 +49,7 @@ cdp.on('Page.screencastFrame', ({ data, metadata, sessionId }) => {
 const W = Number(process.env.REC_W ?? 0);
 const H = Number(process.env.REC_H ?? 0);
 if (W && H) await cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
-await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 85, maxWidth: W || 1280, maxHeight: H || 1280, everyNthFrame: Number(process.env.REC_NTH ?? 1) });
+await cdp.send('Page.startScreencast', { format: 'jpeg', quality: Number(process.env.REC_QUALITY ?? 85), maxWidth: W || 1280, maxHeight: H || 1280, everyNthFrame: Number(process.env.REC_NTH ?? 1) });
 // a capture run steps the show a thirtieth of a second per drawn frame: note where its clock stands as recording starts
 const mark = await app.evaluate(() => (window.__capture ? { clock: window.__capture.clock(), frame: window.__capture.frame() } : null)).catch(() => null);
 if (mark) writeFileSync(join(dir, 'mark.json'), JSON.stringify(mark));
