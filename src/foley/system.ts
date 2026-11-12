@@ -1038,8 +1038,9 @@ export class FoleySystem extends createSystem({
         if (piece.id === 'clapper' || piece.id.startsWith('tile-')) continue;
         sound.placeSource(piece.id as PropId, piece.root.getWorldPosition(tmpP));
       }
-      // the clapper's snap comes from the 'director' source, which has always stood at the world's origin here
-      sound.placeSource('director', tmpP.set(0, 0, 0));
+      // the clapper's snap comes from the clapper
+      const clapper = this.stage.pieces.get('clapper');
+      if (clapper) sound.placeSource('director', clapper.root.getWorldPosition(tmpP));
       sound.placeSource('stage', this.stage.theatreMount.getWorldPosition(tmpP));
       // the house: a metre and a half behind where the player sits, facing the stage with them
       this.stage.root.getWorldPosition(tmpU);
