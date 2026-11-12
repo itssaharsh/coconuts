@@ -25,7 +25,7 @@ if (existsSync(envFile)) {
 console.log('keys:', ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GEMINI_API_KEYS', 'ASSEMBLYAI_API_KEY'].filter((k) => process.env[k]).join(', ') || 'none (written reels only)');
 
 const routes = {};
-for (const name of ['reel', 'hear', 'director', 'health']) {
+for (const name of ['reel', 'hear', 'health']) {
   try {
     routes[`/api/${name}`] = (await runnerImport(join(ROOT, 'api', `${name}.ts`))).module;
   } catch (e) {

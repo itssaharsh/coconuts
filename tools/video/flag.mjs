@@ -22,7 +22,7 @@ export default async function run({ frame, page }) {
       // VOICE=1: as if the player had allowed the microphone on the page (the megaphone glows and the pitch card offers it)
       if (voice) localStorage.setItem('coconuts.voice', '1');
       else localStorage.removeItem('coconuts.voice');
-      return { capture: localStorage.getItem('coconuts.capture'), show: localStorage.getItem('coconuts.show'), say: (localStorage.getItem('coconuts.say') ?? '').length, saved: !!localStorage.getItem('coconuts.serial') };
+      return { capture: localStorage.getItem('coconuts.capture'), say: (localStorage.getItem('coconuts.say') ?? '').length, saved: !!localStorage.getItem('coconuts.serial') };
     } catch (e) {
       return { error: String(e) };
     }

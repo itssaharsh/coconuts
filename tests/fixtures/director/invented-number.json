@@ -1,8 +1,0 @@
-{
-  "name": "a line with a count the take does not have falls back to rules",
-  "reply": "{\"line\": \"Three of four cues landed, a fine afternoon.\"}",
-  "expect": {
-    "source": "rules",
-    "line": "Right on time: “horse trots in”. Fashionably late: “door slams”."
-  }
-}
