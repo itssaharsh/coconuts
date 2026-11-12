@@ -2,7 +2,7 @@
 """Cut the demo video from a storyboard: captures of real gameplay, captions beside or over the picture, title and end
 cards, the effects the game played and one continuous music bed.
 
-  python3 tools/video/cut.py [qa/video2/storyboard.json] [--plan] [--no-render-cache]
+  python3 tools/video/cut.py [qa/video2/storyboard.json] [--plan] [--only=id1,id2]
 
 Reads the storyboard, writes qa/video2/final.mp4 (1920x1080, 30 fps, H.264 + AAC) and qa/video2/contact.jpg (a frame
 from the middle of every segment, labelled). --plan resolves every anchor and prints the shots without rendering.
@@ -312,7 +312,9 @@ FIT_JS = """
     for (; s >= min; s -= 1) {
       el.style.fontSize = s + 'px';
       n = Math.round(el.getBoundingClientRect().height / (s * lh));
-      if (n <= lines && el.scrollWidth <= el.clientWidth + 1) break;
+      const box = el.closest('.cap');
+      const room = box ? parseFloat(getComputedStyle(box).maxWidth) - 68 : el.clientWidth;
+      if (n <= lines && el.scrollWidth <= el.clientWidth + 1 && (!box || isNaN(room) || el.scrollWidth <= room)) break;
     }
     if (s < min) { s = min; el.style.fontSize = s + 'px'; n = Math.round(el.getBoundingClientRect().height / (s * lh)); }
     out[sel] = {size: s, lines: n, over: n > lines};
@@ -359,18 +361,21 @@ def side_caption_html(cap, view_w):
 
 
 POS = {'bl': ('bottom', 'left'), 'br': ('bottom', 'right'), 'tl': ('top', 'left'), 'tr': ('top', 'right'),
-       'bottom-left': ('bottom', 'left'), 'bottom-right': ('bottom', 'right'), 'top-left': ('top', 'left'), 'top-right': ('top', 'right')}
+       'bottom-left': ('bottom', 'left'), 'bottom-right': ('bottom', 'right'), 'top-left': ('top', 'left'), 'top-right': ('top', 'right'),
+       'bottom-center': ('bottom', 'center'), 'top-center': ('top', 'center')}
 
 
 def card_caption_html(cap, pos='bottom-left'):
-    """The caption on a paper card over the picture ("full" and "wide"): a corner, at most 44 % of the frame wide."""
+    """The caption over the picture ("full" and "wide"): a lower-third card (or a top one) with ONE title line and at
+    most one short body line, paper at 94 %, 20 px radius, a soft shadow, placed in a corner or centred."""
     v, hz = POS.get(pos or 'bottom-left', ('bottom', 'left'))
+    place = f'{v}:44px;' + ('left:50%;transform:translateX(-50%);' if hz == 'center' else f'{hz}:48px;')
     css = f"""
-.cap{{position:absolute;{v}:52px;{hz}:52px;max-width:{int(W * 0.44)}px;padding:32px 40px 36px;border-radius:20px;background:rgba(251,247,240,.94);
+.cap{{position:absolute;{place}max-width:{int(W * 0.72)}px;padding:20px 34px 24px;border-radius:20px;background:rgba(251,247,240,.94);
   box-shadow:0 2px 4px rgba(43,35,32,.22),0 22px 44px -16px rgba(20,16,14,.6)}}
-.kicker{{margin-bottom:16px}}
-.title{{font-size:64px}}
-.body{{margin-top:16px;font-size:34px}}
+.kicker{{margin-bottom:10px;font-size:26px}}
+.title{{font-size:58px;white-space:nowrap;line-height:1.08;text-wrap:nowrap;letter-spacing:-.025em}}
+.body{{margin-top:6px;font-size:32px;white-space:nowrap}}
 """
     parts = []
     if cap.get('kicker'):
@@ -379,7 +384,7 @@ def card_caption_html(cap, pos='bottom-left'):
         parts.append(f'<div class="title">{marked(cap["title"])}</div>')
     if cap.get('body'):
         parts.append(f'<div class="body">{marked(cap["body"])}</div>')
-    fit = [['.title', 64, 54, 3, 1.02], ['.body', 34, 30, 3, 1.36]]
+    fit = [['.title', 58, 44, 1, 1.08], ['.body', 32, 30, 1, 1.36]]
     return page(f'<div class="cap">{"".join(parts)}</div>', css, W, H), fit
 
 
@@ -407,13 +412,15 @@ h1{{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-variation-
 .sub{{margin-top:56px;font-size:46px;font-weight:500;color:{INK2}}}
 .url{{margin-top:10px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-variation-settings:'opsz' 48;font-size:84px;letter-spacing:-.02em;color:{INK}}}
 .url span{{box-shadow:inset 0 -0.22em 0 {ACCENT}}}
-.small{{margin-top:70px;font-size:32px;font-weight:500;color:{INK3}}}
+.small{{margin-top:22px;font-size:32px;font-weight:500;color:{INK3}}}
+.url+.small{{margin-top:64px}}
 """
     title = marked(card.get('title', ''))
     html = (f'<div class="c"><div class="icon">{MARK}</div><h1>{title}</h1>'
             + (f'<div class="sub">{esc(card["sub"])}</div>' if card.get('sub') else '')
             + (f'<div class="url"><span>{esc(card["url"])}</span></div>' if card.get('url') else '')
-            + (f'<div class="small">{esc(card["small"])}</div>' if card.get('small') else '') + '</div>')
+            + ''.join(f'<div class="small">{esc(x)}</div>' for x in ([card['small']] if isinstance(card.get('small'), str) else card.get('small', [])))
+            + '</div>')
     return page(html.replace('<svg ', '<svg style="width:100%;height:100%" '), css, W, H), [['h1', 136, 90, 2, 1.0]]
 
 
@@ -523,9 +530,8 @@ def render_segment(seg, shots, R, build):
     for sh in shots:
         src = sh['src']
         view = seg_view
-        whole = view[2] >= src_w(src) - 4
-        if sh['layout'] == 'auto':  # a square view on a page: side; the emulator window itself: wide
-            sh['layout'] = 'wide' if whole else 'side'
+        if sh['layout'] == 'auto':  # a square view on a page: side; the emulator window itself (16:9): wide
+            sh['layout'] = 'wide' if view[2] / view[3] > 1.5 else 'side'
         g = geometry(view, sh['layout'], sh['zoom'], sh['center'])
         sh['view'], sh['geo'] = view, g
         if sh['layout'] == 'side':
@@ -582,6 +588,32 @@ def render_card(seg, R, build):
 
 
 # ------------------------------------------------------------------------------------------------------------ main
+def source_waiting(d):
+    """Why a capture directory cannot be used yet ('' when it can): its recording log must end with `exit 0`."""
+    run_log = d.rstrip('/') + '.log'
+    if not os.path.isdir(d):
+        return 'no directory'
+    if os.path.exists(run_log) and not os.path.exists(os.path.join(d, 'film.mp4')):
+        lines = [x.strip() for x in open(run_log, errors='ignore') if x.strip()]
+        if not lines or lines[-1] != 'exit 0':
+            return f'{os.path.basename(run_log)} does not end with exit 0'
+    for f in ('log.txt', 'mark.json'):
+        if not os.path.exists(os.path.join(d, f)):
+            return f'no {f}'
+    return ''
+
+
+def check_reuse(segs, plans):
+    """No shot twice: warn when two segments use overlapping stretches of the same capture."""
+    used = []
+    for s, p in zip(segs, plans):
+        for x in p or []:
+            for sid, d, a, b in used:
+                if d == x['src'].dir and sid != s['id'] and min(b, x['t1']) - max(a, x['t0']) > 0.1 and not s.get('reuse_ok'):
+                    log(f'WARNING: {s["id"]} reuses {x["src"].name} {max(a, x["t0"]):.2f}-{min(b, x["t1"]):.2f} already in {sid}')
+            used.append((s['id'], x['src'].dir, x['t0'], x['t1']))
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     flags = {a for a in sys.argv[1:] if a.startswith('--')}
@@ -593,11 +625,34 @@ def main():
     final = os.path.join(out_dir, sb.get('output', {}).get('file', 'final.mp4'))
     contact = os.path.join(out_dir, sb.get('output', {}).get('contact', 'contact.jpg'))
     max_seconds = float(sb.get('output', {}).get('max_seconds', 175))
-    sources = {name: Source(name, cfg, build) for name, cfg in sb.get('sources', {}).items()}
-    segs = [s for s in sb['segments'] if not s.get('skip')]
+    cfgs = dict(sb.get('sources', {}))
+    only = [f.split('=', 1)[1].split(',') for f in flags if f.startswith('--only=')]
+    segs = [dict(s) for s in sb['segments'] if not s.get('skip') or (only and s['id'] in only[0])]
+    if only:  # a quick look at a few segments (skipped ones too): preview.mp4 and preview-contact.jpg, final.mp4 untouched
+        segs = [s for s in segs if s['id'] in only[0]]
+        final = os.path.join(out_dir, 'preview.mp4')
+        contact = os.path.join(out_dir, 'preview-contact.jpg')
     for s in segs:
-        if 'source' in s and s['source'] not in sources:  # a capture directory named directly
-            sources[s['source']] = Source(s['source'], s['source'], build)
+        if 'source' in s and s['source'] not in cfgs:  # a capture directory named directly
+            cfgs[s['source']] = s['source']
+    sources, waiting = {}, {}
+    for name, cfg in cfgs.items():
+        d = cfg if isinstance(cfg, str) else cfg['dir']
+        why = source_waiting(os.path.join(ROOT, d))
+        if why:
+            waiting[name] = why
+            log(f'source {name} ({d}) is not complete: {why}; its segments are placeholder cards')
+        else:
+            sources[name] = Source(name, cfg, build)
+    # a segment can stand in for another source until it lands: "unless_ready": "<source>" drops it once that source is
+    # complete, "if_ready": true drops a segment (instead of a placeholder card) while its own source is not
+    segs = [s for s in segs if not (s.get('unless_ready') and s['unless_ready'] in sources)
+            and not (s.get('if_ready') and s.get('source') in waiting)]
+    for s in segs:
+        if s.get('source') in waiting:
+            s['card'] = {'style': 'film', 'title': 'Placeholder', 'sub': f'{s["id"]}: waiting for {s["source"]}'}
+            s['duration'] = float(s.get('placeholder_seconds', s.get('duration', 5)))
+            s['placeholder'] = True
 
     # plan
     plans = []
@@ -613,11 +668,30 @@ def main():
         else:
             desc = ', '.join(f'{x["t0"]:.2f}-{x["t1"]:.2f}' + (f' x{x["speed"]:g}' if x['speed'] != 1 else '') + f' {x["layout"]}' for x in p)
             log(f'{s["id"]:>10}  {p[0]["src"].name}  {desc}  -> {sum(x["n"] for x in p) / FPS:.2f} s')
+    for s, p in zip(segs, plans):
+        if p and s.get('caption_n') and s.get('caption'):  # {N}: seconds between two anchors of the source, one decimal
+            src = p[0]['src']
+            n = src.resolve(s['caption_n']['to'], s['id']) - src.resolve(s['caption_n']['from'], s['id'])
+            s['caption'] = {k: (v.replace('{N}', f'{n:.1f}') if isinstance(v, str) else v) for k, v in s['caption'].items()}
+            log(f'{s["id"]}: N = {n:.1f} s')
+        if p and s.get('voice'):
+            s['voice'] = dict(s['voice'])
+            s['voice']['_t'] = p[0]['src'].resolve(s['voice']['at'], f'segment {s["id"]}.voice.at')
+            log(f'{s["id"]}: voice {s["voice"]["file"]} at show {s["voice"]["_t"]:.2f}')
+    check_reuse(segs, plans)
+    for s in segs:
+        t = (s.get('caption') or {}).get('title', '')
+        if t and len(t.replace('*', '').split()) > 9 and s.get('layout', 'wide') != 'side':
+            log(f'WARNING: {s["id"]}: caption title has {len(t.split())} words (at most 9)')
     if '--plan' in flags:
         return 0
 
-    # pictures
+    # pictures (every card image rendered in one browser session first)
     R = Renderer(build)
+    for s in segs:
+        if 'card' in s:
+            R.want(*card_html(s['card']), transparent=False)
+    R.flush()
     clips = []
     for s, p in zip(segs, plans):
         if p is None:
@@ -635,7 +709,9 @@ def main():
     # timeline: hard cuts, except a dissolve into and out of a card
     t = 0.0
     for i, c in enumerate(clips):
-        c['dissolve_in'] = i > 0 and (c['card'] or clips[i - 1]['card']) and DISSOLVE or 0.0
+        j = c['seg'].get('join')
+        auto = sb.get('output', {}).get('card_dissolve', True) and (c['card'] or (i > 0 and clips[i - 1]['card']))
+        c['dissolve_in'] = DISSOLVE if i > 0 and (j == 'dissolve' or (j is None and auto)) else 0.0
         if i > 0:
             t -= c['dissolve_in']
         c['start'] = t
@@ -669,6 +745,14 @@ def main():
             items.append({'seg': c['seg']['id'], 'layout': r['layout'], 'a': r['a'], 'b': r['b'], 'png': png, 'meta': meta,
                           'clip': c})
     R.flush()
+    merged = []
+    for it in items:  # the same caption over consecutive segments stays up, without a fade at the cut
+        if merged and merged[-1]['png'] == it['png'] and abs(merged[-1]['b'] - it['a']) < 1e-3:
+            merged[-1]['b'] = it['b']
+            merged[-1]['clip_end'] = it['clip']
+        else:
+            merged.append(it)
+    items = merged
     for it in items:
         for sel, m in json.load(open(it['meta'])).get('fit', {}).items():
             flag = '  WARNING: over its line limit' if m.get('over') else ''
@@ -684,8 +768,9 @@ def main():
             b += XFADE / 2
         elif nxt and abs(nxt['a'] - b) < 1e-3:
             it['fo'] = 0.0  # the layout changes at a hard cut: the old caption goes with its picture
-        if it['clip']['dissolve_out'] and abs(b - (it['clip']['start'] + it['clip']['dur'])) < 1e-3:
-            it['fo'] = it['clip']['dissolve_out']
+        last = it.get('clip_end', it['clip'])
+        if last['dissolve_out'] and abs(b - (last['start'] + last['dur'])) < 1e-3:
+            it['fo'] = last['dissolve_out']
         if it['clip']['dissolve_in'] and abs(a - it['clip']['start']) < 1e-3:
             it['fi'] = it['clip']['dissolve_in']
         it['a'], it['b'] = max(0.0, a), min(total, b)
@@ -756,7 +841,7 @@ def main():
                            'zoom': x['zoom'], 'center': x['center'], 'view': list(x['view'])} for x in c['shots']]
         report['segments'].append(e)
     report['levels'] = levels(fx_stem, music_stem, clips, loud)
-    json.dump(report, open(os.path.join(out_dir, 'cut-report.json'), 'w'), indent=1)
+    json.dump(report, open(os.path.join(out_dir, 'cut-report.json' if not only else 'preview-report.json'), 'w'), indent=1)
     log(f'wrote {os.path.relpath(final, ROOT)} ({total:.2f} s) and {os.path.relpath(contact, ROOT)}')
     if total > max_seconds:
         log(f'WARNING: {total:.2f} s is over the limit of {max_seconds:.0f} s')
@@ -773,6 +858,7 @@ def build_sound(clips, total, music_cfg, build):
     sr = 48000
     buf = np.zeros(int(math.ceil(total * sr)) + sr, dtype=np.float32)
     cache = {}
+    voices = []
 
     def load(path, rate=sr):
         if path not in cache:
@@ -792,7 +878,7 @@ def build_sound(clips, total, music_cfg, build):
             src = load(sh['src'].fx())
             a = int(round(sh['f0'] / FPS * sr))
             piece = src[a: a + int(round(d * sh['speed'] * sr))]
-            if abs(sh['speed'] - 1) > 1e-3 and len(piece):
+            if sh['speed'] > 1 + 1e-3 and len(piece):  # slower than life (a hold): the sound as it was, then silence
                 piece = tempo(piece, sh['speed'])
             n = int(round(d * sr))
             piece = np.pad(piece, (0, max(0, n - len(piece))))[:n].copy()
@@ -807,6 +893,14 @@ def build_sound(clips, total, music_cfg, build):
                 piece[n - m:] *= np.linspace(1, 0, m, dtype=np.float32)
             at = int(round(tt * sr))
             buf[at: at + n] += piece[: len(buf) - at]
+            vo = c['seg'].get('voice')
+            if vo and sh['t0'] - 1e-6 <= vo['_t'] < sh['t1']:  # a recorded line, laid in where the game heard it
+                v = load(os.path.join(ROOT, vo['file'])) * (10 ** (float(vo.get('gain_db', 0)) / 20))
+                vat = int(round((tt + (vo['_t'] - sh['t0']) / sh['speed']) * sr))
+                end = min(len(buf), vat + len(v))
+                buf[vat:end] += v[: end - vat]
+                voices.append((vat / sr, end / sr, float(vo.get('duck_db', 8))))
+                log(f'voice {vo["file"]} at {vat / sr:.2f} s of the film ({len(v) / sr:.2f} s)')
             tt += d
     buf = buf[: int(round(total * sr))]
     run(['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-f', 'f32le', '-ar', str(sr), '-ac', '1', '-i', '-', '-ac', '2',
@@ -839,6 +933,18 @@ def build_sound(clips, total, music_cfg, build):
     else:
         g.append('[bed]anull[mus]')
     ff(*ins, '-filter_complex', ';'.join(g), '-map', '[mus]', '-c:a', 'pcm_s16le', music_out)
+    if voices:  # the music steps down under a spoken line (0.15 s ramps)
+        r = run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-i', music_out, '-f', 'f32le', '-ac', '2', '-ar', str(sr), '-'], capture_output=True)
+        mus = np.frombuffer(r.stdout, dtype=np.float32).reshape(-1, 2).copy()
+        env = np.ones(len(mus), dtype=np.float32)
+        tt = np.arange(len(mus), dtype=np.float32) / sr
+        for a, b, db in voices:
+            g_ = 10 ** (-db / 20)
+            ramp = np.clip(np.minimum((tt - (a - 0.15)) / 0.15, ((b + 0.25) - tt) / 0.15), 0, 1)
+            env = np.minimum(env, 1 - (1 - g_) * ramp)
+        mus *= env[:, None]
+        run(['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-f', 'f32le', '-ar', str(sr), '-ac', '2', '-i', '-', '-c:a', 'pcm_s16le', music_out],
+            input=mus.tobytes())
     return fx_out, music_out
 
 
@@ -862,7 +968,7 @@ def master(fx, music, out, cfg):
     # one gain for the whole film (measured), then a limiter a little under the true-peak ceiling for the few hits
     # that would pass it; checked by measuring the result, and the gain trimmed once if it missed
     gain = target - float(m['input_i'])
-    ceiling = 10 ** ((tp - 1.6) / 20)  # room for inter-sample peaks and the AAC encode
+    ceiling = 10 ** ((tp - 2.6) / 20)  # room for inter-sample peaks and the AAC encode
     for attempt in range(3):
         af = f'volume={gain:.3f}dB,alimiter=limit={ceiling:.4f}:attack=0.5:release=40:level=disabled,aresample=48000'
         r2 = subprocess.run(['ffmpeg', '-y', '-hide_banner', '-nostats', '-i', mixed, '-af', af, '-c:a', 'pcm_s24le', out],
