@@ -5,7 +5,7 @@
 // cached), at most once per instance every four minutes. It never writes a reel and never fails.
 import { claudeBackend, type WarmResult, warmClaude } from './_lib/claude.js';
 import { geminiJson, geminiKeys } from './_lib/gemini.js';
-import { allow, clientIp } from './_lib/ratelimit.js';
+import { allow, clientIp, limiter } from './_lib/ratelimit.js';
 import {
   type Attempt,
   type Backend,
@@ -93,6 +93,10 @@ function envBackends(): Backend[] {
 
 /** The instance's count of model-written reels today. */
 const DAILY = new DailyCap();
+/** A player needs a reel every minute or two. One address gets eight a minute from the model, however many tabs it opens. */
+const allowReel = limiter(8);
+/** Reels from the model per UTC day per instance, unless REEL_DAILY_CAP says otherwise; past it the written reels play. */
+const REEL_DAILY_DEFAULT = 120;
 
 export interface ReelDeps {
   backends: () => Backend[];
@@ -109,7 +113,8 @@ export async function handleReel(request: Request, deps: Partial<ReelDeps> = {})
   const d = { ...DEFAULTS, ...deps };
   let req: ReelRequest | null = null;
   try {
-    if (!allow(clientIp(request))) return json({ error: 'Too many reels at once. Try again in a minute.' }, 429);
+    const ip = clientIp(request);
+    if (!allow(ip) || !allowReel(ip)) return json({ error: 'Too many reels at once. Try again in a minute.' }, 429);
     const raw = await readBody(request, MAX_BODY);
     if (raw === null) return json({ error: 'The request is too large.' }, 413);
     let body: unknown;
@@ -126,14 +131,14 @@ export async function handleReel(request: Request, deps: Partial<ReelDeps> = {})
     let trace: Trace;
     let answer;
     const backends = d.backends();
-    const capN = Number(process.env.REEL_DAILY_CAP ?? 300);
+    const capN = Number(process.env.REEL_DAILY_CAP ?? REEL_DAILY_DEFAULT);
     if (process.env.REEL_DISABLED === '1') {
       answer = writtenAnswer(req);
       trace = { source: 'written', ms: 0, why: 'disabled', tries: [] };
     } else if (!backends.length) {
       answer = writtenAnswer(req);
       trace = { source: 'written', ms: 0, why: 'no-backend', tries: [] };
-    } else if (!d.cap.take(Number.isFinite(capN) && capN >= 0 ? capN : 300)) {
+    } else if (!d.cap.take(Number.isFinite(capN) && capN >= 0 ? capN : REEL_DAILY_DEFAULT)) {
       answer = writtenAnswer(req);
       trace = { source: 'written', ms: 0, why: 'cap', tries: [] };
     } else {
@@ -170,7 +175,7 @@ export const WARM_EVERY_MS = 4 * 60_000;
 /** The warm call gives up after this. */
 export const WARM_TIMEOUT_MS = 20_000;
 /** Warm calls per UTC day per instance; separate from the reel cap. */
-export const WARM_DAILY_CAP = 200;
+export const WARM_DAILY_CAP = 80;
 
 /** When this instance last warmed Claude, or last wrote a reel with it (monotonic ms). */
 const WARM = { last: Number.NEGATIVE_INFINITY, cap: new DailyCap() };

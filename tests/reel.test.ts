@@ -38,6 +38,7 @@ import {
   VARIETY,
 } from '../api/_lib/reel-core';
 import { GET, geminiBackend, handleReel, handleWarm, POST, type ReelDeps, WARM_DAILY_CAP, WARM_EVERY_MS, type WarmDeps } from '../api/reel';
+import { limiter } from '../api/_lib/ratelimit';
 import { PROP_IDS, type PropId } from '../src/foley/types';
 import { assemble, checkPlan, PITCHES_2, type ReelPlan, SET_IDS, WRITTEN, WRITTEN_MORE } from '../src/serial/pieces';
 import { DERIVED_MARKS, CHARACTERS, type SetInfo, validateReel } from '../src/serial/schema';
@@ -246,11 +247,19 @@ describe('the request', () => {
     expect(r3.headers.get('cache-control')).toBe('no-store');
   });
 
-  it('rate-limits one IP at 30 a minute', async () => {
+  it('rate-limits one IP at eight reels a minute', async () => {
     const statuses: number[] = [];
-    for (let i = 0; i < 31; i++) statuses.push((await post('{}', { backends: () => [], cap: new DailyCap() }, '203.0.113.99')).status);
-    expect(statuses.slice(0, 30).every((s) => s === 400)).toBe(true);
-    expect(statuses[30]).toBe(429);
+    for (let i = 0; i < 9; i++) statuses.push((await post('{}', { backends: () => [], cap: new DailyCap() }, '203.0.113.99')).status);
+    expect(statuses.slice(0, 8).every((s) => s === 400)).toBe(true);
+    expect(statuses[8]).toBe(429);
+  });
+
+  it('a limiter refills: the request refused in a burst is taken a minute later', () => {
+    const take = limiter(8);
+    for (let i = 0; i < 8; i++) expect(take('198.51.100.7', 1000)).toBe(true);
+    expect(take('198.51.100.7', 1000)).toBe(false);
+    expect(take('198.51.100.8', 1000)).toBe(true); // another address has its own
+    expect(take('198.51.100.7', 1000 + 60_000 / 8 + 1)).toBe(true);
   });
 });
 
