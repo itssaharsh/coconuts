@@ -74,13 +74,17 @@ function mimeType(): string {
 }
 
 /** Open the microphone and start recording; it stops by itself after `maxMs`. False when there is nothing to record with. */
-export async function startListening(maxMs = 6000, onAutoStop?: () => void): Promise<boolean> {
+export async function startListening(maxMs = 6000, onAutoStop?: () => void): Promise<boolean | 'off'> {
   if (recorder || opening || !voiceSupported()) return false;
   opening = true;
   calledOff = false;
   const s = await acquire(4000);
   opening = false;
-  if (!s || calledOff || s.getAudioTracks()[0]?.readyState !== 'live') {
+  if (calledOff) {
+    release(s);
+    return 'off'; // the megaphone was let go before the microphone had opened: nothing is wrong
+  }
+  if (!s || s.getAudioTracks()[0]?.readyState !== 'live') {
     release(s);
     return false;
   }

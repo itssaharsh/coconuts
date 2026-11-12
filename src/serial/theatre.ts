@@ -542,7 +542,10 @@ export class Theatre {
     }
     return sequence([
       // the theatre must be the toy on the desk again before anyone can step out of it
-      () => ({ update: () => !this.bigNow && this.size < 1.6 }),
+      () => {
+        this.grow(false); // (never wait for somebody else to make it small)
+        return { update: () => !this.bigNow && this.size < 1.6 };
+      },
       () =>
         call(() => {
           a.onStage = false;
@@ -562,7 +565,10 @@ export class Theatre {
     if (!desk) return call(() => undefined);
     const target = new Vector3();
     return sequence([
-      () => ({ update: () => !this.bigNow && this.size < 1.6 }),
+      () => {
+        this.grow(false); // (never wait for somebody else to make it small)
+        return { update: () => !this.bigNow && this.size < 1.6 };
+      },
       () =>
         call(() => {
           a.onStage = false;

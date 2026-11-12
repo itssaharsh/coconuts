@@ -93,6 +93,7 @@ export class ReelPlayer {
     this.pending.length = 0;
     this.setWaiting(null);
     this.stats = { reel: reel.id, asked: 0, hits: 0, wrong: 0, missed: 0, wrote: [], flags: [] };
+    this.flags.clear(); // what one reel's sounds decided is that reel's: the story keeps it, the next reel starts clean
     await this.troupe.preload(reel.cast.map((c) => c.char));
     await this.changeScene(reel.set, reel.cast);
     // the reel's later scenes are fetched while the first one plays, so a scene change is a curtain, not a wait
@@ -160,6 +161,14 @@ export class ReelPlayer {
         this.theatre.addActor(a);
       }
     }
+  }
+
+  /**
+   * Take in an actor who is not in the reel's cast (somebody about to climb back into the picture): from now on it is
+   * animated with the rest and cleared with them at the next change of scene.
+   */
+  adopt(id: string, a: Actor): void {
+    this.actors.set(id, a);
   }
 
   /** Roll the reel. `before` plays first, in front of the closed curtain (somebody climbing back into the picture). */

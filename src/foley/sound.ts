@@ -445,14 +445,15 @@ function stageTake(name: StageSound): AudioBuffer | null {
     const bufs = (await Promise.all(files.map(loadBuffer))).filter((x): x is AudioBuffer => !!x);
     if (bufs.length) stageBank.set(name, bufs);
     stageLoading.delete(name);
-    if (bufs.length && pendingStage.has(name)) {
+    const late = pendingStage.get(name);
+    if (bufs.length && late) {
       pendingStage.delete(name);
-      playStage(name);
+      playStage(name, late.gain, late.from);
     }
   })();
   return null;
 }
-const pendingStage = new Set<StageSound>();
+const pendingStage = new Map<StageSound, { gain: number; from: 'stage' | 'house' }>();
 
 /** One stage sound from the theatre's position ('stage' source). Unknown or missing sounds are ignored. */
 export function playStage(name: StageSound, gain = 1, from: 'stage' | 'house' = 'stage'): void {
@@ -460,7 +461,7 @@ export function playStage(name: StageSound, gain = 1, from: 'stage' | 'house' = 
   if (!ctx) return;
   const buf = stageTake(name);
   if (!buf) {
-    if (stageLoading.has(name)) pendingStage.add(name); // first use: play as soon as it has decoded
+    if (stageLoading.has(name)) pendingStage.set(name, { gain, from }); // first use: play as soon as it has decoded
     return;
   }
   playBuffer(buf, pannerFor(from), gain, vary());

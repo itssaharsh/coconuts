@@ -719,3 +719,33 @@ describe('before the curtain', () => {
     expect(JSON.stringify(REEL_1.beats)).toContain('"k":"flag","set":"thief_out"');
   });
 });
+
+describe('between reels', () => {
+  it('what one reel flagged does not leak into the next', async () => {
+    const rig = await boot([flag('thief_out'), door({ hold: 2 })]);
+    await until(rig, () => rig.ends.length === 1);
+    expect(rig.ends[0].flags).toEqual(['thief_out', 'missed']);
+    await rig.player.load(reelOf([door({ hold: 2 })]));
+    rig.player.start();
+    await until(rig, () => rig.ends.length === 2);
+    expect(rig.ends[1].flags).toEqual(['missed']); // not thief_out again
+  });
+
+  it('an adopted actor is animated with the cast and cleared at the next change of scene', async () => {
+    const rig = makeRig();
+    await rig.player.load(reelOf([door({ hold: 30 }), { k: 'scene', set: 'vault', cast: [HERO] }, door({ hold: 30 })]));
+    const guest = new FakeActor('guest', 0);
+    let updates = 0;
+    guest.update = () => void updates++;
+    guest.onStage = true;
+    rig.player.adopt('(returning)', guest as unknown as Actor);
+    rig.player.start();
+    await until(rig, () => rig.player.waiting !== null);
+    expect(updates).toBeGreaterThan(0);
+    play(rig, 'door');
+    await until(rig, () => rig.theatre.irises.length === 2);
+    await until(rig, () => rig.player.waiting !== null);
+    expect(guest.onStage).toBe(false); // the scene change took it off with everyone else
+    expect(rig.player.actor('(returning)')).toBeUndefined();
+  });
+});

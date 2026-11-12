@@ -80,6 +80,9 @@ const NEAR_GRAB_M = 0.11;
 /** A fingertip this near a piece's own shape touches it; it has let go once it is this far clear again. */
 const TOUCH_IN = 0.012;
 const TOUCH_OUT = 0.035;
+/** Props a hand also picks up, and that are not drummed: a touch waits this long, in case it is the start of a pick-up. */
+const PAT_WAITS: ReadonlySet<string> = new Set(['thunder', 'whistle', 'glass']);
+const PAT_WAIT_S = 0.1;
 /** A knock that arrives faster than this is a slam (m/s). */
 const SLAM_SPEED = 1.1;
 
@@ -114,11 +117,15 @@ export class FoleySystem extends createSystem({
   private bigFor = 0;
   private bigLockedAt = -1e9;
   private fxDropped = false;
+  /** A narrow display: wall size is off for the whole session. */
+  private narrowView = false;
   /** Each hand's fingertip, watched so a resting or drifting hand does not count as a pat. */
   private pats: Record<Hand, PatGate> = { left: new PatGate(), right: new PatGate() };
   /** What each fingertip rests on, and whether that touch counted (a resting hand's does not). */
   private touching: Record<Hand, { id: string; live: boolean } | null> = { left: null, right: null };
   private touchBounds = new Map<string, Box3>();
+  private pendingPat: Record<Hand, { id: string; at: number } | null> = { left: null, right: null };
+  private patClock = 0;
   private boundsFor = '';
   private redoArmedUntil = 0;
   private musicOn = false;
@@ -321,6 +328,10 @@ export class FoleySystem extends createSystem({
     session.addEventListener('selectstart', () => {
       if (sound.audioContext()?.state !== 'running') void sound.ensureAudio();
     });
+    // a gaze source may appear a moment after the session starts
+    session.addEventListener('inputsourceschange', () => {
+      if (this.placed) this.fitView();
+    });
   }
 
   /** The slate at the table's edge says what the clapper will do next. */
@@ -339,6 +350,7 @@ export class FoleySystem extends createSystem({
     }
     else if (s === 'playing') {
       this.slate.hide();
+      this.stage.setTileLabel('pause', 'Pause');
       this.musicOn = true;
       sound.setMusic(true); // the house pianist plays from the first reel on
     }
@@ -452,7 +464,10 @@ export class FoleySystem extends createSystem({
 
   private onTile(id: string): void {
     if (this.serial && id !== 'tile-volume') {
-      if (id === 'tile-size') this.serial.theatre.grow(!this.serial.theatre.isBig);
+      if (id === 'tile-size') {
+        if (this.narrowView) this.slate.say('The stage stays on the desk here', 'This display is too narrow for the wall', 4);
+        else this.serial.theatre.grow(!this.serial.theatre.isBig);
+      }
       else if (id === 'tile-pause') this.pauseSerial();
       else if (id === 'tile-redo') {
         const over = this.serial.state === 'ready' && this.serial.resuming;
@@ -650,10 +665,11 @@ export class FoleySystem extends createSystem({
       return;
     }
     void voice.startListening(6000, () => void this.megaphoneUp()).then((ok) => {
-      if (ok) {
+      if (ok === true) {
         serial.pitchNote('Listening… say what happens next, then let go');
         console.log('VOICE listening');
-      } else if (serial.state === 'pitch') serial.pitchNote('No microphone just now. Make a sound to choose.');
+      } else if (ok === 'off') serial.pitchNote('Hold the megaphone while you speak');
+      else if (serial.state === 'pitch') serial.pitchNote('No microphone just now. Make a sound to choose.');
     });
   }
 
@@ -775,8 +791,27 @@ export class FoleySystem extends createSystem({
       // a pinching hand is picking something up or pressing from afar; a hand that only rests or drifts is not patting
       const live = !pinching && (automationRun() || this.pats[hand].deliberate());
       this.touching[hand] = { id: on, live };
-      if (live) this.touchStart(on, hand);
+      if (live && PAT_WAITS.has(on)) this.pendingPat[hand] = { id: on, at: this.patClock };
+      else if (live) this.touchStart(on, hand);
       else if (!pinching) console.log('TOUCH ignored (a resting hand)', on);
+    }
+  }
+
+  /**
+   * A hand reaching in to pick up the thunder sheet, the whistle or the bag of glass touches it a moment before its
+   * pinch closes: those three wait a tenth of a second, and a pinch in that time is a pick-up, not a pat. (The
+   * coconuts are drummed in rhythm: they answer at once.)
+   */
+  private firePendingPats(time: number): void {
+    for (const hand of HANDS) {
+      const p = this.pendingPat[hand];
+      if (!p) continue;
+      const s = this.input.xr.getSelectState(hand);
+      if (s.active || s.start || this.held.has(p.id)) this.pendingPat[hand] = null;
+      else if (time - p.at >= PAT_WAIT_S) {
+        this.pendingPat[hand] = null;
+        this.touchStart(p.id, hand);
+      }
     }
   }
 
@@ -938,12 +973,35 @@ export class FoleySystem extends createSystem({
     this.movedFor = 0;
     this.placed = true;
     this.serial?.theatre.warm(); // the headset's programs are its own (stereo): build them now, behind the curtain
+    this.fitView();
     console.log('STAGE placed', this.stage.root.position.toArray().map((v) => +v.toFixed(3)).join(','), 'yaw', +this.stage.root.rotation.y.toFixed(2), 'xr');
   }
 
   reposition(): void {
     this.placed = false;
     this.placeTimer = 0;
+  }
+
+  /**
+   * A display with a narrow field of view (Meta VR Glasses) cannot hold a stage the size of a wall: there the
+   * theatre stays the toy on the desk, which fits the view whole.
+   */
+  private fitView(): void {
+    const serial = this.serial;
+    if (!serial) return;
+    const eye = this.world.renderer.xr.getCamera().cameras[0];
+    const m = eye?.projectionMatrix.elements;
+    if (!m || !(m[0] > 0)) return;
+    const fov = (2 * Math.atan(1 / m[0]) * 180) / Math.PI;
+    // the glasses aim by gaze; the emulator masks their view without narrowing its projection, so the gaze source is the tell there
+    let gaze = false;
+    for (const src of this.world.session?.inputSources ?? []) if (src.targetRayMode === 'gaze') gaze = true;
+    this.narrowView = fov < 80 || gaze;
+    if (this.narrowView) {
+      serial.theatre.allowBig = false;
+      if (serial.theatre.isBig) serial.theatre.grow(false);
+    }
+    console.log('VIEW field of view', fov.toFixed(0), 'degrees across', gaze ? 'gaze' : '', this.narrowView ? '(narrow: the stage stays desk size)' : '');
   }
 
   /**
@@ -990,7 +1048,7 @@ export class FoleySystem extends createSystem({
         }
       }
       // not for ever: a minute on, the next thunder may try the wall again
-      if (!t.allowBig && performance.now() - this.bigLockedAt > 60000) t.allowBig = true;
+      if (!t.allowBig && !this.narrowView && performance.now() - this.bigLockedAt > 60000) t.allowBig = true;
     }
   }
 
@@ -1082,11 +1140,17 @@ export class FoleySystem extends createSystem({
     this.lastHovered = now;
     this.trackPinches();
     this.trackPressed();
+    this.patClock = time;
     this.trackTouches(inXR);
+    this.firePendingPats(time);
     this.trackHeld(time, dt);
     this.easeHome(dt);
     if (this.mode === 'replay' && this.replayer) this.replayer.tick(this.stage.screen.currentTime);
     if (this.serial) {
+      if (this.redoArmedUntil && performance.now() > this.redoArmedUntil) {
+        this.redoArmedUntil = 0;
+        this.onSerialState(this.serial.state); // the question went unanswered: the slate says again what it said
+      }
       // under the system menu, or with the headset off the face, the reel holds its breath
       if (!away) this.serial.update(dt);
       // the theatre's size follows its mount (desk or wall)

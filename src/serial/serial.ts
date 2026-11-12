@@ -229,6 +229,7 @@ export class Serial {
     this.theatre.hideCard();
     const back = this.returning;
     this.returning = null;
+    if (back) this.player.adopt('(returning)', back); // not a name a plan can use: it is animated and cleared with the cast
     this.player.start(back ? () => this.theatre.climbBack(back) : undefined);
     this.setState('playing');
   }
