@@ -2,11 +2,13 @@
 """Lay the recorded sounds under a capture: reads the SND lines a capture run logged (show time, type, bank key,
 gain) and mixes the same recordings the game plays into one audio file.
 
-  python3 tools/video/soundtrack.py <log.txt> <out.m4a> [--length SECONDS] [--offset SECONDS]
+  python3 tools/video/soundtrack.py <log.txt> <out.m4a|out.wav> [--length SECONDS] [--offset SECONDS] [--no-music]
 
 A line looks like `SND 12.433 hit door-knock 0.80`, `SND 3.000 stage curtain 1.00` or `SND 5.200 music on 0.16`.
 --offset is subtracted from every time (the show time at which the film's first frame was captured).
 Takes are chosen round robin per bank (the game picks at random; any take is the same prop).
+--no-music leaves out the house pianist (the `music` lines): an effects-only track, for an edit that lays one
+continuous music bed of its own under the cut. A .wav output is written as 16-bit PCM (exact to cut), anything else AAC.
 """
 import json, os, re, subprocess, sys
 
@@ -22,6 +24,7 @@ def main() -> int:
     log, out = args[0], args[1]
     length = float(args[args.index('--length') + 1]) if '--length' in args else None
     offset = float(args[args.index('--offset') + 1]) if '--offset' in args else 0.0
+    no_music = '--no-music' in args
     manifest = json.load(open(os.path.join(AUDIO, 'manifest.json')))
     events = []
     for line in open(log, encoding='utf-8', errors='ignore'):
@@ -48,6 +51,8 @@ def main() -> int:
         if t < -0.5 or t > end:
             continue
         if kind == 'music':
+            if no_music:
+                continue
             if key == 'on' and music_on is None:
                 music_on = (t, gain)
             elif key == 'off' and music_on is not None:
@@ -66,7 +71,8 @@ def main() -> int:
         print('nothing to mix')
         return 1
     graph = ';'.join(filters) + ';' + ''.join(mix) + f'amix=inputs={len(mix)}:normalize=0:dropout_transition=0,alimiter=limit=0.89,atrim=0:{end:.3f}[out]'
-    cmd = ['ffmpeg', '-y', '-loglevel', 'error', *inputs, '-filter_complex', graph, '-map', '[out]', '-c:a', 'aac', '-b:a', '192k', out]
+    codec = ['-c:a', 'pcm_s16le'] if out.lower().endswith('.wav') else ['-c:a', 'aac', '-b:a', '192k']
+    cmd = ['ffmpeg', '-y', '-loglevel', 'error', *inputs, '-filter_complex', graph, '-map', '[out]', *codec, out]
     subprocess.run(cmd, check=True)
     print(f'wrote {out}: {len(mix)} sounds over {end:.1f} s')
     return 0
