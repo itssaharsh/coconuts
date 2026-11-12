@@ -9,7 +9,9 @@ const DEADLINE_MS = 8500;
 const TYPES = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/wav', 'audio/mpeg', 'application/octet-stream'];
 const GEMINI_BUDGET_MS = 4000;
 const POLL_MS = 200;
-const HEDGE_MS = 2800;
+// both listen at once: the first words win (a short take costs a fraction of a cent on each), so a slow answer from
+// one of them no longer adds its wait to the player's
+const HEDGE_MS = 0;
 const API = 'https://api.assemblyai.com/v2';
 
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
